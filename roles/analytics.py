@@ -15,11 +15,12 @@ Spec (agreed with product):
 
 from datetime import datetime, time, timedelta
 
-from django.db.models import Avg, Q, Sum, F, FloatField, Window
-from django.db.models.functions import Cast, TruncDate, Lag
+from django.db.models import Avg, Count, Q, Sum, F, Window
+from django.db.models.functions import ExtractHour, TruncDate, Lag
 from django.utils import timezone
 
 from accounts.models import TxModel, User
+from adverts.models import CreateAd, TASK_TYPE_CHOICES
 from banking.models import TransferModel, FundWithCard, Cashback, WalletModel
 from vas.models import ValueAddedServices
 from fmcg.models import FmcgOrder
@@ -34,6 +35,7 @@ from self_service.models import (
 )
 from gamification.models import PointTransaction, Points, UserStreak
 from tasks.models import BrandTaskSubmission, TaskSubmission
+from support.models import Ticket
 from user_profile.models import MemberSurvey
 from partners.models import PartnerPurchase
 
@@ -72,7 +74,38 @@ BRAND_ADS_TX_TYPES = ["Brand Promotion", "UGC Task Funding"]
 # Ads have no cashback concept yet.
 VAS_CASHBACK_SERVICE_TYPES = ["airtime", "data", "electricity", "cable"]
 
-VAS_SUCCESS_STATUSES = ["successful", "paid", "success", "pending"]
+# VAS sub-category -> TxModel.tx_type, for the Services dashboard's VAS tab
+# dropdown (Airtime Recharge / Data Top-Up / Bill Payments / Betting &
+# Lottery). Bill Payments covers both electricity and cable - BillPaymentView
+# (vas/views.py) writes both under the single tx_type "Bill Payment". Betting
+# & Lottery has no purchase flow built yet, so it's always 0 - see
+# get_vas_snapshot.
+VAS_CATEGORY_TX_TYPES = {
+    "airtime": "Airtime",
+    "data": "Data",
+    "bill_payments": "Bill Payment",
+    "betting": None,
+}
+
+# VAS sub-category -> Cashback.service_type values that fund it.
+# banking/cashback_service.py is only ever called with service="airtime"/
+# "data" (vas/views.py) - electricity/cable purchases don't reward cashback
+# at all today, so bill_payments nets to 0 in practice; kept explicit here
+# for when that changes.
+VAS_CATEGORY_CASHBACK_TYPES = {
+    "airtime": ["airtime"],
+    "data": ["data"],
+    "bill_payments": ["electricity", "cable"],
+    "betting": [],
+}
+
+# All tx_types that represent a real VAS purchase. TxModel is the actual
+# purchase ledger (every VAS view writes a TxModel row on success);
+# ValueAddedServices is only written by BillPaymentView as a
+# provider-response audit log, so filtering VAS revenue through it
+# undercounts - it misses Airtime/Data purchases entirely (see
+# get_vas_snapshot).
+VAS_TX_TYPES = [tx_type for tx_type in VAS_CATEGORY_TX_TYPES.values() if tx_type]
 
 
 def get_transfer_sum(start, end, direction=None):
@@ -106,14 +139,19 @@ def get_card_deposit_sum(start, end):
 
 
 def get_bill_payment_sum(start, end):
-    bills = ValueAddedServices.objects.filter(
-        created_at__gte=start,
-        created_at__lt=end,
-        status__in=["successful", "paid", "success", "pending"],
-    )
+    """
+    Despite the name (kept for get_cashflow_snapshot()'s existing
+    "bill_payments" field), this is all VAS spend (Airtime + Data + Bill
+    Payment) for [start, end) - see VAS_TX_TYPES/get_vas_snapshot.
+    """
     return float(
-        bills.annotate(amount_float=Cast("amount", FloatField()))
-        .aggregate(total=Sum("amount_float"))
+        TxModel.objects.filter(
+            date__gte=start,
+            date__lt=end,
+            status="SUCCESS",
+            tx_type__in=VAS_TX_TYPES,
+        )
+        .aggregate(total=Sum("amount"))
         .get("total")
         or 0
     )
@@ -178,17 +216,17 @@ def _daily_transfer_totals(start, end, direction):
 
 
 def _daily_bill_payment_totals(start, end):
+    """Day-bucketed version of get_bill_payment_sum - see its docstring."""
     rows = (
-        ValueAddedServices.objects.filter(
-            created_at__gte=start,
-            created_at__lt=end,
-            status__in=["successful", "paid", "success", "pending"],
+        TxModel.objects.filter(
+            date__gte=start,
+            date__lt=end,
+            status="SUCCESS",
+            tx_type__in=VAS_TX_TYPES,
         )
-        .annotate(
-            day=TruncDate("created_at"), amount_float=Cast("amount", FloatField())
-        )
+        .annotate(day=TruncDate("date"))
         .values("day")
-        .annotate(total=Sum("amount_float"))
+        .annotate(total=Sum("amount"))
     )
     return {row["day"]: float(row["total"] or 0) for row in rows}
 
@@ -258,29 +296,53 @@ def get_daily_cashflow_series(start, end):
     return series
 
 
-def get_vas_snapshot(start, end):
-    """VAS (airtime/data/electricity/cable) revenue + the cashback paid out on it."""
-    revenue = float(
-        ValueAddedServices.objects.filter(
-            created_at__gte=start,
-            created_at__lt=end,
-            status__in=VAS_SUCCESS_STATUSES,
+def get_vas_snapshot(start, end, service_type=None):
+    """
+    VAS revenue + cashback for [start, end), sourced from TxModel (the
+    actual purchase ledger - see VAS_TX_TYPES for why this isn't
+    ValueAddedServices).
+
+    service_type: one of VAS_CATEGORY_TX_TYPES's keys ("airtime", "data",
+    "bill_payments", "betting") to scope to a single VAS sub-category, for
+    the Services dashboard's VAS tab dropdown. None (default) sums all VAS
+    sub-categories combined. "betting" has no purchase flow built yet, so
+    it always contributes 0.
+    """
+    if service_type is not None:
+        tx_type = VAS_CATEGORY_TX_TYPES[service_type]
+        tx_types = [tx_type] if tx_type else []
+        cashback_types = VAS_CATEGORY_CASHBACK_TYPES[service_type]
+    else:
+        tx_types = VAS_TX_TYPES
+        cashback_types = VAS_CASHBACK_SERVICE_TYPES
+
+    revenue = 0.0
+    if tx_types:
+        revenue = float(
+            TxModel.objects.filter(
+                date__gte=start,
+                date__lt=end,
+                status="SUCCESS",
+                tx_type__in=tx_types,
+            )
+            .aggregate(total=Sum("amount"))
+            .get("total")
+            or 0
         )
-        .annotate(amount_float=Cast("amount", FloatField()))
-        .aggregate(total=Sum("amount_float"))
-        .get("total")
-        or 0
-    )
-    cashback = float(
-        Cashback.objects.filter(
-            service_type__in=VAS_CASHBACK_SERVICE_TYPES,
-            created_at__gte=start,
-            created_at__lt=end,
+
+    cashback = 0.0
+    if cashback_types:
+        cashback = float(
+            Cashback.objects.filter(
+                service_type__in=cashback_types,
+                created_at__gte=start,
+                created_at__lt=end,
+            )
+            .aggregate(total=Sum("amount"))
+            .get("total")
+            or 0
         )
-        .aggregate(total=Sum("amount"))
-        .get("total")
-        or 0
-    )
+
     return {"revenue": revenue, "cashback": cashback}
 
 
@@ -354,6 +416,465 @@ def get_services_snapshot(start, end):
     }
 
 
+# ── Services dashboard tabs (All Services / VAS / Self Services / Brand
+# Adverts) ────────────────────────────────────────────────────────────────
+SERVICES_TAB_CHOICES = ("all", "vas", "self_services", "brand_ads")
+
+# Self Services sub-category -> TxModel.tx_type(s), for the Services
+# dashboard's Self Services tab dropdown. Travels and Leisure bundles Travel
+# + Hotel - the Figma dropdown doesn't split them out separately. The
+# dropdown/table mockup also showed an "Embassies" row that matches nothing
+# in the schema - dropped as Figma placeholder noise, not a real category.
+SELF_SERVICE_CATEGORY_TX_TYPES = {
+    "travels_and_leisure": ["Travel", "Hotel"],
+    "food_and_drinks": ["Food"],
+    "delivery_services": ["Courier"],
+    "consumables_services": ["Consumables"],
+    "gym": ["Gym"],
+    "cinema": ["Cinema"],
+}
+
+# category -> valid service_type keys, for query-param validation in views.py.
+SERVICE_TYPE_CHOICES_BY_CATEGORY = {
+    "vas": VAS_CATEGORY_TX_TYPES,
+    "self_services": SELF_SERVICE_CATEGORY_TX_TYPES,
+}
+
+
+def _daily_tx_totals(start, end, tx_types, statuses):
+    """Day-bucketed TxModel amount totals for the given tx_types/statuses."""
+    if not tx_types:
+        return {}
+    rows = (
+        TxModel.objects.filter(
+            date__gte=start, date__lt=end, tx_type__in=tx_types, status__in=statuses
+        )
+        .annotate(day=TruncDate("date"))
+        .values("day")
+        .annotate(total=Sum("amount"))
+    )
+    return {row["day"]: float(row["total"] or 0) for row in rows}
+
+
+def _daily_cashback_totals(start, end, service_types):
+    if not service_types:
+        return {}
+    rows = (
+        Cashback.objects.filter(
+            created_at__gte=start, created_at__lt=end, service_type__in=service_types
+        )
+        .annotate(day=TruncDate("created_at"))
+        .values("day")
+        .annotate(total=Sum("amount"))
+    )
+    return {row["day"]: float(row["total"] or 0) for row in rows}
+
+
+def _category_tx_types(category, service_type=None):
+    """tx_type list for a Services-dashboard category, plus the matching
+    Cashback.service_type list (only VAS has one today)."""
+    if category == "vas":
+        if service_type is not None:
+            tx_type = VAS_CATEGORY_TX_TYPES[service_type]
+            return ([tx_type] if tx_type else []), VAS_CATEGORY_CASHBACK_TYPES[
+                service_type
+            ]
+        return VAS_TX_TYPES, VAS_CASHBACK_SERVICE_TYPES
+    if category == "self_services":
+        if service_type is not None:
+            return SELF_SERVICE_CATEGORY_TX_TYPES[service_type], []
+        return SELF_SERVICE_AND_PARTNER_TX_TYPES, []
+    if category == "brand_ads":
+        return BRAND_ADS_TX_TYPES, []
+    raise ValueError(
+        f"Unknown category '{category}'. Expected one of {SERVICES_TAB_CHOICES}."
+    )
+
+
+def get_daily_income_expenditure_series(start, end, category="all", service_type=None):
+    """
+    Day-bucketed {date, day, cash_in, cash_out, cashback} for the Services
+    dashboard's Cash Flow graph / Income vs Expenditure table (the
+    frontend labels these Credit/Debit/Cash Back).
+
+    category="all" (default) is the whole-platform figure: cash_in/cash_out
+    keep get_daily_cashflow_series's existing wallet-transfer definition
+    unchanged, with a "cashback" series (VAS cashback, the only category
+    with a real mechanism) added on top.
+
+    category in {"vas", "self_services", "brand_ads"}: a single service
+    category has no natural wallet-in/wallet-out pair (a purchase is just
+    revenue coming in), so cash_in = that category's successful revenue
+    that day and cash_out = that category's failed/reversed amount that
+    day. cashback is 0 for self_services/brand_ads - no mechanism exists.
+
+    service_type only applies when category="vas" - see
+    VAS_CATEGORY_TX_TYPES.
+    """
+    if category == "all":
+        cashback_by_day = _daily_cashback_totals(start, end, VAS_CASHBACK_SERVICE_TYPES)
+        series = []
+        for row in get_daily_cashflow_series(start, end):
+            day = datetime.strptime(row["date"], "%Y-%m-%d").date()
+            series.append({**row, "cashback": cashback_by_day.get(day, 0)})
+        return series
+
+    tx_types, cashback_types = _category_tx_types(category, service_type)
+    credit_by_day = _daily_tx_totals(start, end, tx_types, ["SUCCESS"])
+    debit_by_day = _daily_tx_totals(start, end, tx_types, ["FAILED"])
+    cashback_by_day = _daily_cashback_totals(start, end, cashback_types)
+
+    series = []
+    day = start.date()
+    end_date = end.date()
+    while day <= end_date:
+        series.append(
+            {
+                "date": day.isoformat(),
+                "day": day.strftime("%A"),
+                "cash_in": credit_by_day.get(day, 0),
+                "cash_out": debit_by_day.get(day, 0),
+                "cashback": cashback_by_day.get(day, 0),
+            }
+        )
+        day += timedelta(days=1)
+    return series
+
+
+def get_transaction_overview_snapshot(start, end, category="all", service_type=None):
+    """
+    Successful/duplicate/failed transaction counts + support ticket count
+    for [start, end), optionally scoped to a Services-dashboard category.
+
+    Support Contact is the total support.Ticket count created in the
+    period - tickets aren't tagged by service category anywhere in the
+    schema, so this figure is the same across every tab, not actually
+    category-scoped (a real gap, not an oversight - there's nothing to
+    scope it by today).
+
+    Duplicate detection only covers TxModel-backed categories - VAS
+    purchases live in a separate table with no duplicate-window logic
+    built for it, so category="vas" always reports 0 duplicates.
+    """
+    if category == "all":
+        tx_qs = TxModel.objects.filter(date__gte=start, date__lt=end)
+        duplicate_count = get_duplicate_transaction_count(start, end)
+    else:
+        tx_types, _ = _category_tx_types(category, service_type)
+        tx_qs = (
+            TxModel.objects.filter(date__gte=start, date__lt=end, tx_type__in=tx_types)
+            if tx_types
+            else TxModel.objects.none()
+        )
+        duplicate_count = (
+            0
+            if category == "vas"
+            else get_duplicate_transaction_count(start, end, tx_types=tx_types)
+        )
+
+    return {
+        "successful_transactions": tx_qs.filter(status="SUCCESS").count(),
+        "duplicate_transactions": duplicate_count,
+        "failed_transactions": tx_qs.filter(status="FAILED").count(),
+        "support_contact": Ticket.objects.filter(
+            created_at__gte=start, created_at__lt=end
+        ).count(),
+    }
+
+
+def _peak_hour_label(start, end, tx_types):
+    """Busiest hour-of-day (by transaction count) among successful
+    transactions of the given tx_types in [start, end), as a "H:00 AM/PM -
+    H:00 AM/PM" one-hour window label. None if there's no data."""
+    if not tx_types:
+        return None
+    row = (
+        TxModel.objects.filter(
+            date__gte=start, date__lt=end, status="SUCCESS", tx_type__in=tx_types
+        )
+        .annotate(hour=ExtractHour("date"))
+        .values("hour")
+        .annotate(total=Count("id"))
+        .order_by("-total")
+        .first()
+    )
+    if not row:
+        return None
+    hour = row["hour"]
+
+    def fmt(h):
+        period = "AM" if h < 12 else "PM"
+        display_hour = h % 12 or 12
+        return f"{display_hour}:00{period}"
+
+    return f"{fmt(hour)} - {fmt((hour + 1) % 24)}"
+
+
+def _top_customer_by_spend(start, end, tx_types):
+    """Highest-spending user for the given tx_types in [start, end), with
+    their transaction count. None if there's no data."""
+    if not tx_types:
+        return None
+    row = (
+        TxModel.objects.filter(
+            date__gte=start, date__lt=end, status="SUCCESS", tx_type__in=tx_types
+        )
+        .values("user_id")
+        .annotate(total_spend=Sum("amount"), transaction_count=Count("id"))
+        .order_by("-total_spend")
+        .first()
+    )
+    if not row or not row["user_id"]:
+        return None
+    user = User.objects.filter(id=row["user_id"]).first()
+    return {
+        "user_id": row["user_id"],
+        "name": (
+            f"{user.first_name or ''} {user.last_name or ''}".strip() if user else None
+        ),
+        "total_spend": float(row["total_spend"] or 0),
+        "transaction_count": row["transaction_count"],
+    }
+
+
+def _top_vas_service(start, end):
+    """VAS sub-category with the highest revenue in [start, end). None if
+    there's no revenue at all in the period."""
+    best = None
+    for key, tx_type in VAS_CATEGORY_TX_TYPES.items():
+        if not tx_type:
+            continue
+        revenue = float(
+            TxModel.objects.filter(
+                date__gte=start, date__lt=end, status="SUCCESS", tx_type=tx_type
+            )
+            .aggregate(total=Sum("amount"))
+            .get("total")
+            or 0
+        )
+        if revenue and (best is None or revenue > best["revenue"]):
+            best = {"service": key, "revenue": revenue}
+    return best
+
+
+# Only these self-service booking models have a venue/business name field
+# (RestaurantBooking.name/GymSubcription.name/CinemaBooking.name) -
+# CourierService/ConsumableService/LandTravels/Hotels don't store one at
+# all, so they can never win "Top Service" on the Self Services tab.
+NAMED_SELF_SERVICE_MODELS = {
+    "Food": RestaurantBooking,
+    "Gym": GymSubcription,
+    "Cinema": CinemaBooking,
+}
+
+
+def _top_named_self_service_venue(start, end):
+    """Best-selling named venue (Restaurant/Gym/Cinema booking) by revenue
+    in [start, end). None if none of these three categories had any
+    successful, named bookings in the period."""
+    best = None
+    for model in NAMED_SELF_SERVICE_MODELS.values():
+        row = (
+            model.objects.filter(
+                tx__date__gte=start,
+                tx__date__lt=end,
+                tx__status="SUCCESS",
+                name__isnull=False,
+            )
+            .exclude(name="")
+            .values("name")
+            .annotate(total=Sum("tx__amount"))
+            .order_by("-total")
+            .first()
+        )
+        if row and row["total"] and (best is None or row["total"] > best["revenue"]):
+            best = {"name": row["name"], "revenue": float(row["total"])}
+    return best
+
+
+def get_customer_insight_extended(start, end, prior_start, prior_end, category="all"):
+    """
+    Customer Insight for the Services dashboard tabs - a different shape
+    per tab (distinct from get_customer_insight_snapshot, which powers the
+    separate top-level Customer Insight panel).
+
+    category="all": Users/Brands are running totals (as of `end`, trended
+    against the same totals as of `prior_end`) of AccountType.user_type
+    "Member"/"BrandAd" accounts.
+
+    category in {"vas", "self_services", "brand_ads"}: active_users
+    (distinct users with a successful transaction in the period), peak_time
+    (busiest one-hour window), plus a category-specific "what" metric:
+    top_customer/top_service for vas and self_services (top_service is a
+    VAS sub-category for vas, but a specific venue name for self_services -
+    see _top_named_self_service_venue), top_task_type/top_ad for brand_ads.
+    """
+    if category == "all":
+        users_now = (
+            User.objects.filter(
+                is_deleted=False,
+                account_types__user_type="Member",
+                date_joined__lt=end,
+            )
+            .distinct()
+            .count()
+        )
+        users_prior = (
+            User.objects.filter(
+                is_deleted=False,
+                account_types__user_type="Member",
+                date_joined__lt=prior_end,
+            )
+            .distinct()
+            .count()
+        )
+        brands_now = (
+            User.objects.filter(
+                is_deleted=False,
+                account_types__user_type="BrandAd",
+                date_joined__lt=end,
+            )
+            .distinct()
+            .count()
+        )
+        brands_prior = (
+            User.objects.filter(
+                is_deleted=False,
+                account_types__user_type="BrandAd",
+                date_joined__lt=prior_end,
+            )
+            .distinct()
+            .count()
+        )
+        return {
+            "users": compute_trend(users_now, users_prior),
+            "brands": compute_trend(brands_now, brands_prior),
+        }
+
+    if category == "vas":
+        tx_types = VAS_TX_TYPES
+        active_users = (
+            TxModel.objects.filter(
+                date__gte=start, date__lt=end, status="SUCCESS", tx_type__in=tx_types
+            )
+            .values("user_id")
+            .distinct()
+            .count()
+        )
+        return {
+            "active_users": active_users,
+            "peak_time": _peak_hour_label(start, end, tx_types),
+            "top_customer": _top_customer_by_spend(start, end, tx_types),
+            "top_service": _top_vas_service(start, end),
+        }
+
+    if category == "self_services":
+        tx_types = SELF_SERVICE_AND_PARTNER_TX_TYPES
+        active_users = (
+            TxModel.objects.filter(
+                date__gte=start, date__lt=end, status="SUCCESS", tx_type__in=tx_types
+            )
+            .values("user_id")
+            .distinct()
+            .count()
+        )
+        return {
+            "active_users": active_users,
+            "peak_time": _peak_hour_label(start, end, tx_types),
+            "top_customer": _top_customer_by_spend(start, end, tx_types),
+            "top_service": _top_named_self_service_venue(start, end),
+        }
+
+    if category == "brand_ads":
+        tx_types = BRAND_ADS_TX_TYPES
+        active_users = (
+            TxModel.objects.filter(
+                date__gte=start, date__lt=end, status="SUCCESS", tx_type__in=tx_types
+            )
+            .values("user_id")
+            .distinct()
+            .count()
+        )
+        top_task = (
+            CreateAd.objects.filter(created_at__gte=start, created_at__lt=end)
+            .values("task_type")
+            .annotate(engagement=Sum("slots_filled"))
+            .order_by("-engagement")
+            .first()
+        )
+        top_ad = (
+            CreateAd.objects.filter(created_at__gte=start, created_at__lt=end)
+            .order_by("-slots_filled")
+            .first()
+        )
+        task_type_labels = dict(TASK_TYPE_CHOICES)
+        return {
+            "active_users": active_users,
+            "peak_time": _peak_hour_label(start, end, tx_types),
+            "top_task_type": (
+                {
+                    "task_type": top_task["task_type"],
+                    "label": task_type_labels.get(
+                        top_task["task_type"], top_task["task_type"]
+                    ),
+                    "engagement": top_task["engagement"] or 0,
+                }
+                if top_task and top_task["task_type"]
+                else None
+            ),
+            "top_ad": (
+                {
+                    "campaign_name": top_ad.campaign_name,
+                    "engagement": top_ad.slots_filled or 0,
+                }
+                if top_ad
+                else None
+            ),
+        }
+
+    raise ValueError(
+        f"Unknown category '{category}'. Expected one of {SERVICES_TAB_CHOICES}."
+    )
+
+
+# Ads never actually reward cashback anywhere in the codebase - stubbed at
+# 0, same treatment as fraud_alerts/reconciliation_differences before those
+# were built out.
+ADS_CASH_BACKS = 0
+
+
+def get_ads_insight_snapshot(start, end):
+    """
+    Brand Adverts tab's Ads Insight donut: Created (ads created this
+    period), Ongoing (currently active as of `end`), Expired (no longer
+    running as of `end`), Cash Backs (always 0 - no mechanism exists).
+    Not a strict partition - an ad created this period can also be
+    ongoing - each is its own independent count, not a mutually exclusive
+    slice; percentage is only a rough proportion for the donut, not a
+    precise "share of all ads" figure.
+    """
+    created = CreateAd.objects.filter(created_at__gte=start, created_at__lt=end).count()
+    ongoing = CreateAd.objects.filter(is_active=True, expiry_date__gt=end).count()
+    expired = CreateAd.objects.filter(
+        Q(is_active=False) | Q(expiry_date__lte=end), created_at__lt=end
+    ).count()
+
+    counts = {
+        "created": created,
+        "ongoing": ongoing,
+        "expired": expired,
+        "cash_backs": ADS_CASH_BACKS,
+    }
+    total = sum(counts.values())
+    return {
+        key: {
+            "value": value,
+            "percentage": round(value / total * 100, 2) if total else 0,
+        }
+        for key, value in counts.items()
+    }
+
+
 # "Active" = logged in within this many days. Below that (or never logged
 # in) counts as "Dormant".
 ACTIVE_USER_THRESHOLD_DAYS = 90
@@ -409,7 +930,7 @@ def get_pending_settlement_count():
 DUPLICATE_TRANSACTION_WINDOW_MINUTES = 10
 
 
-def get_duplicate_transaction_pairs(start, end):
+def get_duplicate_transaction_pairs(start, end, tx_types=None):
     """
     Returns (duplicate_tx, original_tx) TxModel object pairs for
     [start, end) - same heuristic as before (same user + tx_type + amount
@@ -419,24 +940,28 @@ def get_duplicate_transaction_pairs(start, end):
     built from it. Uses a window function (partition by user/tx_type/
     amount, ordered by date) to find each row's previous same-group
     timestamp and id in one query, then bulk-fetches the objects.
+
+    tx_types: optional list to scope detection to a Services-dashboard
+    category (e.g. SELF_SERVICE_AND_PARTNER_TX_TYPES). Note this only
+    covers TxModel-backed categories - VAS purchases aren't in this
+    window at all yet (see get_transaction_overview_snapshot).
     """
     window = timedelta(minutes=DUPLICATE_TRANSACTION_WINDOW_MINUTES)
-    rows = (
-        TxModel.objects.filter(date__gte=start, date__lt=end)
-        .annotate(
-            prev_date=Window(
-                expression=Lag("date"),
-                partition_by=[F("user_id"), F("tx_type"), F("amount")],
-                order_by=F("date").asc(),
-            ),
-            prev_id=Window(
-                expression=Lag("id"),
-                partition_by=[F("user_id"), F("tx_type"), F("amount")],
-                order_by=F("date").asc(),
-            ),
-        )
-        .values("id", "date", "prev_date", "prev_id")
-    )
+    qs = TxModel.objects.filter(date__gte=start, date__lt=end)
+    if tx_types is not None:
+        qs = qs.filter(tx_type__in=tx_types)
+    rows = qs.annotate(
+        prev_date=Window(
+            expression=Lag("date"),
+            partition_by=[F("user_id"), F("tx_type"), F("amount")],
+            order_by=F("date").asc(),
+        ),
+        prev_id=Window(
+            expression=Lag("id"),
+            partition_by=[F("user_id"), F("tx_type"), F("amount")],
+            order_by=F("date").asc(),
+        ),
+    ).values("id", "date", "prev_date", "prev_id")
 
     id_pairs = [
         (row["id"], row["prev_id"])
@@ -455,13 +980,13 @@ def get_duplicate_transaction_pairs(start, end):
     ]
 
 
-def get_duplicate_transaction_count(start, end):
+def get_duplicate_transaction_count(start, end, tx_types=None):
     """
     Counts transactions in [start, end) that look like an accidental repeat
     of an immediately preceding one from the same user. See
     get_duplicate_transaction_pairs for the actual heuristic.
     """
-    return len(get_duplicate_transaction_pairs(start, end))
+    return len(get_duplicate_transaction_pairs(start, end, tx_types=tx_types))
 
 
 # tx_type -> which side of the wallet it moves money on. Everything not
@@ -800,34 +1325,19 @@ def get_task_insight_snapshot(start, end):
 def _get_per_user_revenue(start, end):
     """
     Per-user revenue for [start, end), using the same definition as
-    ServicesBreakdownView: vas + self_services + brand_ads + partners.
-    Merged in Python across ValueAddedServices and TxModel since they don't
-    share a schema. Returns {user_id: total_revenue}.
+    ServicesBreakdownView: vas + self_services + brand_ads + partners - all
+    sourced from TxModel. Returns {user_id: total_revenue}.
     """
     revenue_by_user = {}
-
-    vas_rows = (
-        ValueAddedServices.objects.filter(
-            created_at__gte=start,
-            created_at__lt=end,
-            status__in=VAS_SUCCESS_STATUSES,
-        )
-        .annotate(amount_float=Cast("amount", FloatField()))
-        .values("user_id")
-        .annotate(total=Sum("amount_float"))
-    )
-    for row in vas_rows:
-        if row["user_id"]:
-            revenue_by_user[row["user_id"]] = revenue_by_user.get(
-                row["user_id"], 0
-            ) + float(row["total"] or 0)
 
     tx_rows = (
         TxModel.objects.filter(
             date__gte=start,
             date__lt=end,
             status="SUCCESS",
-            tx_type__in=SELF_SERVICE_AND_PARTNER_TX_TYPES + BRAND_ADS_TX_TYPES,
+            tx_type__in=VAS_TX_TYPES
+            + SELF_SERVICE_AND_PARTNER_TX_TYPES
+            + BRAND_ADS_TX_TYPES,
         )
         .values("user_id")
         .annotate(total=Sum("amount"))

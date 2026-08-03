@@ -79,7 +79,6 @@ from .analytics import (
     compute_trend,
     GRANULARITY_CHOICES,
     get_cashflow_snapshot,
-    get_daily_cashflow_series,
     get_services_snapshot,
     get_customer_insight_snapshot,
     ACTIVE_USER_THRESHOLD_DAYS,
@@ -97,6 +96,12 @@ from .analytics import (
     get_duplicate_transactions_list,
     get_duplicate_transaction_detail,
     get_fraud_alerts_list,
+    SERVICES_TAB_CHOICES,
+    SERVICE_TYPE_CHOICES_BY_CATEGORY,
+    get_daily_income_expenditure_series,
+    get_transaction_overview_snapshot,
+    get_customer_insight_extended,
+    get_ads_insight_snapshot,
 )
 from security import encrypt, decrypt
 from permissions import (
@@ -4257,7 +4262,9 @@ MAX_CHART_RANGE_DAYS = 400
 class CashInVsCashOutChartView(APIView):
     """Separate from IncomeActivityDashboardView - this is chart data (a
     series of points), not KPI tiles, so the two can be fetched/cached
-    independently."""
+    independently. Also backs the Services dashboard's per-tab Cash Flow
+    graph / Income vs Expenditure table via the category/service_type
+    params - see get_daily_income_expenditure_series."""
 
     permission_classes = [IsAuthenticated, IsSuperAdmin]
 
@@ -4265,6 +4272,35 @@ class CashInVsCashOutChartView(APIView):
         granularity = request.query_params.get("granularity", "weekly")
         raw_start = request.query_params.get("start_date")
         raw_end = request.query_params.get("end_date")
+        category = request.query_params.get("category", "all")
+        service_type = request.query_params.get("service_type")
+
+        if category not in SERVICES_TAB_CHOICES:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": f"Invalid category. Use one of {SERVICES_TAB_CHOICES}.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        valid_service_types = SERVICE_TYPE_CHOICES_BY_CATEGORY.get(category)
+        if service_type is not None and (
+            valid_service_types is None or service_type not in valid_service_types
+        ):
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": (
+                            f"service_type is not valid for category={category}. "
+                            f"Valid categories for service_type: {list(SERVICE_TYPE_CHOICES_BY_CATEGORY)}."
+                        ),
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             if raw_start and raw_end:
@@ -4310,7 +4346,9 @@ class CashInVsCashOutChartView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        series = get_daily_cashflow_series(current_start, current_end)
+        series = get_daily_income_expenditure_series(
+            current_start, current_end, category=category, service_type=service_type
+        )
 
         return Response(
             data=encrypt(
@@ -4322,6 +4360,8 @@ class CashInVsCashOutChartView(APIView):
                             "start": current_start.date().isoformat(),
                             "end": current_end.date().isoformat(),
                         },
+                        "category": category,
+                        "service_type": service_type,
                         "series": series,
                     },
                 }
@@ -4496,7 +4536,10 @@ class ServicesBreakdownView(APIView):
 )
 class CustomerInsightView(APIView):
     """Separate from the other dashboard panels - Customer Insight is
-    fetched/refreshed independently."""
+    fetched/refreshed independently. Passing `category` switches to the
+    Services dashboard tab-specific shape (see
+    get_customer_insight_extended) instead of the default New/Active/
+    Dormant/Deleted shape."""
 
     permission_classes = [IsAuthenticated, IsSuperAdmin]
 
@@ -4504,6 +4547,18 @@ class CustomerInsightView(APIView):
         granularity = request.query_params.get("granularity", "weekly")
         raw_start = request.query_params.get("start_date")
         raw_end = request.query_params.get("end_date")
+        category = request.query_params.get("category")
+
+        if category is not None and category not in SERVICES_TAB_CHOICES:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": f"Invalid category. Use one of {SERVICES_TAB_CHOICES}.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             if raw_start and raw_end:
@@ -4539,21 +4594,26 @@ class CustomerInsightView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        current_snapshot = get_customer_insight_snapshot(current_start, current_end)
-        prior_snapshot = get_customer_insight_snapshot(prior_start, prior_end)
-
-        data = {
-            "new_users": compute_trend(
-                current_snapshot["new_users"], prior_snapshot["new_users"]
-            ),
-            "deleted_users": compute_trend(
-                current_snapshot["deleted_users"], prior_snapshot["deleted_users"]
-            ),
-            # Snapshots, not period-scoped - no trend badge (see
-            # get_customer_insight_snapshot docstring).
-            "active_users": {"value": current_snapshot["active_users"]},
-            "dormant_users": {"value": current_snapshot["dormant_users"]},
-        }
+        if category is not None:
+            data = get_customer_insight_extended(
+                current_start, current_end, prior_start, prior_end, category=category
+            )
+        else:
+            current_snapshot = get_customer_insight_snapshot(current_start, current_end)
+            prior_snapshot = get_customer_insight_snapshot(prior_start, prior_end)
+            data = {
+                "new_users": compute_trend(
+                    current_snapshot["new_users"], prior_snapshot["new_users"]
+                ),
+                "deleted_users": compute_trend(
+                    current_snapshot["deleted_users"],
+                    prior_snapshot["deleted_users"],
+                ),
+                # Snapshots, not period-scoped - no trend badge (see
+                # get_customer_insight_snapshot docstring).
+                "active_users": {"value": current_snapshot["active_users"]},
+                "dormant_users": {"value": current_snapshot["dormant_users"]},
+            }
 
         return Response(
             data=encrypt(
@@ -4566,6 +4626,262 @@ class CustomerInsightView(APIView):
                             "end": current_end.date().isoformat(),
                         },
                         **data,
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Transaction Overview - Services dashboard",
+    tags=["Admin"],
+    description=(
+        "Successful/duplicate/failed transaction counts + support ticket "
+        "count for the Services dashboard tabs. `category` (default "
+        f"'all') is one of {SERVICES_TAB_CHOICES}; `service_type` further "
+        f"scopes category=vas/self_services - see {SERVICE_TYPE_CHOICES_BY_CATEGORY}. "
+        "support_contact is the same across every tab - tickets aren't "
+        "tagged by service category in the schema. duplicate_transactions "
+        "is always 0 for category=vas - VAS purchases aren't covered by "
+        "the duplicate-detection heuristic yet. Pass `granularity` "
+        "(daily/weekly/monthly/quarterly/yearly, default weekly) or an "
+        "explicit `start_date`/`end_date` range."
+    ),
+    parameters=[
+        OpenApiParameter(
+            "granularity",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            required=False,
+            description=f"One of {GRANULARITY_CHOICES}. Ignored if start_date/end_date are passed.",
+        ),
+        OpenApiParameter(
+            "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "category",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            required=False,
+            description=f"One of {SERVICES_TAB_CHOICES}. Default 'all'.",
+        ),
+        OpenApiParameter(
+            "service_type",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            required=False,
+            description=f"Only valid with category=vas or self_services. See {SERVICE_TYPE_CHOICES_BY_CATEGORY}.",
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "TransactionOverviewResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        400: inline_serializer(
+            "TransactionOverviewError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class TransactionOverviewView(APIView):
+    """Services dashboard's Transaction Overview panel - successful/
+    duplicate/failed counts + support contact count, per tab."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        granularity = request.query_params.get("granularity", "weekly")
+        raw_start = request.query_params.get("start_date")
+        raw_end = request.query_params.get("end_date")
+        category = request.query_params.get("category", "all")
+        service_type = request.query_params.get("service_type")
+
+        if category not in SERVICES_TAB_CHOICES:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": f"Invalid category. Use one of {SERVICES_TAB_CHOICES}.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        valid_service_types = SERVICE_TYPE_CHOICES_BY_CATEGORY.get(category)
+        if service_type is not None and (
+            valid_service_types is None or service_type not in valid_service_types
+        ):
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": (
+                            f"service_type is not valid for category={category}. "
+                            f"Valid categories for service_type: {list(SERVICE_TYPE_CHOICES_BY_CATEGORY)}."
+                        ),
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            if raw_start and raw_end:
+                start_date = datetime.strptime(raw_start, "%Y-%m-%d").date()
+                end_date = datetime.strptime(raw_end, "%Y-%m-%d").date()
+                current_start, current_end, _, _ = resolve_period(
+                    start_date=start_date, end_date=end_date
+                )
+                resolved_granularity = "custom"
+            elif granularity in GRANULARITY_CHOICES:
+                current_start, current_end, _, _ = resolve_period(
+                    granularity=granularity
+                )
+                resolved_granularity = granularity
+            else:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": f"Invalid granularity. Use one of {GRANULARITY_CHOICES}, or pass start_date/end_date.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except ValueError:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        overview = get_transaction_overview_snapshot(
+            current_start, current_end, category=category, service_type=service_type
+        )
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "granularity": resolved_granularity,
+                        "date_range": {
+                            "start": current_start.date().isoformat(),
+                            "end": current_end.date().isoformat(),
+                        },
+                        "category": category,
+                        "service_type": service_type,
+                        **overview,
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Ads Insight - Brand Adverts services tab",
+    tags=["Admin"],
+    description=(
+        "Created/Ongoing/Expired/Cash Backs breakdown for the Services "
+        "dashboard's Brand Adverts tab donut. Not a strict partition - an "
+        "ad created in the period can also be ongoing - each is its own "
+        "count with a rough percentage-of-total, not a mutually exclusive "
+        "share. Cash Backs is always 0 - no ads cashback mechanism exists "
+        "in the codebase. Pass `granularity` "
+        "(daily/weekly/monthly/quarterly/yearly, default weekly) or an "
+        "explicit `start_date`/`end_date` range."
+    ),
+    parameters=[
+        OpenApiParameter(
+            "granularity",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            required=False,
+            description=f"One of {GRANULARITY_CHOICES}. Ignored if start_date/end_date are passed.",
+        ),
+        OpenApiParameter(
+            "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "AdsInsightResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        400: inline_serializer(
+            "AdsInsightError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class AdsInsightView(APIView):
+    """Services dashboard's Brand Adverts tab - Ads Insight donut."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        granularity = request.query_params.get("granularity", "weekly")
+        raw_start = request.query_params.get("start_date")
+        raw_end = request.query_params.get("end_date")
+
+        try:
+            if raw_start and raw_end:
+                start_date = datetime.strptime(raw_start, "%Y-%m-%d").date()
+                end_date = datetime.strptime(raw_end, "%Y-%m-%d").date()
+                current_start, current_end, _, _ = resolve_period(
+                    start_date=start_date, end_date=end_date
+                )
+                resolved_granularity = "custom"
+            elif granularity in GRANULARITY_CHOICES:
+                current_start, current_end, _, _ = resolve_period(
+                    granularity=granularity
+                )
+                resolved_granularity = granularity
+            else:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": f"Invalid granularity. Use one of {GRANULARITY_CHOICES}, or pass start_date/end_date.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except ValueError:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        ads_insight = get_ads_insight_snapshot(current_start, current_end)
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "granularity": resolved_granularity,
+                        "date_range": {
+                            "start": current_start.date().isoformat(),
+                            "end": current_end.date().isoformat(),
+                        },
+                        **ads_insight,
                     },
                 }
             ),
