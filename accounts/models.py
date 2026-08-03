@@ -40,7 +40,7 @@ TRANSACTION_TYPE = (
     ("UGC Task Funding", "UGC Task Funding"),
     ("Data", "Data"),
     ("Airtime", "Airtime"),
-    ("Electricity", "Electricity"),
+    ("Bill Payment", "Bill Payment"),
     ("Hotel", "Hotel"),
     ("Travel", "Travel"),
     ("Education", "Education"),

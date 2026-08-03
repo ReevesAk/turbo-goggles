@@ -511,7 +511,8 @@ class SetPartnerServiceCommission(generics.GenericAPIView):
 
     def patch(self, request, service_id, *args, **kwargs):
         service = self.get_object(service_id)
-        serializer = self.get_serializer(data=request.data)
+        decrypted_payload = decrypt(request.data)
+        serializer = self.get_serializer(data=decrypted_payload)
         serializer.is_valid(raise_exception=True)
 
         service.set_commission(serializer.validated_data["commission_rate"])

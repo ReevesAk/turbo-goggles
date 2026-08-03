@@ -36,6 +36,8 @@ from .views import (
     CashInVsCashOutChartView,
     ServicesBreakdownView,
     CustomerInsightView,
+    TransactionOverviewView,
+    AdsInsightView,
     AlertAndRiskView,
     AllTransactionsView,
     GamificationPicapointsOverviewView,
@@ -459,6 +461,16 @@ urlpatterns = [
         "customer-insight",
         CustomerInsightView.as_view(),
         name="customer_insight",
+    ),
+    path(
+        "transaction-overview",
+        TransactionOverviewView.as_view(),
+        name="transaction_overview",
+    ),
+    path(
+        "ads-insight",
+        AdsInsightView.as_view(),
+        name="ads_insight",
     ),
     path(
         "alert-and-risk",
