@@ -1,9 +1,10 @@
 import logging
+import os
+import datetime
 from decimal import Decimal
-
 from decouple import config as conf
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Count, Sum
 from django.db.models.functions import Greatest, Least
 from django.core.cache import cache
 from django.utils import timezone
@@ -27,38 +28,46 @@ from accounts.models import User, TxModel, UserNotification, AccountType
 from banking.models import WalletModel
 from banking.controllers import Wallet
 from banking.helpers import verify_wallet_auth
+from gamification.models import (
+    StepCampaignModel,
+    StepSessionModel,
+    UserStreak,
+    StreakChallenge,
+    UGCTaskSubmission,
+    UserGeneratedContent,
+    Points as PointsModel,
+    UGCLeaderboard,
+    UGCTaskProgress,
+    StreakHistory,
+    TIER_TO_RATE,
+)
+
 
 from permissions import (
-    IsMember,
     HasCompletedSurvey,
     IsBrandAd,
     IsBrandAdAdmin,
+    IsMember,
     IsSuperAdmin,
 )
 
-from .models import (
-    StepCampaignModel,
-    StepSessionModel,
-    StreakChallenge,
-    UserStreak,
-    StreakHistory,
-    Points as PointsModel,
-    TIER_TO_RATE,
-    UserGeneratedContent,
-)
 from .serializers import (
+    AdminUserGeneratedContentSerializer,
+    BrandUserGeneratedContentSerializer,
+    RedeemPointsToWalletSerializer,
+    SocialEngagementSerializer,
     SSOLoginSerializer,
     StepCountSessionSerializer,
-    SocialEngagementSerializer,
     StreakChallengeSerializer,
-    UserStreakSerializer,
     StreakHistorySerializer,
-    RedeemPointsToWalletSerializer,
     StreakLeaderboardEntrySerializer,
-    UserGeneratedContentListSerializer,
+    UGCLeaderboardSerializer,
+    UGCTaskProgressSerializer,
+    UGCTaskSubmissionSerializer,
+    UGCTaskSubmitSerializer,
     UserGeneratedContentDetailSerializer,
-    BrandUserGeneratedContentSerializer,
-    AdminUserGeneratedContentSerializer,
+    UserGeneratedContentListSerializer,
+    UserStreakSerializer,
 )
 
 from .utils import NextBee
@@ -2006,7 +2015,7 @@ class AdminUGCDetailView(generics.RetrieveUpdateDestroyAPIView):
         owner_id = instance.user_id
         try:
             self.perform_destroy(instance)
-        except s.ValidationError as exc:
+        except DRFValidationError as exc:
             message = (
                 first_validation_error(exc.detail)
                 if hasattr(exc, "detail")
@@ -2031,3 +2040,573 @@ class AdminUGCDetailView(generics.RetrieveUpdateDestroyAPIView):
             ),
             status=status.HTTP_200_OK,
         )
+
+
+# ==========================================
+#  User-Generated Content (UGC) API views
+# ==========================================
+
+
+class UGCPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
+# ==========================================
+# User-facing Views
+# ==========================================
+
+
+@extend_schema(
+    summary="Get UGC task with submission status",
+    tags=["User Generated Content [Users]"],
+    description="Retrieves a UGC task with the authenticated user's submission status.",
+    responses={
+        200: inline_serializer(
+            name="UGCTaskWithSubmissionResponse",
+            fields={
+                "task": {"type": "object"},
+                "user_submission": {
+                    "type": "object",
+                    "nullable": True,
+                    "additionalProperties": True,
+                },
+                "can_submit": {"type": "boolean"},
+                "error_reason": {"type": "string", "nullable": True},
+            },
+        ),
+        404: inline_serializer(
+            name="UGCTaskWithSubmissionNotFound",
+            fields={"status": OpenApiTypes.STR, "message": OpenApiTypes.STR},
+        ),
+    },
+)
+class UGCTaskWithSubmissionView(generics.RetrieveAPIView):
+    """GET /v1/ugc/tasks/<task_id>/with-submission/"""
+
+    permission_classes = [IsAuthenticated, IsMember]
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return UserGeneratedContent.objects.filter(is_active=True)
+
+    def get(self, request, *args, **kwargs):
+        task_id = kwargs.get("id")
+        cache_key = f"ugc_task_with_submission:{task_id}:{request.user.id}"
+
+        cached = cache.get(cache_key)
+        if cached:
+            return Response(data=encrypt(cached), status=status.HTTP_200_OK)
+
+        try:
+            task = self.get_queryset().get(id=task_id)
+        except UserGeneratedContent.DoesNotExist:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Task not found"}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        user_submission = UGCTaskSubmission.objects.filter(
+            user=request.user, task=task
+        ).first()
+
+        # Determine if user can submit
+        can_submit = True
+        error_reason = None
+
+        if not task.is_active:
+            can_submit = False
+            error_reason = "Task is no longer active"
+        elif task.is_fully_booked:
+            can_submit = False
+            error_reason = "Task has reached its slot limit"
+        elif task.is_expired:
+            can_submit = False
+            error_reason = "Task has expired"
+        elif user_submission and user_submission.status in ["pending", "approved"]:
+            can_submit = False
+            error_reason = f"You have already {user_submission.status} this task"
+
+        from gamification.serializers import UserGeneratedContentDetailSerializer
+
+        task_serializer = UserGeneratedContentDetailSerializer(task)
+
+        response_data = {
+            "status": "success",
+            "task": task_serializer.data,
+            "user_submission": (
+                UGCTaskSubmissionSerializer(user_submission).data
+                if user_submission
+                else None
+            ),
+            "can_submit": can_submit,
+            "error_reason": error_reason,
+        }
+
+        cache.set(cache_key, response_data, timeout=60)
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    summary="List user's UGC submissions",
+    tags=["User Generated Content [Users]"],
+    description="Returns all UGC task submissions for the authenticated user.",
+    parameters=[
+        OpenApiParameter(
+            "status",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            description="Filter by submission status",
+            required=False,
+            enum=["pending", "approved", "rejected"],
+        ),
+        OpenApiParameter(
+            "task_type",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            description="Filter by task type",
+            required=False,
+        ),
+    ],
+    responses={200: UGCTaskSubmissionSerializer(many=True)},
+)
+class UserUGCTaskSubmissionsView(generics.ListAPIView):
+    """GET /v1/ugc/submissions/"""
+
+    serializer_class = UGCTaskSubmissionSerializer
+    permission_classes = [IsAuthenticated, IsMember]
+    pagination_class = UGCPagination
+
+    def get_queryset(self):
+        qs = (
+            UGCTaskSubmission.objects.filter(user=self.request.user)
+            .select_related("task")
+            .order_by("-submitted_at")
+        )
+
+        filter_status = self.request.query_params.get("status")
+        if filter_status:
+            qs = qs.filter(status=filter_status)
+
+        task_type = self.request.query_params.get("task_type")
+        if task_type:
+            qs = qs.filter(task__task_type=task_type)
+
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        cache_key = f"user_ugc_submissions:{request.user.id}:{request.GET.urlencode()}"
+        cached = cache.get(cache_key)
+
+        if cached:
+            return Response(data=encrypt(cached), status=status.HTTP_200_OK)
+
+        queryset = self.get_queryset()
+        page = self.paginate_queryset(queryset)
+
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            response_data = {
+                "status": "success",
+                "message": "Your submissions retrieved successfully",
+                "data": self.get_paginated_response(serializer.data).data,
+            }
+        else:
+            serializer = self.get_serializer(queryset, many=True)
+            response_data = {
+                "status": "success",
+                "message": "Your submissions retrieved successfully",
+                "data": serializer.data,
+            }
+
+        cache.set(cache_key, response_data, timeout=60)
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    summary="Submit a UGC task completion",
+    tags=["User Generated Content [Users]"],
+    description="Submits a completed UGC task. Points are awarded automatically upon submission.",
+    request=UGCTaskSubmitSerializer,
+    responses={
+        201: UGCTaskSubmissionSerializer,
+        400: inline_serializer(
+            name="UGCTaskSubmitError",
+            fields={"status": OpenApiTypes.STR, "message": OpenApiTypes.STR},
+        ),
+        404: inline_serializer(
+            name="UGCTaskSubmitNotFound",
+            fields={"status": OpenApiTypes.STR, "message": OpenApiTypes.STR},
+        ),
+    },
+    examples=[
+        OpenApiExample(
+            "Submit video task",
+            request_only=True,
+            value={
+                "task": "550e8400-e29b-41d4-a716-446655440000",
+                "media_url": "https://res.cloudinary.com/example/video/upload/sample.mp4",
+                "caption": "My product unboxing video!",
+            },
+        ),
+        OpenApiExample(
+            "Submit photo task",
+            request_only=True,
+            value={
+                "task": "550e8400-e29b-41d4-a716-446655440000",
+                "media_url": "https://res.cloudinary.com/example/image/upload/photo.jpg",
+            },
+        ),
+    ],
+)
+class UGCTaskSubmitView(generics.CreateAPIView):
+    """POST /v1/ugc/submit/"""
+
+    serializer_class = UGCTaskSubmitSerializer
+    permission_classes = [IsAuthenticated, IsMember]
+
+    def create(self, request, *args, **kwargs):
+        try:
+            # Handle decryption errors gracefully
+            try:
+                decrypted_data = decrypt(request.data)
+            except Exception as e:
+                logger.error(f"Decryption failed: {str(e)}")
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": "Invalid request format. Please try again.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+            if x_forwarded_for:
+                ip_address = x_forwarded_for.split(",")[0]
+            else:
+                ip_address = request.META.get("REMOTE_ADDR")
+
+            serializer = self.get_serializer(
+                data=decrypted_data,
+                context={"request": request, "ip_address": ip_address},
+            )
+            serializer.is_valid(raise_exception=True)
+
+            submission = serializer.save()
+
+            response_data = {
+                "status": "success",
+                "message": f"Task completed! {submission.points_awarded} points awarded.",
+                "data": UGCTaskSubmissionSerializer(submission).data,
+            }
+
+            # Clear caches safely
+            cache.delete(
+                f"ugc_task_with_submission:{submission.task.id}:{request.user.id}"
+            )
+            cache.delete(f"user_ugc_submissions:{request.user.id}")
+            cache.delete(f"ugc_progress:{request.user.id}")
+
+            return Response(data=encrypt(response_data), status=status.HTTP_201_CREATED)
+
+        except DRFValidationError as e:
+            message = first_validation_error(e.detail)
+            return Response(
+                data=encrypt({"status": "fail", "message": message}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            logger.error(f"UGC submission failed: {str(e)}", exc_info=True)
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Submission failed. Please try again.",
+                    }
+                ),
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+@extend_schema(
+    summary="Get user's UGC progress",
+    tags=["User Generated Content [Users]"],
+    description="Returns the authenticated user's UGC task progress statistics.",
+    responses={200: UGCTaskProgressSerializer},
+)
+class UserUGCProgressView(generics.RetrieveAPIView):
+    """GET /v1/ugc/progress/"""
+
+    permission_classes = [IsAuthenticated, IsMember]
+    serializer_class = UGCTaskProgressSerializer
+
+    def get_object(self):
+        progress, _ = UGCTaskProgress.objects.get_or_create(user=self.request.user)
+        return progress
+
+    def get(self, request, *args, **kwargs):
+        cache_key = f"ugc_progress:{request.user.id}"
+        cached = cache.get(cache_key)
+
+        if cached:
+            return Response(data=encrypt(cached), status=status.HTTP_200_OK)
+
+        progress = self.get_object()
+        serializer = self.get_serializer(progress)
+
+        response_data = {"status": "success", "data": serializer.data}
+
+        cache.set(cache_key, response_data, timeout=300)
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+
+
+# ==========================================
+# Admin Views (Read-only)
+# ==========================================
+
+
+@extend_schema(
+    summary="List all UGC submissions (admin)",
+    tags=["User Generated Content [Admin]"],
+    description="Returns all UGC submissions for admin monitoring.",
+    parameters=[
+        OpenApiParameter(
+            "status",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            description="Filter by submission status",
+            required=False,
+            enum=["pending", "approved", "rejected"],
+        ),
+        OpenApiParameter(
+            "user",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            description="Filter by user email",
+            required=False,
+        ),
+    ],
+    responses={200: UGCTaskSubmissionSerializer(many=True)},
+)
+class AdminUGCSubmissionsListView(generics.ListAPIView):
+    """GET /v1/ugc/admin/submissions/"""
+
+    serializer_class = UGCTaskSubmissionSerializer
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    pagination_class = UGCPagination
+
+    def get_queryset(self):
+        qs = UGCTaskSubmission.objects.select_related("user", "task").order_by(
+            "-submitted_at"
+        )
+
+        filter_status = self.request.query_params.get("status")
+        if filter_status:
+            qs = qs.filter(status=filter_status)
+
+        user_email = self.request.query_params.get("user")
+        if user_email:
+            qs = qs.filter(user__email__icontains=user_email)
+
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        """
+        Override list to encrypt the response.
+        """
+        queryset = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(queryset)
+
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            data = self.get_paginated_response(serializer.data).data
+        else:
+            serializer = self.get_serializer(queryset, many=True)
+            data = {"results": serializer.data}
+
+        response_data = {
+            "status": "success",
+            "message": "Submissions retrieved successfully.",
+            "data": data,
+        }
+
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    summary="Get UGC submission statistics (admin)",
+    tags=["User Generated Content [Admin]"],
+    description="Returns statistics about UGC submissions for admin dashboard.",
+    responses={
+        200: inline_serializer(
+            name="UGCSubmissionStatsResponse",
+            fields={
+                "total_submissions": OpenApiTypes.INT,
+                "approved_today": OpenApiTypes.INT,
+                "rejected_today": OpenApiTypes.INT,
+                "top_tasks": OpenApiTypes.OBJECT,
+                "top_users": OpenApiTypes.OBJECT,
+                "submissions_by_type": OpenApiTypes.OBJECT,
+            },
+        )
+    },
+)
+class AdminUGCSubmissionStatsView(generics.GenericAPIView):
+    """GET /v1/ugc/admin/stats/"""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request, *args, **kwargs):
+        today = timezone.now().date()
+        today_start = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+        today_end = timezone.make_aware(datetime.combine(today, datetime.max.time()))
+
+        total = UGCTaskSubmission.objects.count()
+
+        approved_today = UGCTaskSubmission.objects.filter(
+            status="approved", reviewed_at__gte=today_start, reviewed_at__lte=today_end
+        ).count()
+
+        rejected_today = UGCTaskSubmission.objects.filter(
+            status="rejected", reviewed_at__gte=today_start, reviewed_at__lte=today_end
+        ).count()
+
+        top_tasks = (
+            UGCTaskSubmission.objects.values("task__task_name", "task__id")
+            .annotate(count=Count("id"))
+            .order_by("-count")[:10]
+        )
+
+        top_users = (
+            UGCTaskSubmission.objects.values(
+                "user__email", "user__first_name", "user__last_name"
+            )
+            .annotate(count=Count("id"), points=Sum("points_awarded"))
+            .order_by("-count")[:10]
+        )
+
+        by_type = (
+            UGCTaskSubmission.objects.values("task__task_type")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+
+        response_data = {
+            "status": "success",
+            "data": {
+                "total_submissions": total,
+                "approved_today": approved_today,
+                "rejected_today": rejected_today,
+                "top_tasks": list(top_tasks),
+                "top_users": list(top_users),
+                "submissions_by_type": list(by_type),
+            },
+        }
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+
+
+# ==========================================
+# Leaderboard Views
+# ==========================================
+
+
+@extend_schema(
+    summary="Get UGC leaderboard",
+    tags=["User Generated Content [Users]"],
+    description="Returns the UGC task completion leaderboard for different timeframes.",
+    parameters=[
+        OpenApiParameter(
+            "timeframe",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            description="Time period for leaderboard",
+            required=False,
+            enum=["daily", "weekly", "monthly", "all_time"],
+            default="monthly",
+        ),
+        OpenApiParameter(
+            "limit",
+            OpenApiTypes.INT,
+            OpenApiParameter.QUERY,
+            description="Number of top users to return",
+            required=False,
+            default=50,
+        ),
+    ],
+    responses={200: UGCLeaderboardSerializer(many=True)},
+)
+class UGCLeaderboardView(generics.ListAPIView):
+    """
+    GET /v1/ugc/leaderboard/
+    """
+
+    serializer_class = UGCLeaderboardSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Validate timeframe
+        valid_timeframes = ["daily", "weekly", "monthly", "all_time"]
+        timeframe = self.request.query_params.get("timeframe", "monthly")
+        if timeframe not in valid_timeframes:
+            timeframe = "monthly"
+
+        # Validate limit
+        try:
+            limit = int(self.request.query_params.get("limit", 50))
+            limit = min(max(limit, 1), 100)
+        except (TypeError, ValueError):
+            limit = 50
+
+        qs = UGCLeaderboard.objects.filter(timeframe=timeframe).order_by("rank")[:limit]
+
+        if not qs.exists():
+            from gamification.tasks import calculate_ugc_leaderboard
+
+            if os.environ.get("TEST_MODE") == "1":
+                calculate_ugc_leaderboard()
+            else:
+                calculate_ugc_leaderboard.delay()
+            qs = UGCLeaderboard.objects.filter(timeframe=timeframe).order_by("rank")[
+                :limit
+            ]
+
+        return qs
+
+    def list(self, request, *args, **kwargs):
+        cache_key = f"ugc_leaderboard:{request.GET.urlencode()}"
+        cached = cache.get(cache_key)
+
+        if cached:
+            return Response(data=encrypt(cached), status=status.HTTP_200_OK)
+
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+
+        timeframe = self.request.query_params.get("timeframe", "monthly")
+        user_rank = UGCLeaderboard.objects.filter(
+            timeframe=timeframe, user=request.user
+        ).first()
+
+        response_data = {
+            "status": "success",
+            "data": {
+                "leaderboard": serializer.data,
+                "user_rank": (
+                    {
+                        "rank": user_rank.rank if user_rank else None,
+                        "points_earned": user_rank.points_earned if user_rank else 0,
+                        "tasks_completed": (
+                            user_rank.tasks_completed if user_rank else 0
+                        ),
+                    }
+                    if user_rank
+                    else None
+                ),
+            },
+        }
+
+        cache.set(cache_key, response_data, timeout=300)
+        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
