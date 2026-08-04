@@ -1,3 +1,5 @@
+# gamification/points.py
+
 import logging
 from decimal import Decimal
 
@@ -17,6 +19,12 @@ LEVEL_MULTIPLIERS = {
     "Champion": 1.5,
     "Elite": 1.7,
     "Legend": 2.0,
+    # UGC-specific levels
+    "UGC_Newbie": 1.0,
+    "UGC_Contributor": 1.2,
+    "UGC_Creator": 1.5,
+    "UGC_Master": 1.8,
+    "UGC_Legend": 2.0,
 }
 
 BASE_POINTS = {
@@ -34,6 +42,9 @@ BASE_POINTS = {
     "app_download": 100,
     "brand_task": 50,
     "walk_to_earn": 100,
+    # UGC-specific activities
+    "ugc_task_completion": 40,
+    "ugc_streak_bonus": 40,
 }
 
 # Tier → naira-per-point mapping. Used both for RedeemPointsToWallet and for
@@ -49,6 +60,31 @@ TIER_VALUES = {
 }
 
 MIN_POINTS_REQUIRED = 700
+
+# UGC achievement milestones and their rewards
+UGC_ACHIEVEMENTS = {
+    1: {"title": "First UGC Task Completed!", "points": 50},
+    5: {"title": "UGC Contributor - 5 tasks completed!", "points": 100},
+    10: {"title": "UGC Task Master - 10 tasks completed!", "points": 200},
+    25: {"title": "UGC Content Creator - 25 tasks completed!", "points": 500},
+    50: {"title": "UGC Pro - 50 tasks completed!", "points": 1000},
+    100: {"title": "UGC Legend - 100 tasks completed!", "points": 2500},
+    250: {"title": "UGC Icon - 250 tasks completed!", "points": 5000},
+    500: {"title": "UGC Hall of Fame - 500 tasks completed!", "points": 10000},
+}
+
+# Streak milestones and their rewards
+STREAK_MILESTONES = {
+    7: {"title": "7-Day Streak!", "points": 70},
+    14: {"title": "14-Day Streak!", "points": 140},
+    21: {"title": "21-Day Streak!", "points": 210},
+    28: {"title": "28-Day Streak!", "points": 280},
+    60: {"title": "60-Day Streak!", "points": 600},
+    90: {"title": "90-Day Streak!", "points": 900},
+    120: {"title": "120-Day Streak!", "points": 1200},
+    180: {"title": "180-Day Streak!", "points": 1800},
+    365: {"title": "365-Day Streak! 🏆", "points": 3650},
+}
 
 
 def get_point_value(key: str) -> int:
@@ -66,7 +102,7 @@ def get_point_value(key: str) -> int:
 
 class Points:
     @staticmethod
-    def get_user_tier(total_points: int):
+    def get_user_tier(total_points: int) -> str:
         """
         Determine tier based on lifetime points.
         """
@@ -83,6 +119,28 @@ class Points:
         elif total_points >= 700:
             return "Explorer"
         return "Starter"
+
+    @staticmethod
+    def get_ugc_level(approved_submissions: int) -> str:
+        """
+        Determine UGC level based on approved submissions.
+        """
+        if approved_submissions >= 100:
+            return "UGC_Legend"
+        elif approved_submissions >= 50:
+            return "UGC_Master"
+        elif approved_submissions >= 20:
+            return "UGC_Creator"
+        elif approved_submissions >= 5:
+            return "UGC_Contributor"
+        return "UGC_Newbie"
+
+    @staticmethod
+    def get_level_multiplier(level: str) -> float:
+        """
+        Get the points multiplier for a user's level.
+        """
+        return LEVEL_MULTIPLIERS.get(level, 1.0)
 
     @staticmethod
     def calculate_redeemable(user_points: int, total_points: int):
@@ -356,3 +414,85 @@ class Points:
             "Refreshed points for %s: balance=%d, tier=%s", user.email, balance, tier
         )
         return points_obj
+
+    # ── UGC-specific helpers ───────────────────────────────────────────────────
+
+    @staticmethod
+    def check_ugc_achievement(user, progress) -> bool:
+        """
+        Check and award UGC achievement bonuses.
+        Returns True if an achievement was awarded.
+        """
+        count = progress.approved_submissions
+        if count in UGC_ACHIEVEMENTS:
+            achievement = UGC_ACHIEVEMENTS[count]
+            achievement_key = f"ugc_achievement_{count}"
+
+            if achievement_key not in progress.achievements:
+                success, _ = Points.award(
+                    user=user,
+                    amount=achievement["points"],
+                    reason=f"🏆 {achievement['title']}",
+                    source="special_campaign",
+                )
+                if success:
+                    progress.achievements.append(achievement_key)
+                    progress.save(update_fields=["achievements"])
+
+                    logger.info(
+                        "UGC achievement awarded: %s - %s (%d pts)",
+                        user.email,
+                        achievement["title"],
+                        achievement["points"],
+                    )
+                    return True
+        return False
+
+    @staticmethod
+    def check_ugc_streak_bonus(user, progress) -> bool:
+        """
+        Check and award streak bonuses for UGC submissions.
+        Returns True if a streak bonus was awarded.
+        """
+        streak = progress.current_streak
+
+        if streak in STREAK_MILESTONES:
+            milestone = STREAK_MILESTONES[streak]
+            streak_key = f"ugc_streak_{streak}days"
+
+            if streak_key not in progress.achievements:
+                success, _ = Points.award(
+                    user=user,
+                    amount=milestone["points"],
+                    reason=f"🔥 {milestone['title']}",
+                    source="streak_bonus",
+                )
+                if success:
+                    progress.achievements.append(streak_key)
+                    progress.save(update_fields=["achievements"])
+
+                    logger.info(
+                        "UGC streak bonus awarded: %s - %s (%d pts)",
+                        user.email,
+                        milestone["title"],
+                        milestone["points"],
+                    )
+                    return True
+
+        # Long-term engagement bonus
+        if progress.longest_streak >= 30 and progress.longest_streak % 30 == 0:
+            long_streak_key = f"long_streak_{progress.longest_streak}days"
+            if long_streak_key not in progress.achievements:
+                bonus_points = 500
+                success, _ = Points.award(
+                    user=user,
+                    amount=bonus_points,
+                    reason=f"🌟 Amazing {progress.longest_streak}-day engagement streak!",
+                    source="special_campaign",
+                )
+                if success:
+                    progress.achievements.append(long_streak_key)
+                    progress.save(update_fields=["achievements"])
+                    return True
+
+        return False

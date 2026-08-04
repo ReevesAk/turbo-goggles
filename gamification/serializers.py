@@ -1,5 +1,7 @@
 import logging
 from decimal import Decimal, InvalidOperation
+from django.core.validators import URLValidator
+from django.core.exceptions import ValidationError
 
 # Third party imports.
 from rest_framework import serializers
@@ -17,6 +19,9 @@ from .models import (
     RewardRule,
     RewardTier,
     UserGeneratedContent,
+    UGCTaskSubmission,
+    UGCTaskProgress,
+    UGCLeaderboard,
     SCHEDULE_TYPE_CHOICES,
 )
 
@@ -1558,3 +1563,230 @@ class AdminUserGeneratedContentSerializer(serializers.ModelSerializer):
         logger.info("Admin UGC task deleted: id=%s task_name=%r", task_id, task_name)
 
         return True
+
+
+# ==============================================
+#  User-Generated Content Submission Serializers
+# ==============================================
+
+
+class UGCTaskSubmissionSerializer(serializers.ModelSerializer):
+    """Serializer for UGC task submissions."""
+
+    task_name = serializers.CharField(source="task.task_name", read_only=True)
+    task_type = serializers.CharField(source="task.task_type", read_only=True)
+    reward_points = serializers.IntegerField(
+        source="task.reward_points", read_only=True
+    )
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    submitted_at_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UGCTaskSubmission
+        fields = [
+            "id",
+            "task",
+            "task_name",
+            "task_type",
+            "reward_points",
+            "media_url",
+            "caption",
+            "status",
+            "status_display",
+            "rejection_reason",
+            "submitted_at",
+            "submitted_at_display",
+            "reviewed_at",
+            "points_awarded",
+            "points_reason",
+            "ip_address",
+        ]
+        read_only_fields = [
+            "id",
+            "status",
+            "rejection_reason",
+            "submitted_at",
+            "reviewed_at",
+            "points_awarded",
+            "points_reason",
+            "status_display",
+            "submitted_at_display",
+            "ip_address",
+        ]
+
+    @extend_schema_field(serializers.CharField())
+    def get_submitted_at_display(self, obj):
+        if obj.submitted_at:
+            return obj.submitted_at.strftime("%b %d, %Y at %I:%M %p")
+        return None
+
+
+class UGCTaskSubmitSerializer(serializers.ModelSerializer):
+    """Serializer for submitting a UGC task."""
+
+    class Meta:
+        model = UGCTaskSubmission
+        fields = [
+            "task",
+            "media_url",
+            "caption",
+        ]
+
+    def validate_media_url(self, value):
+        """Validate the media URL with stronger checks."""
+        if not value:
+            raise serializers.ValidationError("Media URL is required.")
+
+        # Basic URL validation
+        validator = URLValidator()
+        try:
+            validator(value)
+        except ValidationError:
+            raise serializers.ValidationError("Invalid media URL format.")
+
+        # Enforce Cloudinary URLs
+        allowed_domains = [
+            "res.cloudinary.com",
+            "cloudinary.com",
+        ]
+
+        if not any(domain in value.lower() for domain in allowed_domains):
+            raise serializers.ValidationError(
+                f"Media URL must be from Cloudinary. Supported: {', '.join(allowed_domains)}"
+            )
+
+        # Check file extension
+        valid_extensions = [
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".webp",
+            ".mp4",
+            ".mov",
+            ".avi",
+            ".webm",
+        ]
+        if not any(value.lower().endswith(ext) for ext in valid_extensions):
+            raise serializers.ValidationError(
+                f"Invalid file type. Supported: {', '.join(valid_extensions)}"
+            )
+
+        return value
+
+    def validate(self, attrs):
+        """Cross-field validation."""
+        task = attrs.get("task")
+        user = self.context.get("request").user
+
+        # Check if task is active and available
+        if not task.is_active:
+            raise serializers.ValidationError("This task is no longer active.")
+
+        if task.is_fully_booked:
+            raise serializers.ValidationError("This task has reached its slot limit.")
+
+        if task.is_expired:
+            raise serializers.ValidationError("This task has expired.")
+
+        # Check if user already submitted (pending or approved only)
+        if UGCTaskSubmission.objects.filter(
+            user=user, task=task, status__in=["pending", "approved"]
+        ).exists():
+            raise serializers.ValidationError("You have already submitted this task.")
+
+        return attrs
+
+    def create(self, validated_data):
+        """Create a new submission and auto-approve."""
+        user = self.context.get("request").user
+        ip_address = self.context.get("ip_address")
+
+        submission, success, message = UGCTaskSubmission.auto_approve(
+            user=user,
+            task=validated_data["task"],
+            media_url=validated_data["media_url"],
+            caption=validated_data.get("caption", ""),
+            ip_address=ip_address,
+        )
+
+        if not success:
+            raise serializers.ValidationError(message)
+
+        return submission
+
+
+class UGCTaskProgressSerializer(serializers.ModelSerializer):
+    """Serializer for user's UGC task progress."""
+
+    completion_rate = serializers.SerializerMethodField()
+    next_milestone = serializers.SerializerMethodField()
+    ugc_level = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UGCTaskProgress
+        fields = [
+            "id",
+            "total_submissions",
+            "approved_submissions",
+            "rejected_submissions",
+            "current_streak",
+            "longest_streak",
+            "last_submission_date",
+            "completed_task_types",
+            "achievements",
+            "first_submission_at",
+            "completion_rate",
+            "next_milestone",
+            "ugc_level",
+        ]
+        read_only_fields = fields
+
+    @extend_schema_field(serializers.FloatField())
+    def get_completion_rate(self, obj):
+        if obj.total_submissions == 0:
+            return 0.0
+        return round((obj.approved_submissions / obj.total_submissions) * 100, 1)
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_next_milestone(self, obj):
+        milestones = [1, 5, 10, 25, 50, 100, 250, 500]
+        for milestone in milestones:
+            if obj.approved_submissions < milestone:
+                return milestone
+        return None
+
+    @extend_schema_field(serializers.CharField())
+    def get_ugc_level(self, obj):
+        from gamification.points import Points
+
+        return Points.get_ugc_level(obj.approved_submissions)
+
+
+class UGCLeaderboardSerializer(serializers.ModelSerializer):
+    """Serializer for UGC leaderboard entries."""
+
+    user_name = serializers.CharField(source="user.get_full_name", read_only=True)
+    user_email = serializers.EmailField(source="user.email", read_only=True)
+    profile_image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UGCLeaderboard
+        fields = [
+            "user",
+            "user_name",
+            "user_email",
+            "profile_image",
+            "rank",
+            "points_earned",
+            "tasks_completed",
+            "period_start",
+            "period_end",
+        ]
+        read_only_fields = fields
+
+    @extend_schema_field(serializers.URLField(allow_null=True))
+    def get_profile_image(self, obj):
+        if hasattr(obj.user, "profile_image"):
+            return obj.user.profile_image.url if obj.user.profile_image else None
+        return None

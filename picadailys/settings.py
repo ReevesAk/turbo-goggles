@@ -5,6 +5,7 @@ import sys
 import dj_database_url
 import cloudinary
 from csp.constants import NONCE
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -394,35 +395,77 @@ CELERY_BROKER_URL = REDIS_LOCATION
 if REDIS_LOCATION.startswith("rediss://"):
     CELERY_BROKER_USE_SSL = {"ssl_cert_reqs": "CERT_NONE"}
 
-from celery.schedules import crontab
-
 CELERY_BEAT_SCHEDULE = {
+    # ===============
+    # Streak Tasks
+    # ==============
     "check-streaks-daily": {
         "task": "gamification.tasks.check_and_update_streaks",
-        "schedule": crontab(hour=0, minute=5),  # 12:05 AM
+        "schedule": crontab(hour=0, minute=5),  # 12:05 AM daily
+        "description": "Check and update user streak progress",
     },
     "send-streak-reminders": {
         "task": "gamification.tasks.send_streak_reminders",
-        "schedule": crontab(hour=20, minute=0),  # 8:00 PM
+        "schedule": crontab(hour=20, minute=0),  # 8:00 PM daily
+        "description": "Send push reminders for active streaks",
     },
-    # Data retention — NDPR compliance
+    # ======================
+    # UGC Gamification Tasks
+    # ======================
+    "calculate-ugc-leaderboard": {
+        "task": "gamification.tasks.calculate_ugc_leaderboard",
+        "schedule": crontab(hour=1, minute=0),  # 1:00 AM daily
+        "description": "Recalculate UGC leaderboards for all timeframes",
+    },
+    "check-ugc-achievements": {
+        "task": "gamification.tasks.check_ugc_achievements",
+        "schedule": crontab(minute=0),  # Every hour at :00
+        "description": "Award UGC achievement bonuses to users",
+    },
+    "update-ugc-levels": {
+        "task": "gamification.tasks.update_ugc_levels",
+        "schedule": crontab(hour=2, minute=0),  # 2:00 AM daily
+        "description": "Update UGC levels based on approved submissions",
+    },
+    "cleanup-old-leaderboard-entries": {
+        "task": "gamification.tasks.cleanup_old_leaderboard_entries",
+        "schedule": crontab(hour=3, minute=0, day_of_week=0),  # Sunday 3:00 AM
+        "description": "Clean up leaderboard entries older than 30 days",
+    },
+    "sync-ugc-progress": {
+        "task": "gamification.tasks.sync_ugc_progress",
+        "schedule": crontab(hour=4, minute=0, day_of_week=0),  # Sunday 4:00 AM
+        "description": "Sync and correct UGC progress data",
+    },
+    "cleanup-rejected-submissions": {
+        "task": "gamification.tasks.cleanup_rejected_submissions",
+        "schedule": crontab(
+            hour=5, minute=0, day_of_month=1
+        ),  # 1st day of month at 5:00 AM
+        "description": "Clean up rejected submissions older than 90 days",
+    },
+    # =================================
+    #  Data Retention / NDPR Compliance
+    # =================================
     "purge-expired-otps": {
         "task": "accounts.tasks.purge_expired_otps",
-        "schedule": crontab(minute="*/30"),  # every 30 min
+        "schedule": crontab(minute="*/30"),  # every 30 minutes
+        "description": "Remove expired OTP records",
     },
     "purge-old-notifications": {
         "task": "accounts.tasks.purge_old_notifications",
         "schedule": crontab(hour=2, minute=0),  # 2:00 AM daily
+        "description": "Remove old user notifications",
     },
     "purge-old-activity-logs": {
         "task": "accounts.tasks.purge_old_activity_logs",
         "schedule": crontab(hour=2, minute=30),  # 2:30 AM daily
+        "description": "Remove old activity logs",
     },
     "purge-stale-devices": {
         "task": "accounts.tasks.purge_stale_devices",
-        "schedule": crontab(
-            hour=3, minute=0, day_of_week="sunday"
-        ),  # weekly Sunday 3 AM
+        "schedule": crontab(hour=3, minute=30, day_of_week="sunday"),  # Sunday 3:00 AM
+        "description": "Remove stale device records",
     },
 }
 
