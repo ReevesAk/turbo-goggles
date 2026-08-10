@@ -1,6 +1,6 @@
 import logging
 import os
-import datetime
+from datetime import datetime
 from decimal import Decimal
 from decouple import config as conf
 from django.db import transaction

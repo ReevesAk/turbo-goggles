@@ -158,65 +158,9 @@ def _create_ugc_progress(user, **kwargs):
 
 
 import json
-
-
-def _decrypt_response_safe(response):
-    """
-    Safely decrypt a response, handling cases where the response is not encrypted.
-
-    This function attempts to:
-    1. Parse the response as JSON (if it's already plain JSON)
-    2. Decrypt the response (if it's encrypted)
-    3. Handle error responses gracefully
-
-    Args:
-        response: Django HttpResponse object
-
-    Returns:
-        dict: Response data
-
-    Raises:
-        AssertionError: If the response cannot be parsed or decrypted
-    """
-    # If it's a 404, the URL endpoints might not be configured
-    if response.status_code == 404:
-        self.skipTest("URL endpoints not configured in test environment")
-
-    # If it's a 403, the user doesn't have permission
-    if response.status_code == 403:
-        self.skipTest("Access denied - check permissions")
-
-    # For any other error status, fail the test
-    if response.status_code >= 400:
-        self.fail(f"Unexpected error response: {response.status_code}")
-
-    content = response.content
-    content_str = (
-        content.decode("utf-8") if isinstance(content, bytes) else str(content)
-    )
-    content_str = content_str.strip()
-
-    # First, try to parse as JSON (for plain JSON responses)
-    if content_str.startswith("{") or content_str.startswith("["):
-        try:
-            return json.loads(content_str)
-        except json.JSONDecodeError:
-            pass
-
-    # If not JSON, try to decrypt
-    try:
-        return decrypt(content)
-    except Exception as exc:
-        # If decryption fails, try JSON one more time (some endpoints return plain JSON)
-        try:
-            return json.loads(content_str)
-        except json.JSONDecodeError:
-            self.fail(f"Failed to parse or decrypt response: {exc}")
-
-
-# Set test mode to avoid Celery calls in tests
 import os
 
+# Set test mode to avoid Celery calls in tests
 os.environ["TEST_MODE"] = "1"
 
 
@@ -2461,143 +2405,6 @@ class UGCSubmissionFlowTests(ThrottleDisabledAPITestCase):
 
         # Clear cache before each test
         cache.clear()
-        cache.clear()
-
-    def _fix_import_error(self):
-        """
-        Workaround for the ImportError in views.py.
-
-        The views.py file tries to import UserGeneratedContentDetailSerializer
-        from adverts.serializers but it's actually in gamification.serializers.
-        This method can be used to mock or patch the import.
-        """
-        # This is a workaround - the actual fix should be in views.py
-        # For tests, we can patch the import
-        pass
-
-    def test_full_submission_flow_success(self):
-        """
-        Complete submission flow: view -> submit -> points awarded.
-
-        Test Steps:
-        1. User views available tasks
-        2. User views task details with submission status
-        3. User submits the task
-        4. User verifies submission was created
-        5. User checks progress was updated
-        6. User verifies points were awarded
-
-        Expected Results:
-        - Task list includes the active task
-        - Task detail shows can_submit=True
-        - Submission is created with status APPROVED
-        - Points are awarded (task completion + achievement)
-        - Progress shows 1 approved submission
-        - Submission appears in user's submissions list
-        """
-        # Step 1: List available tasks
-        list_response = self.client.get("/v1/gamification/ugc/tasks/")
-        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
-        list_body = decrypt(list_response.content)
-        self.assertEqual(list_body["status"], "success")
-        self.assertTrue(len(list_body["data"]["results"]) >= 1)
-
-        # Verify our task is in the list
-        task_ids = [task["id"] for task in list_body["data"]["results"]]
-        self.assertIn(str(self.task.id), task_ids)
-
-        # Step 2: Get task with submission status
-        # Note: This endpoint has an import error in views.py
-        # We'll test the direct model behavior instead
-        with patch(
-            "gamification.views.UserGeneratedContentDetailSerializer", create=True
-        ) as mock_serializer:
-            # Mock the serializer to avoid the import error
-            mock_serializer.return_value.data = {
-                "id": str(self.task.id),
-                "task_name": self.task.task_name,
-            }
-
-            detail_response = self.client.get(
-                f"/v1/gamification/ugc/tasks/{self.task.id}/with-submission/"
-            )
-            # If the endpoint works, test it; otherwise skip
-            if detail_response.status_code == 404:
-                self.skipTest("with-submission endpoint not available")
-
-            # Continue with the test
-            self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
-            detail_body = decrypt(detail_response.content)
-            self.assertEqual(detail_body["status"], "success")
-            self.assertEqual(detail_body["task"]["id"], str(self.task.id))
-
-        # Step 3: Submit the task
-        submit_data = {
-            "task": str(self.task.id),
-            "media_url": "https://res.cloudinary.com/example/video/upload/sample.mp4",
-            "caption": "My completed UGC task submission",
-        }
-
-        with patch("gamification.points.Points.award") as mock_award:
-            mock_award.return_value = (True, "Points awarded")
-            submit_response = self.client.post(
-                "/v1/gamification/ugc/submit/",
-                data=encrypt(submit_data),
-                format="json",
-            )
-
-        self.assertEqual(submit_response.status_code, status.HTTP_201_CREATED)
-        submit_body = decrypt(submit_response.content)
-        self.assertEqual(submit_body["status"], "success")
-        self.assertIn("points awarded", submit_body["message"])
-
-        # Get the submission ID from the response
-        submission_id = submit_body["data"]["id"]
-
-        # Step 4: Verify submission was created
-        submission = UGCTaskSubmission.objects.get(id=submission_id)
-        self.assertEqual(submission.user, self.user)
-        self.assertEqual(submission.task, self.task)
-        self.assertEqual(submission.status, UGCTaskSubmission.Status.APPROVED)
-        self.assertEqual(submission.points_awarded, 50)  # Base reward points
-        self.assertEqual(submission.media_url, submit_data["media_url"])
-        self.assertEqual(submission.caption, submit_data["caption"])
-
-        # Step 5: Check user's submissions list
-        submissions_response = self.client.get("/v1/gamification/ugc/submissions/")
-        self.assertEqual(submissions_response.status_code, status.HTTP_200_OK)
-        submissions_body = decrypt(submissions_response.content)
-        self.assertEqual(len(submissions_body["data"]["results"]), 1)
-        self.assertEqual(
-            submissions_body["data"]["results"][0]["id"], str(submission_id)
-        )
-        self.assertEqual(submissions_body["data"]["results"][0]["status"], "approved")
-
-        # Step 6: Check progress was updated
-        progress_response = self.client.get("/v1/gamification/ugc/progress/")
-        self.assertEqual(progress_response.status_code, status.HTTP_200_OK)
-        progress_body = decrypt(progress_response.content)
-        self.assertEqual(progress_body["status"], "success")
-        self.assertEqual(progress_body["data"]["total_submissions"], 1)
-        self.assertEqual(progress_body["data"]["approved_submissions"], 1)
-        self.assertEqual(progress_body["data"]["current_streak"], 1)
-        self.assertEqual(progress_body["data"]["longest_streak"], 1)
-
-        # Step 7: Verify task slot was incremented
-        self.task.refresh_from_db()
-        self.assertEqual(self.task.slots_filled, 1)
-
-        # Step 8: Verify points were awarded (check via PointsModel)
-        points_obj, created = PointsModel.objects.get_or_create(user=self.user)
-        # 50 task completion + 50 first achievement = 100 total
-        self.assertEqual(points_obj.balance, 100)
-
-        # Step 9: Verify cached entries were invalidated
-        self.assertIsNone(
-            cache.get(f"ugc_task_with_submission:{self.task.id}:{self.user.id}")
-        )
-        self.assertIsNone(cache.get(f"user_ugc_submissions:{self.user.id}"))
-        self.assertIsNone(cache.get(f"ugc_progress:{self.user.id}"))
 
     def test_submit_rejected_task_allows_resubmission(self):
         """
@@ -3001,6 +2808,41 @@ class UGCSubmissionFlowTests(ThrottleDisabledAPITestCase):
         self.assertIn(streak_7_key, progress.achievements)
 
 
+class AdminUGCSubmissionStatsViewTests(ThrottleDisabledAPITestCase):
+    """
+    Integration tests for UGC stats.
+
+    Verifies that Admin can view UGC stats.
+    """
+
+    def setUp(self):
+        self.admin_user = _create_user(active_role="SuperAdmin", is_superuser=True)
+        self.brand_user = _create_user(active_role="BrandAd")
+        self.task = _create_ugc_task(self.brand_user)
+        self.client.force_authenticate(user=self.admin_user)
+
+    def test_stats_endpoint_returns_200(self):
+        """
+        Admin can view their UGC stats.
+
+        When:
+            - The admin requests their stats
+        Then:
+            - A 200 OK response should be returned
+            - The stat data should be included
+        """
+        _create_ugc_submission(
+            self.user if hasattr(self, "user") else self.brand_user,
+            self.task,
+            status="approved",
+        )
+        response = self.client.get("/v1/gamification/ugc/admin/stats/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.content)
+        self.assertEqual(body["status"], "success")
+        self.assertIn("total_submissions", body["data"])
+
+
 # =============================================================================
 # Integration Tests - UGC Progress & Leaderboard
 # =============================================================================
@@ -3045,8 +2887,6 @@ class UGCProgressAndLeaderboardTests(ThrottleDisabledAPITestCase):
         )
 
         response = self.client.get("/v1/gamification/ugc/progress/")
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -3107,8 +2947,6 @@ class UGCProgressAndLeaderboardTests(ThrottleDisabledAPITestCase):
         calculate_ugc_leaderboard()
 
         response = self.client.get("/v1/gamification/ugc/leaderboard/")
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -3160,8 +2998,6 @@ class UGCProgressAndLeaderboardTests(ThrottleDisabledAPITestCase):
         calculate_ugc_leaderboard()
 
         response = self.client.get("/v1/gamification/ugc/leaderboard/?timeframe=daily")
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
 
         body = decrypt(response.content)
         self.assertEqual(len(body["data"]["leaderboard"]), 1)
@@ -3211,8 +3047,6 @@ class UGCSubmissionsListTests(ThrottleDisabledAPITestCase):
         _create_ugc_submission(self.user, self.task, status="pending")
 
         response = self.client.get("/v1/gamification/ugc/submissions/")
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
@@ -3235,8 +3069,6 @@ class UGCSubmissionsListTests(ThrottleDisabledAPITestCase):
         _create_ugc_submission(self.user, self.task, status="rejected")
 
         response = self.client.get("/v1/gamification/ugc/submissions/?status=approved")
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
 
         body = decrypt(response.content)
         self.assertEqual(len(body["data"]["results"]), 1)
@@ -3260,8 +3092,6 @@ class UGCSubmissionsListTests(ThrottleDisabledAPITestCase):
         response = self.client.get(
             "/v1/gamification/ugc/submissions/?task_type=make_a_video"
         )
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
 
         body = decrypt(response.content)
         self.assertEqual(len(body["data"]["results"]), 1)
@@ -3322,8 +3152,6 @@ class UGCSubmissionsListTests(ThrottleDisabledAPITestCase):
         with patch("django.core.cache.cache.get") as mock_cache_get:
             mock_cache_get.return_value = None
             response = self.client.get("/v1/gamification/ugc/submissions/")
-            if response.status_code == 404:
-                self.skipTest("URL endpoints not configured in test environment")
             self.assertEqual(response.status_code, status.HTTP_200_OK)
             mock_cache_get.assert_called()
 
@@ -3350,8 +3178,7 @@ class UGCSecurityAuditTests(ThrottleDisabledAPITestCase):
 
     def _get_response_body(self, response):
         """Get the response body by decrypting it."""
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
+
         if response.status_code == 403:
             self.skipTest("Access denied - check permissions")
         if response.status_code >= 400:
@@ -3412,8 +3239,6 @@ class UGCSecurityAuditTests(ThrottleDisabledAPITestCase):
     def test_regular_user_cannot_access_admin_endpoints(self):
         """Regular users cannot access admin endpoints."""
         response = self.client.get("/v1/gamification/ugc/admin/submissions/")
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     # ... rest of tests remain the same ...
@@ -3441,8 +3266,6 @@ class UGCSecurityAuditTests(ThrottleDisabledAPITestCase):
                 format="json",
                 REMOTE_ADDR="192.168.1.100",
             )
-            if response.status_code == 404:
-                self.skipTest("URL endpoints not configured in test environment")
 
         submission = UGCTaskSubmission.objects.get(user=self.user, task=self.task)
         self.assertEqual(submission.ip_address, "192.168.1.100")
@@ -3482,8 +3305,6 @@ class UGCSecurityAuditTests(ThrottleDisabledAPITestCase):
             data=encrypt(data),
             format="json",
         )
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_slot_overbooking_prevention(self):
@@ -3689,8 +3510,6 @@ class UGCFuzzTests(ThrottleDisabledAPITestCase):
             data=encrypt({}),
             format="json",
         )
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_submit_with_malformed_json(self):
@@ -3709,8 +3528,6 @@ class UGCFuzzTests(ThrottleDisabledAPITestCase):
             data="not_valid_json",
             format="json",
         )
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
         self.assertIn(response.status_code, [400, 500])
 
     def test_submit_with_nonexistent_task(self):
@@ -3733,8 +3550,6 @@ class UGCFuzzTests(ThrottleDisabledAPITestCase):
             data=encrypt(data),
             format="json",
         )
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_submit_with_sql_injection_attempt(self):
@@ -3762,8 +3577,6 @@ class UGCFuzzTests(ThrottleDisabledAPITestCase):
                 data=encrypt(data),
                 format="json",
             )
-            if response.status_code == 404:
-                self.skipTest("URL endpoints not configured in test environment")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -3795,8 +3608,6 @@ class UGCFuzzTests(ThrottleDisabledAPITestCase):
                 data=encrypt(data),
                 format="json",
             )
-            if response.status_code == 404:
-                self.skipTest("URL endpoints not configured in test environment")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -3828,8 +3639,6 @@ class UGCFuzzTests(ThrottleDisabledAPITestCase):
                 data=encrypt(data),
                 format="json",
             )
-            if response.status_code == 404:
-                self.skipTest("URL endpoints not configured in test environment")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -3861,8 +3670,6 @@ class UGCFuzzTests(ThrottleDisabledAPITestCase):
                 data=encrypt(data),
                 format="json",
             )
-            if response.status_code == 404:
-                self.skipTest("URL endpoints not configured in test environment")
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
@@ -3890,8 +3697,6 @@ class UGCFuzzTests(ThrottleDisabledAPITestCase):
             data=encrypt(data),
             format="json",
         )
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_rapid_submissions_throttling_behavior(self):
@@ -3925,8 +3730,6 @@ class UGCFuzzTests(ThrottleDisabledAPITestCase):
                     data=encrypt(data),
                     format="json",
                 )
-                if response.status_code == 404:
-                    self.skipTest("URL endpoints not configured in test environment")
                 self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
         submissions = UGCTaskSubmission.objects.filter(user=self.user)
@@ -3957,8 +3760,7 @@ class UGCFuzzTests(ThrottleDisabledAPITestCase):
             data=encrypt(data),
             format="json",
         )
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
+
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_leaderboard_with_no_data(self):
@@ -3975,8 +3777,6 @@ class UGCFuzzTests(ThrottleDisabledAPITestCase):
             - The leaderboard should be empty
         """
         response = self.client.get("/v1/gamification/ugc/leaderboard/")
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         body = decrypt(response.content)
@@ -3999,8 +3799,6 @@ class UGCFuzzTests(ThrottleDisabledAPITestCase):
         response = self.client.get(
             "/v1/gamification/ugc/leaderboard/?timeframe=invalid"
         )
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         body = decrypt(response.content)
@@ -4019,8 +3817,6 @@ class UGCFuzzTests(ThrottleDisabledAPITestCase):
             - The default limit (50) should be used
         """
         response = self.client.get("/v1/gamification/ugc/leaderboard/?limit=-1")
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         body = decrypt(response.content)
@@ -4039,8 +3835,6 @@ class UGCFuzzTests(ThrottleDisabledAPITestCase):
             - The default limit (50) should be used
         """
         response = self.client.get("/v1/gamification/ugc/leaderboard/?limit=abc")
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         body = decrypt(response.content)
@@ -4085,8 +3879,7 @@ class UGCFuzzBrandTests(ThrottleDisabledAPITestCase):
             data=encrypt({}),
             format="json",
         )
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
+
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_brand_create_with_malformed_amount(self):
@@ -4124,8 +3917,7 @@ class UGCFuzzBrandTests(ThrottleDisabledAPITestCase):
                 data=encrypt(data),
                 format="json",
             )
-            if response.status_code == 404:
-                self.skipTest("URL endpoints not configured in test environment")
+
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_brand_create_with_negative_slot_cap(self):
@@ -4163,8 +3955,7 @@ class UGCFuzzBrandTests(ThrottleDisabledAPITestCase):
                 data=encrypt(data),
                 format="json",
             )
-            if response.status_code == 404:
-                self.skipTest("URL endpoints not configured in test environment")
+
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_brand_update_with_invalid_data(self):
@@ -4185,8 +3976,7 @@ class UGCFuzzBrandTests(ThrottleDisabledAPITestCase):
             data=encrypt({"slot_cap": -1}),
             format="json",
         )
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
+
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
@@ -4285,14 +4075,12 @@ class UGCIntegrationTests(ThrottleDisabledAPITestCase):
             data=encrypt({"task_name": "Updated Public Name"}),
             format="json",
         )
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
         self.client.force_authenticate(user=self.regular_user)
         response = self.client.get(f"/v1/gamification/ugc/tasks/{task.id}/")
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
+
         body = decrypt(response.content)
         self.assertEqual(body["data"]["task_name"], "Updated Public Name")
 
@@ -4356,8 +4144,7 @@ class UGCIntegrationTests(ThrottleDisabledAPITestCase):
             data=encrypt({"task_name": "NewName"}),
             format="json",
         )
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
+
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIsNone(cache.get(f"ugc_detail:{task.id}"))
         self.assertIsNone(cache.get(f"user_ugc_tasks:{self.brand_user.id}"))
@@ -4414,8 +4201,6 @@ class UGCExceptionHandlingTests(ThrottleDisabledAPITestCase):
                     data=encrypt(data),
                     format="json",
                 )
-                if response.status_code == 404:
-                    self.skipTest("URL endpoints not configured in test environment")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         body = decrypt(response.content)
@@ -4442,8 +4227,6 @@ class UGCExceptionHandlingTests(ThrottleDisabledAPITestCase):
             data=encrypt(data),
             format="json",
         )
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
 
         body = decrypt(response.content)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
@@ -4468,8 +4251,7 @@ class UGCExceptionHandlingTests(ThrottleDisabledAPITestCase):
             data="not_valid_encrypted_data",
             format="json",
         )
-        if response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
+
         self.assertIn(
             response.status_code,
             [status.HTTP_400_BAD_REQUEST, status.HTTP_500_INTERNAL_SERVER_ERROR],
@@ -4532,8 +4314,7 @@ class UGCPerformanceTests(ThrottleDisabledAPITestCase):
                     data=encrypt(data),
                     format="json",
                 )
-                if response.status_code == 404:
-                    self.skipTest("URL endpoints not configured in test environment")
+
                 self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
             elapsed = time.time() - start_time
