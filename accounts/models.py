@@ -68,7 +68,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     phone_number = models.CharField(max_length=20, unique=True, null=True)
     email = models.CharField(max_length=80, unique=True, null=True, blank=True)
     country = models.CharField(max_length=155, blank=False)
-    referral_code = models.CharField(max_length=50, null=True, blank=True)
+    referral_code = models.CharField(
+        max_length=50, null=True, blank=True, unique=True, db_index=True
+    )
     state = models.CharField(max_length=155, blank=False)
     city = models.CharField(max_length=155, blank=False)
     profile_img_url = models.CharField(max_length=255, null=True)
@@ -81,6 +83,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_verified = models.BooleanField(default=False)
     is_member = models.BooleanField(default=False)
     has_done_survey = models.BooleanField(default=False)
+    referral_count = models.PositiveIntegerField(default=0)
     total_points = models.IntegerField(default=0, null=True)
     points_naira_value = models.DecimalField(
         max_digits=10,

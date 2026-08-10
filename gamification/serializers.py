@@ -16,6 +16,7 @@ from .models import (
     UserStreak,
     RewardRule,
     RewardTier,
+    ReferralTask,
     UserGeneratedContent,
     SCHEDULE_TYPE_CHOICES,
 )
@@ -563,6 +564,115 @@ class InAppTaskUpdateSerializer(serializers.ModelSerializer):
             "is_paused",
             "is_cancelled",
         ]
+
+
+class ReferralTaskCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReferralTask
+        fields = ["name", "description", "mode", "target_referral_count", "reward_points"]
+
+    def validate(self, data):
+        if data.get("target_referral_count", 0) < 1:
+            raise serializers.ValidationError(
+                "target_referral_count must be at least 1."
+            )
+
+        mode = data.get("mode")
+        if mode == "gamification" and not data.get("reward_points"):
+            raise serializers.ValidationError(
+                "reward_points is required for gamification mode tasks."
+            )
+        if mode == "walk_to_earn_gate" and data.get("reward_points"):
+            raise serializers.ValidationError(
+                "reward_points is not used for walk_to_earn_gate mode tasks — leave it unset."
+            )
+
+        return data
+
+
+class ReferralTaskSerializer(serializers.ModelSerializer):
+    """Full read serializer for admin task management."""
+
+    participant_count = serializers.SerializerMethodField()
+    completed_count = serializers.SerializerMethodField()
+    total_points_distributed = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ReferralTask
+        fields = [
+            "id",
+            "name",
+            "description",
+            "mode",
+            "target_referral_count",
+            "reward_points",
+            "is_active",
+            "is_paused",
+            "is_cancelled",
+            "task_status",
+            "participant_count",
+            "completed_count",
+            "total_points_distributed",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "task_status",
+            "participant_count",
+            "completed_count",
+            "total_points_distributed",
+            "created_at",
+            "updated_at",
+        ]
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_participant_count(self, obj):
+        if obj.mode != "gamification":
+            return 0
+        return obj.user_progress.count()
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_completed_count(self, obj):
+        if obj.mode != "gamification":
+            return 0
+        return obj.user_progress.filter(completed=True).count()
+
+    @extend_schema_field(serializers.IntegerField())
+    def get_total_points_distributed(self, obj):
+        if obj.mode != "gamification":
+            return 0
+        completed = obj.user_progress.filter(reward_issued=True).count()
+        return completed * obj.reward_points
+
+
+class ReferralTaskUpdateSerializer(serializers.ModelSerializer):
+    """Admin PATCH — allows editing, pausing, or cancelling a task. `mode` is
+    intentionally not patchable; cancel and recreate instead."""
+
+    class Meta:
+        model = ReferralTask
+        fields = [
+            "name",
+            "description",
+            "target_referral_count",
+            "reward_points",
+            "is_active",
+            "is_paused",
+            "is_cancelled",
+        ]
+
+
+class ReferralTaskProgressEntrySerializer(serializers.Serializer):
+    """Member-facing progress entry for a single active gamification-mode task."""
+
+    task_id = serializers.UUIDField()
+    name = serializers.CharField()
+    description = serializers.CharField()
+    target_referral_count = serializers.IntegerField()
+    reward_points = serializers.IntegerField()
+    completed = serializers.BooleanField()
+    reward_issued = serializers.BooleanField()
 
 
 class RewardTierSerializer(serializers.ModelSerializer):

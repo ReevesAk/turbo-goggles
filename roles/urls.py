@@ -74,6 +74,10 @@ from .tasks import (
     ListInAppTasksView,
     InAppTaskDetailView,
     UpdateInAppTaskView,
+    CreateReferralTaskView,
+    ListReferralTasksView,
+    ReferralTaskDetailView,
+    UpdateReferralTaskView,
     CreateRewardRuleView,
     ListRewardRulesView,
     RewardRuleDetailView,
@@ -266,6 +270,25 @@ urlpatterns = [
         "tasks/in-app/<uuid:task_id>/update/",
         UpdateInAppTaskView.as_view(),
         name="in_app_task_update",
+    ),
+    # Referral task admin endpoints
+    path(
+        "tasks/referral/", ListReferralTasksView.as_view(), name="referral_task_list"
+    ),
+    path(
+        "tasks/referral/create/",
+        CreateReferralTaskView.as_view(),
+        name="referral_task_create",
+    ),
+    path(
+        "tasks/referral/<uuid:task_id>/",
+        ReferralTaskDetailView.as_view(),
+        name="referral_task_detail",
+    ),
+    path(
+        "tasks/referral/<uuid:task_id>/update/",
+        UpdateReferralTaskView.as_view(),
+        name="referral_task_update",
     ),
     # PicaPoints reward rule admin endpoints
     path(

@@ -441,6 +441,129 @@ class RewardTier(models.Model):
         return True
 
 
+class Referral(models.Model):
+    """
+    Append-only ledger row for a single successful referral event, created
+    once when a new user registers with another user's referral_code.
+    """
+
+    referrer = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="referrals_made"
+    )
+    referred = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="referred_by"
+    )
+    referral_code_used = models.CharField(max_length=50)
+    # False if the referrer failed Points.check_credibility() at record time —
+    # the referral is still logged, but referrer.referral_count was not
+    # incremented and no ReferralTask progress was advanced.
+    counted = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["referrer", "created_at"], name="referral_referrer_date_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.referrer.email} referred {self.referred.email}"
+
+
+class ReferralTask(models.Model):
+    """
+    Admin-configured referral task. Two modes, both driven by the referrer's
+    cumulative accounts.User.referral_count:
+      - "gamification": referrer earns reward_points on hitting target_referral_count.
+      - "walk_to_earn_gate": a global prerequisite — members need
+        target_referral_count referrals before JoinCampaignView lets them in.
+        Only one walk_to_earn_gate task is ever effectively active at a time;
+        activating a new one auto-deactivates the previous (see save()).
+    """
+
+    MODE_CHOICES = (
+        ("gamification", "Gamification"),
+        ("walk_to_earn_gate", "Walk To Earn Gate"),
+    )
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    mode = models.CharField(max_length=20, choices=MODE_CHOICES)
+    target_referral_count = models.PositiveIntegerField()
+    # Ignored/must be 0 for walk_to_earn_gate mode — see ReferralTaskCreateSerializer.
+    reward_points = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    is_paused = models.BooleanField(default=False)
+    is_cancelled = models.BooleanField(default=False)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="referral_tasks_created",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["mode", "is_active"], name="referraltask_mode_active_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.mode}, target={self.target_referral_count})"
+
+    @property
+    def task_status(self):
+        if self.is_cancelled:
+            return "cancelled"
+        if self.is_active and not self.is_paused:
+            return "active"
+        return "inactive"
+
+    @property
+    def is_effectively_active(self):
+        return self.is_active and not self.is_paused and not self.is_cancelled
+
+    def save(self, *args, **kwargs):
+        becomes_active_gate = (
+            self.mode == "walk_to_earn_gate" and self.is_effectively_active
+        )
+        super().save(*args, **kwargs)
+        if becomes_active_gate:
+            ReferralTask.objects.filter(
+                mode="walk_to_earn_gate", is_active=True
+            ).exclude(pk=self.pk).update(is_active=False)
+
+
+class UserReferralTaskProgress(models.Model):
+    """
+    Per-user progress on a "gamification"-mode ReferralTask. Rows are created
+    lazily the moment a referrer's count first meets the task's target —
+    there's no explicit "join" step for this task type. walk_to_earn_gate
+    tasks never get progress rows; gate checks are a live count comparison.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="referral_task_progress"
+    )
+    task = models.ForeignKey(
+        ReferralTask, on_delete=models.CASCADE, related_name="user_progress"
+    )
+    referral_count_at_completion = models.PositiveIntegerField(null=True, blank=True)
+    completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    reward_issued = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("user", "task")
+
+    def __str__(self):
+        return f"{self.user.email} | {self.task.name} | completed={self.completed}"
+
+
 class UserGeneratedContent(models.Model):
     """
     Model representing user-generated content tasks.

@@ -10,6 +10,7 @@ from .views import (
     StreakLeaderboardView,
     MyStreakHistoryView,
     GetMemberPointsSummary,
+    MyReferralStatusView,
     PointsLeaderboardView,
     RedeemPointsToWallet,
     UGCListView,
@@ -93,6 +94,14 @@ urlpatterns = [
     path("leaderboard/", PointsLeaderboardView.as_view(), name="points-leaderboard"),
     path(
         "redeem-points/", RedeemPointsToWallet.as_view(), name="redeem-points-to-wallet"
+    ),
+    # ==========================================
+    # Referral Endpoints
+    # ==========================================
+    path(
+        "referrals/my-status/",
+        MyReferralStatusView.as_view(),
+        name="referral-my-status",
     ),
     # ==========================================
     # User Generated Content (UGC) Endpoints

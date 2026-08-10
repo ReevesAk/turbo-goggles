@@ -32,7 +32,7 @@ from security import encrypt
 from permissions import IsAuthenticatedOrGuestWithValidId
 from decimal import Decimal
 from django.db import transaction
-from accounts.models import WelcomeBonusAward, WelcomeBonusCounter, Rewards
+from accounts.models import WelcomeBonusAward, WelcomeBonusCounter
 from banking.helpers import generate_transaction_sms
 from commons import Messaging
 from user_profile.fcm import send_push_to_user
@@ -360,16 +360,6 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                                     )
                                     counter.awarded_count = counter.awarded_count + 1
                                     counter.save()
-
-                                    rewards, _ = Rewards.objects.get_or_create(
-                                        user=user
-                                    )
-                                    try:
-                                        current = Decimal(str(rewards.balance))
-                                    except Exception:
-                                        current = Decimal("0.00")
-                                    rewards.balance = current + Decimal("500.00")
-                                    rewards.save()
 
                                     try:
                                         user.welcome_bonus = 500
