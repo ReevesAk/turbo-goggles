@@ -2461,8 +2461,8 @@ class AdminUGCSubmissionStatsView(generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         today = timezone.now().date()
-        today_start = timezone.make_aware(datetime.combine(today, datetime.min.time()))
-        today_end = timezone.make_aware(datetime.combine(today, datetime.max.time()))
+        today_start = datetime.combine(today, datetime.min.time())
+        today_end = datetime.combine(today, datetime.max.time())
 
         total = UGCTaskSubmission.objects.count()
 
