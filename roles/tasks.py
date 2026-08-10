@@ -33,6 +33,9 @@ from gamification.serializers import (
     RewardRuleUpdateSerializer,
     RewardTierCreateSerializer,
     RewardTierUpdateSerializer,
+    ReferralTaskCreateSerializer,
+    ReferralTaskSerializer,
+    ReferralTaskUpdateSerializer,
 )
 from accounts.models import User, UserNotification
 from gamification.models import (
@@ -41,6 +44,8 @@ from gamification.models import (
     StreakChallenge,
     RewardRule,
     RewardTier,
+    ReferralTask,
+    UserReferralTaskProgress,
 )
 from permissions import IsTaskAdminOrSuperAdmin, IsAdAdminOrSuperAdmin
 from security import encrypt, decrypt
@@ -561,6 +566,241 @@ class UpdateInAppTaskView(generics.GenericAPIView):
                     "status": "success",
                     "message": "Task updated successfully.",
                     "data": InAppTaskSerializer(task).data,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="[Admin] Create a referral task",
+    tags=["Tasks"],
+    description=(
+        "Creates a referral task. mode='gamification' rewards the referrer with "
+        "reward_points on hitting target_referral_count. mode='walk_to_earn_gate' "
+        "sets a global Walk-to-Earn prerequisite — activating one automatically "
+        "deactivates any previously active gate task."
+    ),
+    request=ReferralTaskCreateSerializer,
+    responses={
+        201: inline_serializer(
+            "CreateReferralTaskResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "CreateReferralTaskError",
+            fields={"status": s.CharField(), "errors": s.DictField()},
+        ),
+    },
+)
+class CreateReferralTaskView(generics.GenericAPIView):
+    """POST /v1/roles/tasks/referral/create/ — create a new referral task."""
+
+    permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
+    serializer_class = ReferralTaskCreateSerializer
+
+    def post(self, request):
+        payload = decrypt(request.data)
+        serializer = ReferralTaskCreateSerializer(data=payload)
+        if not serializer.is_valid():
+            return Response(
+                data=encrypt({"status": "fail", "errors": serializer.errors}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        task = serializer.save(created_by=request.user)
+        logger.info("Referral task '%s' created by %s", task.name, request.user.email)
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Referral task created successfully.",
+                    "data": ReferralTaskSerializer(task).data,
+                }
+            ),
+            status=status.HTTP_201_CREATED,
+        )
+
+
+@extend_schema(
+    summary="[Admin] List referral tasks with optional status/mode filter",
+    tags=["Tasks"],
+    description="Returns all referral tasks. Optionally filter by status: active, inactive, or cancelled, and/or by mode: gamification or walk_to_earn_gate.",
+    parameters=[
+        OpenApiParameter(
+            name="status",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="Filter by task status: active, inactive, or cancelled",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="mode",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="Filter by task mode: gamification or walk_to_earn_gate",
+            required=False,
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "ListReferralTasksResponse",
+            fields={
+                "status": s.CharField(),
+                "total": s.IntegerField(),
+                "data": s.ListField(),
+            },
+        ),
+    },
+)
+class ListReferralTasksView(generics.GenericAPIView):
+    """GET /v1/roles/tasks/referral/?status=active|inactive|cancelled&mode=gamification|walk_to_earn_gate"""
+
+    permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
+
+    def get(self, request):
+        status_filter = request.query_params.get("status")
+        mode_filter = request.query_params.get("mode")
+
+        qs = ReferralTask.objects.all().order_by("-created_at")
+
+        if status_filter == "active":
+            qs = qs.filter(is_active=True, is_paused=False, is_cancelled=False)
+        elif status_filter == "inactive":
+            qs = qs.exclude(is_cancelled=True).exclude(
+                is_active=True, is_paused=False
+            )
+        elif status_filter == "cancelled":
+            qs = qs.filter(is_cancelled=True)
+
+        if mode_filter in ("gamification", "walk_to_earn_gate"):
+            qs = qs.filter(mode=mode_filter)
+
+        data = ReferralTaskSerializer(qs, many=True).data
+        return Response(
+            data=encrypt({"status": "success", "total": qs.count(), "data": data}),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="[Admin] Get a single referral task with stats",
+    tags=["Tasks"],
+    description="Retrieves full details for a specific referral task, including total rewards distributed and participant count.",
+    responses={
+        200: inline_serializer(
+            "ReferralTaskDetailResponse",
+            fields={
+                "status": s.CharField(),
+                "stats": s.DictField(),
+                "data": s.DictField(),
+            },
+        ),
+        404: inline_serializer(
+            "ReferralTaskDetailNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class ReferralTaskDetailView(generics.GenericAPIView):
+    """GET /v1/roles/tasks/referral/<task_id>/ — retrieve a single referral task with stats."""
+
+    permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
+
+    def get(self, request, task_id):
+        try:
+            task = ReferralTask.objects.get(id=task_id)
+        except ReferralTask.DoesNotExist:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Task not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if task.mode == "gamification":
+            participants = UserReferralTaskProgress.objects.filter(task=task).count()
+            completed_count = UserReferralTaskProgress.objects.filter(
+                task=task, reward_issued=True
+            ).count()
+            total_rewards_distributed = completed_count * task.reward_points
+        else:
+            participants = 0
+            total_rewards_distributed = 0
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "stats": {
+                        "total_rewards_distributed": total_rewards_distributed,
+                        "participants": participants,
+                    },
+                    "data": ReferralTaskSerializer(task).data,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="[Admin] Update or cancel a referral task",
+    tags=["Tasks"],
+    description="Partially updates a referral task. Can be used to edit fields, pause, or cancel the task. Activating a walk_to_earn_gate-mode task automatically deactivates any previously active gate task.",
+    request=ReferralTaskUpdateSerializer,
+    responses={
+        200: inline_serializer(
+            "UpdateReferralTaskResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "UpdateReferralTaskError",
+            fields={"status": s.CharField(), "errors": s.DictField()},
+        ),
+        404: inline_serializer(
+            "UpdateReferralTaskNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class UpdateReferralTaskView(generics.GenericAPIView):
+    """PATCH /v1/roles/tasks/referral/<task_id>/update/ — edit, pause, or cancel a task."""
+
+    permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
+
+    def patch(self, request, task_id):
+        try:
+            task = ReferralTask.objects.get(id=task_id)
+        except ReferralTask.DoesNotExist:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Task not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        payload = decrypt(request.data)
+        serializer = ReferralTaskUpdateSerializer(task, data=payload, partial=True)
+        if not serializer.is_valid():
+            return Response(
+                data=encrypt({"status": "fail", "errors": serializer.errors}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer.save()
+        logger.info("Referral task '%s' updated by %s", task.name, request.user.email)
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Task updated successfully.",
+                    "data": ReferralTaskSerializer(task).data,
                 }
             ),
             status=status.HTTP_200_OK,

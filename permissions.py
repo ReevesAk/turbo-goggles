@@ -88,6 +88,37 @@ class HasCompletedSurvey(permissions.BasePermission):
         )
 
 
+class HasMetReferralRequirement(permissions.BasePermission):
+    """
+    Global Walk-to-Earn referral gate. No-op (always allows) if no
+    walk_to_earn_gate-mode ReferralTask is currently active — the feature is
+    off by default until an admin turns a gate on.
+    """
+
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            raise PermissionDenied(
+                encrypt("Authentication is required to access this resource.")
+            )
+
+        from gamification.referrals import Referrals
+
+        gate = Referrals.get_active_gate()
+        if gate is None:
+            return True
+
+        referred_count = request.user.referral_count or 0
+        if referred_count >= gate.target_referral_count:
+            return True
+
+        raise PermissionDenied(
+            encrypt(
+                f"Refer {gate.target_referral_count} friends to unlock Walk-to-Earn "
+                f"campaigns. You have {referred_count}/{gate.target_referral_count}."
+            )
+        )
+
+
 class VasPermission(permissions.BasePermission):
     def has_permission(self, request, view):
         # Required types.

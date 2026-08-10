@@ -121,7 +121,6 @@ class UserModelTests(APITestCase):
 
 @patch("accounts.views.Messaging")
 @patch("accounts.views.Points")
-@patch("accounts.views.NextBee")
 class RegisterEndpointTests(APITestCase):
     url = "/v1/accounts/register"
 
@@ -140,13 +139,12 @@ class RegisterEndpointTests(APITestCase):
             country="NG",
             state="Lagos",
             city="Ikeja",
+            consent_given=True,
         )
         data.update(overrides)
         return _make_payload(**data)
 
-    def test_register_duplicate_email_returns_400(
-        self, mock_nextbee, mock_points, mock_msg
-    ):
+    def test_register_duplicate_email_returns_400(self, mock_points, mock_msg):
         _create_user(email="newuser@example.com", phone_number="2348099999999")
 
         response = self.client.post(
@@ -160,9 +158,7 @@ class RegisterEndpointTests(APITestCase):
         self.assertEqual(body["status"], "fail")
         self.assertIn("email", body["message"].lower())
 
-    def test_register_duplicate_phone_returns_400(
-        self, mock_nextbee, mock_points, mock_msg
-    ):
+    def test_register_duplicate_phone_returns_400(self, mock_points, mock_msg):
         _create_user(phone_number="2348011111111", email="other@example.com")
 
         response = self.client.post(
@@ -176,9 +172,7 @@ class RegisterEndpointTests(APITestCase):
         self.assertEqual(body["status"], "fail")
         self.assertIn("phone", body["message"].lower())
 
-    def test_register_password_mismatch_returns_400(
-        self, mock_nextbee, mock_points, mock_msg
-    ):
+    def test_register_password_mismatch_returns_400(self, mock_points, mock_msg):
         response = self.client.post(
             self.url,
             data=self._valid_payload(password2="WrongPass999!"),
@@ -189,9 +183,7 @@ class RegisterEndpointTests(APITestCase):
         body = decrypt(response.data)
         self.assertEqual(body["status"], "fail")
 
-    def test_register_success_creates_user(self, mock_nextbee, mock_points, mock_msg):
-        mock_points.determine.return_value = 0
-
+    def test_register_success_creates_user(self, mock_points, mock_msg):
         response = self.client.post(
             self.url,
             data=self._valid_payload(),
@@ -209,6 +201,50 @@ class RegisterEndpointTests(APITestCase):
         self.assertTrue(
             DeviceId.objects.filter(user=user, device_id="device-abc-123456").exists()
         )
+        self.assertTrue(user.referral_code)
+
+    def test_register_with_unknown_referred_by_code_returns_400(
+        self, mock_points, mock_msg
+    ):
+        response = self.client.post(
+            self.url,
+            data=self._valid_payload(referred_by_code="DOESNOTEXIST"),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        body = decrypt(response.data)
+        self.assertEqual(body["status"], "fail")
+        self.assertIn("referral code", body["message"].lower())
+        self.assertFalse(User.objects.filter(email="newuser@example.com").exists())
+
+    def test_register_with_valid_referred_by_code_records_referral(
+        self, mock_points, mock_msg
+    ):
+        from gamification.models import Referral
+
+        referrer = _create_user(
+            email="referrer@example.com",
+            phone_number="2348022222222",
+            is_verified=True,
+        )
+        referrer.referral_code = "REFCODE1"
+        referrer.save(update_fields=["referral_code"])
+
+        response = self.client.post(
+            self.url,
+            data=self._valid_payload(referred_by_code="REFCODE1"),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        new_user = User.objects.get(email="newuser@example.com")
+        referral = Referral.objects.get(referred=new_user)
+        self.assertEqual(referral.referrer, referrer)
+        self.assertTrue(referral.counted)
+
+        referrer.refresh_from_db()
+        self.assertEqual(referrer.referral_count, 1)
 
 
 # ---------------------------------------------------------------------------

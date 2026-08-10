@@ -22,7 +22,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     device_id = serializers.CharField(max_length=68, min_length=10, write_only=True)
     device_name = serializers.CharField(max_length=68, min_length=10, write_only=True)
     device_os = serializers.CharField(max_length=68, min_length=10, write_only=True)
-    referral_code = serializers.CharField(
+    referred_by_code = serializers.CharField(
         max_length=50, min_length=3, write_only=True, required=False, allow_blank=True
     )
     consent_given = serializers.BooleanField(write_only=True)
@@ -40,7 +40,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             "phone_number",
             "password",
             "password2",
-            "referral_code",
+            "referred_by_code",
             "profile_img_url",
             "consent_given",
         ]
