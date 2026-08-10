@@ -83,6 +83,8 @@ class StepCampaignSerializer(serializers.ModelSerializer):
             "is_campaign_active",
             "status",
             "time_remaining",
+            "target_gender",
+            "target_age_bracket",
         ]
         read_only_fields = ["created_by", "created_at"]
 
@@ -433,6 +435,8 @@ class InAppTaskCreateSerializer(serializers.ModelSerializer):
             "participant_cap",
             "schedule_type",
             "scheduled_start_time",
+            "target_min_tier",
+            "target_state",
         ]
 
     def validate(self, data):
@@ -490,6 +494,8 @@ class InAppTaskSerializer(serializers.ModelSerializer):
             "days_remaining",
             "schedule_type",
             "scheduled_start_time",
+            "target_min_tier",
+            "target_state",
             "is_active",
             "is_paused",
             "is_cancelled",
@@ -560,6 +566,8 @@ class InAppTaskUpdateSerializer(serializers.ModelSerializer):
             "reward_points",
             "reminder_time",
             "participant_cap",
+            "target_min_tier",
+            "target_state",
             "is_active",
             "is_paused",
             "is_cancelled",
@@ -569,7 +577,15 @@ class InAppTaskUpdateSerializer(serializers.ModelSerializer):
 class ReferralTaskCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = ReferralTask
-        fields = ["name", "description", "mode", "target_referral_count", "reward_points"]
+        fields = [
+            "name",
+            "description",
+            "mode",
+            "target_referral_count",
+            "reward_points",
+            "target_min_tier",
+            "target_state",
+        ]
 
     def validate(self, data):
         if data.get("target_referral_count", 0) < 1:
@@ -606,6 +622,8 @@ class ReferralTaskSerializer(serializers.ModelSerializer):
             "mode",
             "target_referral_count",
             "reward_points",
+            "target_min_tier",
+            "target_state",
             "is_active",
             "is_paused",
             "is_cancelled",
@@ -657,6 +675,8 @@ class ReferralTaskUpdateSerializer(serializers.ModelSerializer):
             "description",
             "target_referral_count",
             "reward_points",
+            "target_min_tier",
+            "target_state",
             "is_active",
             "is_paused",
             "is_cancelled",
@@ -700,6 +720,8 @@ class RewardRuleSerializer(serializers.ModelSerializer):
             "one_time_only",
             "monthly_cap_points",
             "monthly_cap_count",
+            "target_min_tier",
+            "target_state",
             "tiers",
             "created_at",
             "updated_at",
@@ -720,6 +742,8 @@ class RewardRuleCreateSerializer(serializers.ModelSerializer):
             "one_time_only",
             "monthly_cap_points",
             "monthly_cap_count",
+            "target_min_tier",
+            "target_state",
         ]
 
     def validate_source(self, value):
@@ -742,6 +766,8 @@ class RewardRuleUpdateSerializer(serializers.ModelSerializer):
             "one_time_only",
             "monthly_cap_points",
             "monthly_cap_count",
+            "target_min_tier",
+            "target_state",
         ]
 
 

@@ -272,9 +272,7 @@ urlpatterns = [
         name="in_app_task_update",
     ),
     # Referral task admin endpoints
-    path(
-        "tasks/referral/", ListReferralTasksView.as_view(), name="referral_task_list"
-    ),
+    path("tasks/referral/", ListReferralTasksView.as_view(), name="referral_task_list"),
     path(
         "tasks/referral/create/",
         CreateReferralTaskView.as_view(),
