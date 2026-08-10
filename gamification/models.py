@@ -9,6 +9,7 @@ from django.utils import timezone
 from accounts.models import User
 from django.utils.translation import gettext_lazy as _
 from adverts.pricing import compute_cost_per_engagement
+from user_profile.choices import LEVELS
 
 # Kept in sync with TIER_VALUES/MIN_POINTS_REQUIRED in gamification/points.py
 # by hand - points.py imports from this module, so it can't be imported back.
@@ -146,6 +147,28 @@ SCHEDULE_TYPE_CHOICES = (
     ("yearly", "Yearly"),
 )
 
+# Push-notification targeting choices, shared across the task/campaign models
+# below. Values match UserGeneratedContent.Gender/Demography further down
+# this file, and MemberSurvey.sex/age_bracket (user_profile/models.py) once
+# normalized — see gamification/eligibility.py.
+TARGET_GENDER_CHOICES = (
+    ("male", "Male"),
+    ("female", "Female"),
+    ("all", "All"),
+)
+
+TARGET_AGE_BRACKET_CHOICES = (
+    ("18 - 25", "18 - 25"),
+    ("26 - 35", "26 - 35"),
+    ("36 - 45", "36 - 45"),
+    ("46+", "46+"),
+)
+
+# Tier order for "notify at or above this tier" targeting - derived from the
+# canonical user_profile.choices.LEVELS list (also used by accounts.models.User
+# .update_level and gamification/points.py's TIER_VALUES, kept in sync by hand).
+TARGET_TIER_CHOICES = tuple((lvl["title"], lvl["title"]) for lvl in LEVELS)
+
 
 class PointConfig(models.Model):
     key = models.CharField(max_length=50, unique=True)
@@ -185,6 +208,21 @@ class StreakChallenge(models.Model):
     scheduled_start_time = models.TimeField(null=True, blank=True)
     # Participant cap (e.g. "600k participant" shown on task cards)
     participant_cap = models.PositiveIntegerField(null=True, blank=True)
+    # Push-notification targeting (optional). Blank means notify every
+    # has_done_survey member, same as today.
+    target_min_tier = models.CharField(
+        max_length=20,
+        choices=TARGET_TIER_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Only notify members at or above this engagement tier.",
+    )
+    target_state = models.CharField(
+        max_length=155,
+        null=True,
+        blank=True,
+        help_text="Only notify members in this state (mainly relevant for website_visit/store_visit streak types).",
+    )
     created_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -299,6 +337,22 @@ class StepCampaignModel(models.Model):
         User, on_delete=models.SET_NULL, null=True, related_name="campaigns_created"
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    # Push-notification targeting (optional). Blank means notify every
+    # has_done_survey member, same as today.
+    target_gender = models.CharField(
+        max_length=10,
+        choices=TARGET_GENDER_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Only notify members of this gender.",
+    )
+    target_age_bracket = models.CharField(
+        max_length=20,
+        choices=TARGET_AGE_BRACKET_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Only notify members in this age bracket.",
+    )
 
     def __str__(self):
         return self.name
@@ -404,6 +458,24 @@ class RewardRule(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # Push-notification targeting (optional) for the "new mission available"
+    # announcement sent when this rule is created. Blank means notify every
+    # has_done_survey member. For source="kyc_upgrade" the eligibility check
+    # additionally excludes already-verified members automatically, on top of
+    # whatever's set here - see gamification/eligibility.py.
+    target_min_tier = models.CharField(
+        max_length=20,
+        choices=TARGET_TIER_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Only notify members at or above this engagement tier.",
+    )
+    target_state = models.CharField(
+        max_length=155,
+        null=True,
+        blank=True,
+        help_text="Only notify members in this state.",
+    )
 
     def __str__(self):
         return f"{self.label} ({self.source})"
@@ -462,7 +534,9 @@ class Referral(models.Model):
 
     class Meta:
         indexes = [
-            models.Index(fields=["referrer", "created_at"], name="referral_referrer_date_idx"),
+            models.Index(
+                fields=["referrer", "created_at"], name="referral_referrer_date_idx"
+            ),
         ]
 
     def __str__(self):
@@ -503,10 +577,28 @@ class ReferralTask(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # Push-notification targeting (optional). Only used for mode="gamification"
+    # - a walk_to_earn_gate task is a silent prerequisite, not an announcement,
+    # so no push is ever sent for it regardless of these fields.
+    target_min_tier = models.CharField(
+        max_length=20,
+        choices=TARGET_TIER_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Only notify members at or above this engagement tier.",
+    )
+    target_state = models.CharField(
+        max_length=155,
+        null=True,
+        blank=True,
+        help_text="Only notify members in this state.",
+    )
 
     class Meta:
         indexes = [
-            models.Index(fields=["mode", "is_active"], name="referraltask_mode_active_idx"),
+            models.Index(
+                fields=["mode", "is_active"], name="referraltask_mode_active_idx"
+            ),
         ]
 
     def __str__(self):

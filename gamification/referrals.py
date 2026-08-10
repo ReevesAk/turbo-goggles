@@ -26,7 +26,9 @@ class Referrals:
         prefix = (user.first_name or "USER").upper().replace(" ", "")[:5]
         while True:
             suffix = "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=CODE_RANDOM_LENGTH)
+                random.choices(
+                    string.ascii_uppercase + string.digits, k=CODE_RANDOM_LENGTH
+                )
             )
             code = f"{prefix}{suffix}"
             if not User.objects.filter(referral_code=code).exists():
@@ -37,7 +39,10 @@ class Referrals:
         """Returns the currently active walk_to_earn_gate ReferralTask, or None."""
         return (
             ReferralTask.objects.filter(
-                mode="walk_to_earn_gate", is_active=True, is_paused=False, is_cancelled=False
+                mode="walk_to_earn_gate",
+                is_active=True,
+                is_paused=False,
+                is_cancelled=False,
             )
             .order_by("-created_at")
             .first()
@@ -89,7 +94,10 @@ class Referrals:
             target_referral_count__lte=referrer.referral_count,
         )
         for task in active_tasks:
-            progress, _ = UserReferralTaskProgress.objects.select_for_update().get_or_create(
+            (
+                progress,
+                _,
+            ) = UserReferralTaskProgress.objects.select_for_update().get_or_create(
                 user=referrer, task=task
             )
             if progress.reward_issued:

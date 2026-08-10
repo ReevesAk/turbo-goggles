@@ -1220,9 +1220,7 @@ class ReferralTaskModelTests(ThrottleDisabledAPITestCase):
             target_referral_count=3,
             created_by=admin,
         )
-        self.assertTrue(
-            ReferralTask.objects.get(pk=first_gate.pk).is_active
-        )
+        self.assertTrue(ReferralTask.objects.get(pk=first_gate.pk).is_active)
 
         second_gate = ReferralTask.objects.create(
             name="Refer 5 to unlock",

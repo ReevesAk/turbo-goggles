@@ -68,6 +68,7 @@ from .serializers import (
 from .utils import NextBee
 from .points import Points, TIER_VALUES, MIN_POINTS_REQUIRED
 from .referrals import Referrals
+from .tasks import queue_task_push
 from security import encrypt, decrypt
 from commons import generate_txId, first_validation_error
 from user_profile.choices import LEVELS
@@ -804,7 +805,9 @@ class GetMemberPointsSummary(generics.GenericAPIView):
                             name="MyReferralStatusGate",
                             fields={
                                 "active": s.BooleanField(),
-                                "target_referral_count": s.IntegerField(allow_null=True),
+                                "target_referral_count": s.IntegerField(
+                                    allow_null=True
+                                ),
                                 "met": s.BooleanField(),
                             },
                         ),
@@ -843,12 +846,16 @@ class MyReferralStatusView(generics.GenericAPIView):
                 "description": task.description,
                 "target_referral_count": task.target_referral_count,
                 "reward_points": task.reward_points,
-                "completed": progress_by_task[task.id].completed
-                if task.id in progress_by_task
-                else False,
-                "reward_issued": progress_by_task[task.id].reward_issued
-                if task.id in progress_by_task
-                else False,
+                "completed": (
+                    progress_by_task[task.id].completed
+                    if task.id in progress_by_task
+                    else False
+                ),
+                "reward_issued": (
+                    progress_by_task[task.id].reward_issued
+                    if task.id in progress_by_task
+                    else False
+                ),
             }
             for task in active_tasks
         ]
@@ -1792,12 +1799,21 @@ class BrandUGCListCreateView(BrandChargeMixin, generics.ListCreateAPIView):
 
             cache.delete(f"user_ugc_tasks:{user.id}")
 
+            eligible_member_count = queue_task_push(
+                "gamification.UserGeneratedContent",
+                task.pk,
+                "New Task Available",
+                f"A new task '{task.task_name}' is now available.",
+                "new_ugc_task",
+            )
+
             return Response(
                 data=encrypt(
                     {
                         "status": "success",
                         "message": "UGC task created successfully.",
                         "data": self.get_serializer(task).data,
+                        "eligible_member_count": eligible_member_count,
                     }
                 ),
                 status=status.HTTP_201_CREATED,
@@ -2007,12 +2023,20 @@ class AdminUGCListCreateView(generics.ListCreateAPIView):
             logger.info(
                 "Admin UGC task created: id=%s by admin=%s", task.id, request.user.id
             )
+            eligible_member_count = queue_task_push(
+                "gamification.UserGeneratedContent",
+                task.pk,
+                "New Task Available",
+                f"A new task '{task.task_name}' is now available.",
+                "new_ugc_task",
+            )
             return Response(
                 data=encrypt(
                     {
                         "status": "success",
                         "message": "Task created successfully.",
                         "data": serializer.data,
+                        "eligible_member_count": eligible_member_count,
                     }
                 ),
                 status=status.HTTP_201_CREATED,
