@@ -2608,8 +2608,6 @@ class UGCSubmissionFlowTests(ThrottleDisabledAPITestCase):
             f"/v1/gamification/ugc/tasks/{self.task.id}/with-submission/"
         )
         # If the endpoint works, test it; otherwise skip
-        if detail_response.status_code == 404:
-            self.skipTest("with-submission endpoint not available")
 
         self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
         detail_body = decrypt(detail_response.content)
@@ -2913,8 +2911,6 @@ class UGCProgressAndLeaderboardTests(ThrottleDisabledAPITestCase):
             - The cached response should be returned on subsequent requests
         """
         response1 = self.client.get("/v1/gamification/ugc/progress/")
-        if response1.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
 
         body1 = decrypt(response1.content)
 
@@ -3111,8 +3107,6 @@ class UGCSubmissionsListTests(ThrottleDisabledAPITestCase):
         _create_ugc_submission(self.user, self.task, status="approved")
 
         response1 = self.client.get("/v1/gamification/ugc/submissions/")
-        if response1.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
 
         body1 = decrypt(response1.content)
 
@@ -4043,8 +4037,6 @@ class UGCIntegrationTests(ThrottleDisabledAPITestCase):
 
         self.client.force_authenticate(user=self.regular_user)
         list_response = self.client.get("/v1/gamification/ugc/tasks/")
-        if list_response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
         self.assertEqual(list_response.status_code, status.HTTP_200_OK)
 
         body = decrypt(list_response.content)
@@ -4104,14 +4096,12 @@ class UGCIntegrationTests(ThrottleDisabledAPITestCase):
         delete_response = self.client.delete(
             f"/v1/gamification/ugc/admin/tasks/{task.id}/"
         )
-        if delete_response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
+
         self.assertEqual(delete_response.status_code, status.HTTP_200_OK)
 
         self.client.force_authenticate(user=self.regular_user)
         list_response = self.client.get("/v1/gamification/ugc/tasks/")
-        if list_response.status_code == 404:
-            self.skipTest("URL endpoints not configured in test environment")
+
         body = decrypt(list_response.content)
         self.assertEqual(len(body["data"]["results"]), 0)
 
