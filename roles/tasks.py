@@ -33,15 +33,20 @@ from gamification.serializers import (
     RewardRuleUpdateSerializer,
     RewardTierCreateSerializer,
     RewardTierUpdateSerializer,
+    ReferralTaskCreateSerializer,
+    ReferralTaskSerializer,
+    ReferralTaskUpdateSerializer,
 )
-from accounts.models import User, UserNotification
 from gamification.models import (
     StepCampaignModel,
     StepSessionModel,
     StreakChallenge,
     RewardRule,
     RewardTier,
+    ReferralTask,
+    UserReferralTaskProgress,
 )
+from gamification.tasks import queue_task_push
 from permissions import IsTaskAdminOrSuperAdmin, IsAdAdminOrSuperAdmin
 from security import encrypt, decrypt
 from commons import Messaging
@@ -52,7 +57,7 @@ logger = logging.getLogger(__name__)
 @extend_schema(
     summary="[Admin] Create a step count campaign",
     tags=["Tasks"],
-    description="Creates a new step count campaign and notifies all users who have completed the survey. Returns the created campaign's details.",
+    description="Creates a new step count campaign and sends a push notification to has_done_survey members matching target_gender/target_age_bracket (or everyone, if left unset). Returns the created campaign's details.",
     request=StepCampaignSerializer,
     responses={
         201: inline_serializer(
@@ -61,6 +66,9 @@ logger = logging.getLogger(__name__)
                 "status": s.CharField(),
                 "message": s.CharField(),
                 "data": s.DictField(),
+                "eligible_member_count": s.IntegerField(
+                    help_text="How many has_done_survey members currently match target_gender/target_age_bracket. The push itself is sent asynchronously, so this reflects the count at creation time, not delivery."
+                ),
             },
         ),
         400: inline_serializer(
@@ -108,17 +116,12 @@ class CreateStepCampaign(generics.GenericAPIView):
             f"Campaign started successfully, campaign_id: {response_data['data']['campaign_id']}"
         )
 
-        survey_users = User.objects.filter(has_done_survey=True)
-        UserNotification.objects.bulk_create(
-            [
-                UserNotification(
-                    user=user,
-                    title="New Step Count Campaign",
-                    message=f"A new step count campaign '{serializer.validated_data['name']}' has been assigned to you.",
-                )
-                for user in survey_users
-            ],
-            batch_size=500,
+        response_data["eligible_member_count"] = queue_task_push(
+            "gamification.StepCampaignModel",
+            campaign.pk,
+            "New Step Count Campaign",
+            f"A new step count campaign '{campaign.name}' has been assigned to you.",
+            "new_step_campaign",
         )
 
         return Response(data=encrypt(response_data), status=status.HTTP_201_CREATED)
@@ -349,6 +352,9 @@ class SendNewsLetter(generics.GenericAPIView):
                 "status": s.CharField(),
                 "message": s.CharField(),
                 "data": s.DictField(),
+                "eligible_member_count": s.IntegerField(
+                    help_text="How many has_done_survey members currently match target_min_tier/target_state. The push itself is sent asynchronously, so this reflects the count at creation time, not delivery."
+                ),
             },
         ),
         400: inline_serializer(
@@ -374,12 +380,21 @@ class CreateInAppTaskView(generics.GenericAPIView):
         task = serializer.save(created_by=request.user)
         logger.info("In-app task '%s' created by %s", task.name, request.user.email)
 
+        eligible_member_count = queue_task_push(
+            "gamification.StreakChallenge",
+            task.pk,
+            "New Task Available",
+            f"A new task '{task.name}' is now available.",
+            "new_in_app_task",
+        )
+
         return Response(
             data=encrypt(
                 {
                     "status": "success",
                     "message": "Task created successfully.",
                     "data": InAppTaskSerializer(task).data,
+                    "eligible_member_count": eligible_member_count,
                 }
             ),
             status=status.HTTP_201_CREATED,
@@ -568,6 +583,254 @@ class UpdateInAppTaskView(generics.GenericAPIView):
 
 
 @extend_schema(
+    summary="[Admin] Create a referral task",
+    tags=["Tasks"],
+    description=(
+        "Creates a referral task. mode='gamification' rewards the referrer with "
+        "reward_points on hitting target_referral_count. mode='walk_to_earn_gate' "
+        "sets a global Walk-to-Earn prerequisite — activating one automatically "
+        "deactivates any previously active gate task."
+    ),
+    request=ReferralTaskCreateSerializer,
+    responses={
+        201: inline_serializer(
+            "CreateReferralTaskResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+                "eligible_member_count": s.IntegerField(
+                    allow_null=True,
+                    help_text="How many has_done_survey members currently match target_min_tier/target_state. Null for walk_to_earn_gate tasks, which never send a push. The push itself is sent asynchronously, so this reflects the count at creation time, not delivery.",
+                ),
+            },
+        ),
+        400: inline_serializer(
+            "CreateReferralTaskError",
+            fields={"status": s.CharField(), "errors": s.DictField()},
+        ),
+    },
+)
+class CreateReferralTaskView(generics.GenericAPIView):
+    """POST /v1/roles/tasks/referral/create/ — create a new referral task."""
+
+    permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
+    serializer_class = ReferralTaskCreateSerializer
+
+    def post(self, request):
+        payload = decrypt(request.data)
+        serializer = ReferralTaskCreateSerializer(data=payload)
+        if not serializer.is_valid():
+            return Response(
+                data=encrypt({"status": "fail", "errors": serializer.errors}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        task = serializer.save(created_by=request.user)
+        logger.info("Referral task '%s' created by %s", task.name, request.user.email)
+
+        eligible_member_count = None
+        if task.mode == "gamification":
+            eligible_member_count = queue_task_push(
+                "gamification.ReferralTask",
+                task.pk,
+                "New Referral Task",
+                f"A new referral task '{task.name}' is now available.",
+                "new_referral_task",
+            )
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Referral task created successfully.",
+                    "data": ReferralTaskSerializer(task).data,
+                    "eligible_member_count": eligible_member_count,
+                }
+            ),
+            status=status.HTTP_201_CREATED,
+        )
+
+
+@extend_schema(
+    summary="[Admin] List referral tasks with optional status/mode filter",
+    tags=["Tasks"],
+    description="Returns all referral tasks. Optionally filter by status: active, inactive, or cancelled, and/or by mode: gamification or walk_to_earn_gate.",
+    parameters=[
+        OpenApiParameter(
+            name="status",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="Filter by task status: active, inactive, or cancelled",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="mode",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="Filter by task mode: gamification or walk_to_earn_gate",
+            required=False,
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "ListReferralTasksResponse",
+            fields={
+                "status": s.CharField(),
+                "total": s.IntegerField(),
+                "data": s.ListField(),
+            },
+        ),
+    },
+)
+class ListReferralTasksView(generics.GenericAPIView):
+    """GET /v1/roles/tasks/referral/?status=active|inactive|cancelled&mode=gamification|walk_to_earn_gate"""
+
+    permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
+
+    def get(self, request):
+        status_filter = request.query_params.get("status")
+        mode_filter = request.query_params.get("mode")
+
+        qs = ReferralTask.objects.all().order_by("-created_at")
+
+        if status_filter == "active":
+            qs = qs.filter(is_active=True, is_paused=False, is_cancelled=False)
+        elif status_filter == "inactive":
+            qs = qs.exclude(is_cancelled=True).exclude(is_active=True, is_paused=False)
+        elif status_filter == "cancelled":
+            qs = qs.filter(is_cancelled=True)
+
+        if mode_filter in ("gamification", "walk_to_earn_gate"):
+            qs = qs.filter(mode=mode_filter)
+
+        data = ReferralTaskSerializer(qs, many=True).data
+        return Response(
+            data=encrypt({"status": "success", "total": qs.count(), "data": data}),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="[Admin] Get a single referral task with stats",
+    tags=["Tasks"],
+    description="Retrieves full details for a specific referral task, including total rewards distributed and participant count.",
+    responses={
+        200: inline_serializer(
+            "ReferralTaskDetailResponse",
+            fields={
+                "status": s.CharField(),
+                "stats": s.DictField(),
+                "data": s.DictField(),
+            },
+        ),
+        404: inline_serializer(
+            "ReferralTaskDetailNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class ReferralTaskDetailView(generics.GenericAPIView):
+    """GET /v1/roles/tasks/referral/<task_id>/ — retrieve a single referral task with stats."""
+
+    permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
+
+    def get(self, request, task_id):
+        try:
+            task = ReferralTask.objects.get(id=task_id)
+        except ReferralTask.DoesNotExist:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Task not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if task.mode == "gamification":
+            participants = UserReferralTaskProgress.objects.filter(task=task).count()
+            completed_count = UserReferralTaskProgress.objects.filter(
+                task=task, reward_issued=True
+            ).count()
+            total_rewards_distributed = completed_count * task.reward_points
+        else:
+            participants = 0
+            total_rewards_distributed = 0
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "stats": {
+                        "total_rewards_distributed": total_rewards_distributed,
+                        "participants": participants,
+                    },
+                    "data": ReferralTaskSerializer(task).data,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="[Admin] Update or cancel a referral task",
+    tags=["Tasks"],
+    description="Partially updates a referral task. Can be used to edit fields, pause, or cancel the task. Activating a walk_to_earn_gate-mode task automatically deactivates any previously active gate task.",
+    request=ReferralTaskUpdateSerializer,
+    responses={
+        200: inline_serializer(
+            "UpdateReferralTaskResponse",
+            fields={
+                "status": s.CharField(),
+                "message": s.CharField(),
+                "data": s.DictField(),
+            },
+        ),
+        400: inline_serializer(
+            "UpdateReferralTaskError",
+            fields={"status": s.CharField(), "errors": s.DictField()},
+        ),
+        404: inline_serializer(
+            "UpdateReferralTaskNotFound",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class UpdateReferralTaskView(generics.GenericAPIView):
+    """PATCH /v1/roles/tasks/referral/<task_id>/update/ — edit, pause, or cancel a task."""
+
+    permission_classes = [IsAuthenticated, IsAdAdminOrSuperAdmin]
+
+    def patch(self, request, task_id):
+        try:
+            task = ReferralTask.objects.get(id=task_id)
+        except ReferralTask.DoesNotExist:
+            return Response(
+                data=encrypt({"status": "fail", "message": "Task not found."}),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        payload = decrypt(request.data)
+        serializer = ReferralTaskUpdateSerializer(task, data=payload, partial=True)
+        if not serializer.is_valid():
+            return Response(
+                data=encrypt({"status": "fail", "errors": serializer.errors}),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer.save()
+        logger.info("Referral task '%s' updated by %s", task.name, request.user.email)
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Task updated successfully.",
+                    "data": ReferralTaskSerializer(task).data,
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
     summary="[Admin] Create a PicaPoints reward rule",
     tags=["Tasks"],
     description="Creates a new reward rule for a PicaPoints mission category (e.g. airtime purchase, KYC upgrade). Value bands are added separately via the tier endpoints.",
@@ -579,6 +842,9 @@ class UpdateInAppTaskView(generics.GenericAPIView):
                 "status": s.CharField(),
                 "message": s.CharField(),
                 "data": s.DictField(),
+                "eligible_member_count": s.IntegerField(
+                    help_text="How many has_done_survey members currently match target_min_tier/target_state (and, for kyc_upgrade, are not yet verified). The push itself is sent asynchronously, so this reflects the count at creation time, not delivery."
+                ),
             },
         ),
         400: inline_serializer(
@@ -604,12 +870,21 @@ class CreateRewardRuleView(generics.GenericAPIView):
         rule = serializer.save(created_by=request.user)
         logger.info("RewardRule '%s' created by %s", rule.source, request.user.email)
 
+        eligible_member_count = queue_task_push(
+            "gamification.RewardRule",
+            rule.pk,
+            "New PicaPoints Mission",
+            f"A new way to earn PicaPoints is now available: {rule.label}.",
+            "new_reward_rule",
+        )
+
         return Response(
             data=encrypt(
                 {
                     "status": "success",
                     "message": "Reward rule created successfully.",
                     "data": RewardRuleSerializer(rule).data,
+                    "eligible_member_count": eligible_member_count,
                 }
             ),
             status=status.HTTP_201_CREATED,

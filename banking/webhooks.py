@@ -32,7 +32,7 @@ from security import encrypt
 from permissions import IsAuthenticatedOrGuestWithValidId
 from decimal import Decimal
 from django.db import transaction
-from accounts.models import WelcomeBonusAward, WelcomeBonusCounter, Rewards
+from accounts.models import WelcomeBonusAward, WelcomeBonusCounter
 from banking.helpers import generate_transaction_sms
 from commons import Messaging
 from user_profile.fcm import send_push_to_user
@@ -59,12 +59,21 @@ class WebhookDispatcherView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if event == "transfer":
+        # 9PSB sends "account-upgrade" (hyphen) in production, not
+        # "account_upgrade" (underscore) - confirmed from real request URLs
+        # in the server logs. Normalizing here since we can't get an
+        # external provider to change what they send; this exact mismatch
+        # silently dropped every account-upgrade webhook call for months
+        # with no error/log trail (a clean 400 doesn't get logged).
+        normalized_event = event.replace("-", "_")
+
+        if normalized_event == "transfer":
             return InflowsWebhookNotificationView.as_view()(request._request)
 
-        if event == "account_upgrade":
+        if normalized_event == "account_upgrade":
             return AccountUpgradeWebhookNotificationView.as_view()(request._request)
 
+        logger.warning(f"Unsupported webhook event type received: {event!r}")
         return Response(
             {"success": False, "message": f"Unsupported event type: {event}"},
             status=status.HTTP_400_BAD_REQUEST,
@@ -352,16 +361,6 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                                     counter.awarded_count = counter.awarded_count + 1
                                     counter.save()
 
-                                    rewards, _ = Rewards.objects.get_or_create(
-                                        user=user
-                                    )
-                                    try:
-                                        current = Decimal(str(rewards.balance))
-                                    except Exception:
-                                        current = Decimal("0.00")
-                                    rewards.balance = current + Decimal("500.00")
-                                    rewards.save()
-
                                     try:
                                         user.welcome_bonus = 500
                                         user.has_bonus = True
@@ -410,7 +409,7 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
 @extend_schema(
     summary="9PSB account upgrade webhook",
     tags=["Webhooks"],
-    description="Called by 9PSB when a Tier 2 upgrade request is approved or rejected. Verifies Basic Auth, updates the wallet tier level, and sends an SMS/email alert to the account holder.",
+    description="Called by 9PSB when a Tier 2 upgrade request is approved or rejected. Verifies Basic Auth, updates the wallet tier level (or marks it DECLINED with a reason on any non-'Completed' status), and sends an SMS/email/in-app alert to the account holder either way.",
     exclude=True,
 )
 class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
@@ -477,11 +476,19 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
         logger.info(f"Received 9PSB account upgrade webhook: {webhook_data}")
 
         # Step 3: Extract key details (adjust to your serializer’s fields)
+        # Named upgrade_status, not status - "status" is also the imported
+        # rest_framework module this method needs for status.HTTP_200_OK
+        # below; a local var of the same name silently shadowed it and
+        # crashed every single call to this endpoint with "AttributeError:
+        # 'str' object has no attribute 'HTTP_200_OK'" right after the
+        # wallet was already updated - found via testing, not previously
+        # caught since the only existing test only exercises the
+        # auth/validation failure path.
         account_number = webhook_data.get("accountnumber")
-        status = webhook_data.get("status")
+        upgrade_status = webhook_data.get("status")
         message = webhook_data.get("message")
 
-        if status == "Completed":
+        if upgrade_status == "Completed":
             wallet = WalletModel.objects.filter(account_number=account_number).first()
             user = wallet.user if wallet else None
 
@@ -548,6 +555,78 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
                 wallet.save(update_fields=["tier_level", "tier2_upgrade_status"])
 
                 logger.info(f"Wallet: {account_number} successfully upgraded.")
+
+        else:
+            logger.warning(
+                f"9PSB account upgrade not completed: status={upgrade_status!r} "
+                f"account={account_number} message={message!r}"
+            )
+            wallet = WalletModel.objects.filter(account_number=account_number).first()
+            user = wallet.user if wallet else None
+            reason = message or "No reason was provided by the provider."
+
+            if wallet and user:
+                alert_type = getattr(user, "alert_type_choice", None)
+
+                if alert_type in ("SMS", "Both"):
+                    sms_msg = f"Dear {user.first_name}, your account upgrade request for {account_number} was not approved. Reason: {reason}"
+                    Messaging.send_sms(
+                        phone_number=user.phone_number[1:],
+                        msg=sms_msg,
+                    )
+
+                if alert_type in ("Email", "Both"):
+                    try:
+                        email_body = f"Dear {user.full_name},<br><br>Your account upgrade request for <strong>{account_number}</strong> was not approved.<br><br>Reason: {reason}<br><br>You're welcome to correct the issue and submit a new upgrade request."
+                        text_content = render_to_string(
+                            template_name="empty_email.html",
+                            context={
+                                "custom_text": email_body,
+                                "support_email": "support@picadailys.com",
+                                "picadailys_phone": "02012271894  02012271895",
+                            },
+                        )
+                        Messaging.send_email(
+                            email=user.email,
+                            html_content=text_content,
+                            subject="Your Picadailys Account Upgrade Was Not Approved",
+                            sender_email="notifications@picadailys.com",
+                            body=f"Dear {user.full_name}, your account {account_number} upgrade request was not approved. Reason: {reason}.",
+                        )
+                        logger.info(
+                            f"Account upgrade rejection email sent to {user.email}"
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to send account upgrade rejection email to {user.email}: {e}"
+                        )
+
+            if wallet:
+                UserNotification.objects.create(
+                    user=user,
+                    title="Account Upgrade Not Approved",
+                    message=reason,
+                )
+                send_push_to_user(
+                    user=user,
+                    title="Account Upgrade Not Approved",
+                    body=reason,
+                    data={
+                        "type": "account_upgrade_declined",
+                        "account_number": account_number,
+                    },
+                )
+                ActivityModel.objects.create(
+                    user=user,
+                    title="Account Upgrade Declined",
+                    description=f"{user.full_name}'s account upgrade request for {account_number} was declined. Reason: {reason}.",
+                )
+                wallet.tier2_upgrade_status = "DECLINED"
+                wallet.save(update_fields=["tier2_upgrade_status"])
+
+                logger.info(
+                    f"Wallet: {account_number} upgrade declined. Reason: {reason}"
+                )
 
         return Response(
             {

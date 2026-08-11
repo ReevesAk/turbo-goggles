@@ -38,6 +38,7 @@ from .otp import otp_manager
 from .tokens import create_jwt_pair_for_user
 from roles.models import ActivityModel
 from gamification.points import Points
+from gamification.referrals import Referrals
 from gamification.models import StreakChallenge
 from commons import Biometrics, Messaging
 from security import encrypt, decrypt
@@ -121,6 +122,20 @@ class Register(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        referred_by_code = user_data.get("referred_by_code")
+        referrer = None
+        if referred_by_code:
+            referrer = User.objects.filter(
+                referral_code=referred_by_code, is_deleted=False
+            ).first()
+            if referrer is None:
+                return Response(
+                    data=encrypt(
+                        {"status": "fail", "message": "Referral code not found."}
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         serializer = self.serializer_class(data=user_data)
         if serializer.is_valid(raise_exception=True):
             if user_data["password"] != user_data["password2"]:
@@ -142,18 +157,17 @@ class Register(generics.GenericAPIView):
             user.consent_given_at = timezone.now()
             user.save(update_fields=["consent_given", "consent_given_at"])
 
-            if user_data.get("referral_code"):
-                logger.info(
-                    "Referral code %s used during registration.",
-                    user_data.get("referral_code"),
-                )
+            user.referral_code = Referrals.generate_code(user)
+            user.save(update_fields=["referral_code"])
 
-                points = Points.determine(activity_type="referral", level=user.level)
-                Points.award(
-                    user=user,
-                    amount=points,
-                    reason="Referral code used at registration",
-                    source="referral",
+            if referrer is not None:
+                Referrals.record_referral(
+                    referrer=referrer, referred=user, code_used=referred_by_code
+                )
+                logger.info(
+                    "Referral recorded: referrer=%s referred=%s",
+                    mask_email(referrer.email),
+                    mask_email(user.email),
                 )
 
             AccountType.objects.create(

@@ -41,7 +41,6 @@ from accounts.models import (
     User,
     WelcomeBonusAward,
     WelcomeBonusCounter,
-    Rewards,
     TxModel,
     UserNotification,
 )
@@ -1432,14 +1431,6 @@ class FundWallet(generics.GenericAPIView):
                                 )
                                 counter.awarded_count = counter.awarded_count + 1
                                 counter.save()
-
-                                rewards, _ = Rewards.objects.get_or_create(user=user)
-                                try:
-                                    current_balance = Decimal(str(rewards.balance))
-                                except Exception:
-                                    current_balance = Decimal("0.00")
-                                rewards.balance = current_balance + Decimal("500.00")
-                                rewards.save()
 
                                 # mark on user model for convenience
                                 try:

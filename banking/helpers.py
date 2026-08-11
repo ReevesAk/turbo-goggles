@@ -1,6 +1,8 @@
 import re
 import requests
 import csv
+import mimetypes
+import os
 from decimal import Decimal
 from io import BytesIO, StringIO
 from reportlab.lib.pagesizes import letter
@@ -557,9 +559,12 @@ def get_asset_id(file):
 
     headers = {"Authorization": yournotify_api_key}
 
+    filename = "statement" + os.path.splitext(file)[1]
+    content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+
     try:
-        with open(file, "rb") as pdf_file:
-            files = {"file": ("statement.pdf", pdf_file, "application/pdf")}
+        with open(file, "rb") as attachment:
+            files = {"file": (filename, attachment, content_type)}
 
             response = requests.post(url, headers=headers, files=files)
 
