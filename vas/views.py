@@ -70,6 +70,20 @@ def _handle_pending_response():
     )
 
 
+def _deduct_welcome_bonus(user, amount):
+    """Deduct a bonus-funded purchase amount from the user's welcome bonus balance."""
+    user.welcome_bonus = float(user.welcome_bonus) - float(amount)
+    user.has_bonus = user.welcome_bonus > 0
+    user.save(update_fields=["welcome_bonus", "has_bonus"])
+
+
+def _refund_welcome_bonus(user, amount):
+    """Restore the welcome bonus balance after a failed bonus-funded purchase."""
+    user.welcome_bonus = float(user.welcome_bonus) + float(amount)
+    user.has_bonus = True
+    user.save(update_fields=["welcome_bonus", "has_bonus"])
+
+
 @extend_schema(
     summary="Purchase airtime for any Nigerian network",
     tags=["VAS"],
@@ -404,8 +418,10 @@ class AirTimeTopUp(generics.GenericAPIView):
         # Use bonus flow
         if use_bonus:
             if user and user.welcome_bonus >= float(amount):
+                _deduct_welcome_bonus(user, amount)
                 token = VAS.authenticate()
                 if not token:
+                    _refund_welcome_bonus(user, amount)
                     return self._handle_airtime_failure(
                         user=user,
                         phone=phone,
@@ -434,6 +450,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                             cashback=cashback_used,
                             account_number=account_number,
                         )
+                    _refund_welcome_bonus(user, amount)
                     return self._handle_airtime_failure(
                         user=user,
                         phone=phone,
@@ -465,6 +482,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     )
                 if outcome == "pending":
                     return _handle_pending_response()
+                _refund_welcome_bonus(user, amount)
                 return self._handle_airtime_failure(
                     user=user,
                     phone=phone,
@@ -1083,8 +1101,10 @@ class DataSubscriptionView(generics.GenericAPIView):
         # Use bonus flow
         if use_bonus:
             if user and user.welcome_bonus >= float(amount):
+                _deduct_welcome_bonus(user, amount)
                 token = VAS.authenticate()
                 if not token:
+                    _refund_welcome_bonus(user, amount)
                     return self._handle_data_failure(
                         user=user,
                         phone=phone,
@@ -1101,6 +1121,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     tx_ref=tx_reference,
                 )
                 if data_response is None:
+                    _refund_welcome_bonus(user, amount)
                     return self._handle_data_failure(
                         user=user,
                         phone=phone,
@@ -1132,6 +1153,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     )
                 if outcome == "pending":
                     return _handle_pending_response()
+                _refund_welcome_bonus(user, amount)
                 return self._handle_data_failure(
                     user=user,
                     phone=phone,

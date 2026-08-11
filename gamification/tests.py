@@ -36,11 +36,15 @@ from .models import (
     UserGeneratedContent,
     UGCTaskSubmission,
     UGCTaskProgress,
-    UGCLeaderboard,
+    UGCLeaderboard, 
     Points as PointsModel,
     PointTransaction,
+    Referral,     
+    ReferralTask,              
+    UserReferralTaskProgress,    
 )
 from .points import Points, UGC_ACHIEVEMENTS, STREAK_MILESTONES
+from .referrals import Referrals
 
 # =============================================================================
 # Test Helpers
@@ -4247,7 +4251,6 @@ class UGCExceptionHandlingTests(ThrottleDisabledAPITestCase):
             [status.HTTP_400_BAD_REQUEST, status.HTTP_500_INTERNAL_SERVER_ERROR],
         )
 
-
 # =============================================================================
 # Performance Tests
 # =============================================================================
@@ -4356,3 +4359,213 @@ class UGCPerformanceTests(ThrottleDisabledAPITestCase):
 
         leaderboard = UGCLeaderboard.objects.filter(timeframe="all_time")
         self.assertEqual(leaderboard.count(), 100)
+
+
+# =============================================================================
+# Referral System Tests (from current branch)
+# =============================================================================
+
+
+class ReferralTaskModelTests(ThrottleDisabledAPITestCase):
+    """Tests for ReferralTask.save()'s single-active-gate enforcement."""
+
+    def test_activating_new_gate_deactivates_previous_gate(self):
+        admin = _create_user()
+        first_gate = ReferralTask.objects.create(
+            name="Refer 3 to unlock",
+            mode="walk_to_earn_gate",
+            target_referral_count=3,
+            created_by=admin,
+        )
+        self.assertTrue(ReferralTask.objects.get(pk=first_gate.pk).is_active)
+
+        second_gate = ReferralTask.objects.create(
+            name="Refer 5 to unlock",
+            mode="walk_to_earn_gate",
+            target_referral_count=5,
+            created_by=admin,
+        )
+
+        self.assertFalse(ReferralTask.objects.get(pk=first_gate.pk).is_active)
+        self.assertTrue(ReferralTask.objects.get(pk=second_gate.pk).is_active)
+
+    def test_gamification_mode_tasks_do_not_affect_each_other(self):
+        admin = _create_user()
+        task_a = ReferralTask.objects.create(
+            name="Refer 1",
+            mode="gamification",
+            target_referral_count=1,
+            reward_points=50,
+            created_by=admin,
+        )
+        task_b = ReferralTask.objects.create(
+            name="Refer 5",
+            mode="gamification",
+            target_referral_count=5,
+            reward_points=200,
+            created_by=admin,
+        )
+
+        self.assertTrue(ReferralTask.objects.get(pk=task_a.pk).is_active)
+        self.assertTrue(ReferralTask.objects.get(pk=task_b.pk).is_active)
+
+
+class ReferralsServiceTests(ThrottleDisabledAPITestCase):
+    """Tests for the Referrals service module (gamification/referrals.py)."""
+
+    def setUp(self):
+        self.referrer = _create_user(
+            active_role="Member", is_verified=True, is_active=True
+        )
+        self.referred = _create_user(active_role="Member")
+
+    def test_generate_code_is_unique(self):
+        code1 = Referrals.generate_code(self.referrer)
+        self.referrer.referral_code = code1
+        self.referrer.save(update_fields=["referral_code"])
+
+        code2 = Referrals.generate_code(self.referred)
+
+        self.assertNotEqual(code1, code2)
+
+    def test_get_active_gate_returns_none_when_no_gate_active(self):
+        self.assertIsNone(Referrals.get_active_gate())
+
+    def test_get_active_gate_returns_active_gate(self):
+        admin = _create_user()
+        gate = ReferralTask.objects.create(
+            name="Refer 2 to unlock",
+            mode="walk_to_earn_gate",
+            target_referral_count=2,
+            created_by=admin,
+        )
+
+        self.assertEqual(Referrals.get_active_gate().pk, gate.pk)
+
+    def test_record_referral_counted_increments_referrer_count(self):
+        referral = Referrals.record_referral(
+            referrer=self.referrer, referred=self.referred, code_used="ABC123"
+        )
+
+        self.assertTrue(referral.counted)
+        self.assertEqual(referral.referrer, self.referrer)
+        self.assertEqual(referral.referred, self.referred)
+
+        self.referrer.refresh_from_db()
+        self.assertEqual(self.referrer.referral_count, 1)
+
+    def test_record_referral_not_credible_does_not_increment_count(self):
+        self.referrer.is_verified = False
+        self.referrer.save(update_fields=["is_verified"])
+
+        referral = Referrals.record_referral(
+            referrer=self.referrer, referred=self.referred, code_used="ABC123"
+        )
+
+        self.assertFalse(referral.counted)
+
+        self.referrer.refresh_from_db()
+        self.assertEqual(self.referrer.referral_count, 0)
+
+    def test_record_referral_completes_gamification_task_and_awards_points(self):
+        admin = _create_user()
+        task = ReferralTask.objects.create(
+            name="First referral bonus",
+            mode="gamification",
+            target_referral_count=1,
+            reward_points=100,
+            created_by=admin,
+        )
+
+        Referrals.record_referral(
+            referrer=self.referrer, referred=self.referred, code_used="ABC123"
+        )
+
+        progress = UserReferralTaskProgress.objects.get(user=self.referrer, task=task)
+        self.assertTrue(progress.completed)
+        self.assertTrue(progress.reward_issued)
+        self.assertEqual(progress.referral_count_at_completion, 1)
+
+    def test_record_referral_does_not_double_award_completed_task(self):
+        admin = _create_user()
+        task = ReferralTask.objects.create(
+            name="First referral bonus",
+            mode="gamification",
+            target_referral_count=1,
+            reward_points=100,
+            created_by=admin,
+        )
+
+        Referrals.record_referral(
+            referrer=self.referrer, referred=self.referred, code_used="ABC123"
+        )
+
+        second_referred = _create_user(active_role="Member")
+        Referrals.record_referral(
+            referrer=self.referrer, referred=second_referred, code_used="ABC123"
+        )
+
+        self.assertEqual(
+            UserReferralTaskProgress.objects.filter(
+                user=self.referrer, task=task
+            ).count(),
+            1,
+        )
+
+
+class JoinCampaignReferralGateTests(ThrottleDisabledAPITestCase):
+    """Tests for the HasMetReferralRequirement gate on JoinCampaignView."""
+
+    def setUp(self):
+        self.admin = _create_user()
+        self.campaign = StepCampaignModel.objects.create(
+            name="10K Steps",
+            duration=timedelta(days=7),
+            step_target=5000,
+            reward_points=100,
+            time_limit=timedelta(hours=24),
+            created_by=self.admin,
+        )
+
+    def _join(self, user):
+        self.client.force_authenticate(user=user)
+        return self.client.post(
+            f"/v1/gamification/campaigns/{self.campaign.campaign_id}/join/"
+        )
+
+    def test_join_allowed_when_no_gate_active(self):
+        user = _create_user(active_role="Member", has_done_survey=True)
+
+        response = self._join(user)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_join_blocked_when_referral_count_below_gate_target(self):
+        ReferralTask.objects.create(
+            name="Refer 2 to unlock",
+            mode="walk_to_earn_gate",
+            target_referral_count=2,
+            created_by=self.admin,
+        )
+        user = _create_user(
+            active_role="Member", has_done_survey=True, referral_count=1
+        )
+
+        response = self._join(user)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_join_allowed_when_referral_count_meets_gate_target(self):
+        ReferralTask.objects.create(
+            name="Refer 2 to unlock",
+            mode="walk_to_earn_gate",
+            target_referral_count=2,
+            created_by=self.admin,
+        )
+        user = _create_user(
+            active_role="Member", has_done_survey=True, referral_count=2
+        )
+
+        response = self._join(user)
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)

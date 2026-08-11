@@ -40,11 +40,13 @@ from gamification.models import (
     UGCTaskProgress,
     StreakHistory,
     TIER_TO_RATE,
+    ReferralTask,
+    UserReferralTaskProgress,
 )
-
 
 from permissions import (
     HasCompletedSurvey,
+    HasMetReferralRequirement,
     IsBrandAd,
     IsBrandAdAdmin,
     IsMember,
@@ -68,10 +70,13 @@ from .serializers import (
     UserGeneratedContentDetailSerializer,
     UserGeneratedContentListSerializer,
     UserStreakSerializer,
+    ReferralTaskProgressEntrySerializer, 
 )
 
 from .utils import NextBee
 from .points import Points, TIER_VALUES, MIN_POINTS_REQUIRED
+from .referrals import Referrals
+from .tasks import queue_task_push
 from security import encrypt, decrypt
 from commons import generate_txId, first_validation_error
 from user_profile.choices import LEVELS
@@ -206,7 +211,12 @@ class JoinCampaignView(generics.CreateAPIView):
     """
 
     serializer_class = StepCountSessionSerializer
-    permission_classes = (IsAuthenticated, IsMember, HasCompletedSurvey)
+    permission_classes = (
+        IsAuthenticated,
+        IsMember,
+        HasCompletedSurvey,
+        HasMetReferralRequirement,
+    )
 
     def post(self, request, *args, **kwargs):
         logger.info(f"User {request.user.id} attempting to join a step campaign.")
@@ -771,6 +781,116 @@ class GetMemberPointsSummary(generics.GenericAPIView):
                         "tiers": tiers_breakdown,
                         "min_points_to_redeem": MIN_POINTS_REQUIRED,
                         "redeem_charge": str(REDEEM_CHARGE),
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Get the authenticated member's referral status",
+    tags=["Gamification"],
+    description=(
+        "Returns the member's own shareable referral_code, their referral_count, "
+        "progress on active gamification-mode referral tasks, and the current "
+        "Walk-to-Earn referral gate status (if one is active)."
+    ),
+    responses={
+        200: inline_serializer(
+            name="MyReferralStatusResponse",
+            fields={
+                "status": s.CharField(),
+                "data": inline_serializer(
+                    name="MyReferralStatusData",
+                    fields={
+                        "referral_code": s.CharField(),
+                        "referral_count": s.IntegerField(),
+                        "gamification_tasks": ReferralTaskProgressEntrySerializer(
+                            many=True
+                        ),
+                        "walk_to_earn_gate": inline_serializer(
+                            name="MyReferralStatusGate",
+                            fields={
+                                "active": s.BooleanField(),
+                                "target_referral_count": s.IntegerField(
+                                    allow_null=True
+                                ),
+                                "met": s.BooleanField(),
+                            },
+                        ),
+                    },
+                ),
+            },
+        ),
+    },
+)
+class MyReferralStatusView(generics.GenericAPIView):
+    """GET — the authenticated member's own referral code, referral count,
+    active gamification-mode task progress, and Walk-to-Earn gate status."""
+
+    permission_classes = (IsAuthenticated, IsMember)
+
+    def get(self, request, *args, **kwargs):
+        user = request.user
+
+        if not user.referral_code:
+            user.referral_code = Referrals.generate_code(user)
+            user.save(update_fields=["referral_code"])
+
+        active_tasks = ReferralTask.objects.filter(
+            mode="gamification", is_active=True, is_paused=False, is_cancelled=False
+        )
+        progress_by_task = {
+            p.task_id: p
+            for p in UserReferralTaskProgress.objects.filter(
+                user=user, task__in=active_tasks
+            )
+        }
+        gamification_tasks = [
+            {
+                "task_id": task.id,
+                "name": task.name,
+                "description": task.description,
+                "target_referral_count": task.target_referral_count,
+                "reward_points": task.reward_points,
+                "completed": (
+                    progress_by_task[task.id].completed
+                    if task.id in progress_by_task
+                    else False
+                ),
+                "reward_issued": (
+                    progress_by_task[task.id].reward_issued
+                    if task.id in progress_by_task
+                    else False
+                ),
+            }
+            for task in active_tasks
+        ]
+
+        gate = Referrals.get_active_gate()
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "referral_code": user.referral_code,
+                        "referral_count": user.referral_count,
+                        "gamification_tasks": ReferralTaskProgressEntrySerializer(
+                            gamification_tasks, many=True
+                        ).data,
+                        "walk_to_earn_gate": {
+                            "active": gate is not None,
+                            "target_referral_count": (
+                                gate.target_referral_count if gate else None
+                            ),
+                            "met": (
+                                user.referral_count >= gate.target_referral_count
+                                if gate
+                                else True
+                            ),
+                        },
                     },
                 }
             ),
@@ -1687,12 +1807,21 @@ class BrandUGCListCreateView(BrandChargeMixin, generics.ListCreateAPIView):
 
             cache.delete(f"user_ugc_tasks:{user.id}")
 
+            eligible_member_count = queue_task_push(
+                "gamification.UserGeneratedContent",
+                task.pk,
+                "New Task Available",
+                f"A new task '{task.task_name}' is now available.",
+                "new_ugc_task",
+            )
+
             return Response(
                 data=encrypt(
                     {
                         "status": "success",
                         "message": "UGC task created successfully.",
                         "data": self.get_serializer(task).data,
+                        "eligible_member_count": eligible_member_count,
                     }
                 ),
                 status=status.HTTP_201_CREATED,
@@ -1902,12 +2031,20 @@ class AdminUGCListCreateView(generics.ListCreateAPIView):
             logger.info(
                 "Admin UGC task created: id=%s by admin=%s", task.id, request.user.id
             )
+            eligible_member_count = queue_task_push(
+                "gamification.UserGeneratedContent",
+                task.pk,
+                "New Task Available",
+                f"A new task '{task.task_name}' is now available.",
+                "new_ugc_task",
+            )
             return Response(
                 data=encrypt(
                     {
                         "status": "success",
                         "message": "Task created successfully.",
                         "data": serializer.data,
+                        "eligible_member_count": eligible_member_count,
                     }
                 ),
                 status=status.HTTP_201_CREATED,

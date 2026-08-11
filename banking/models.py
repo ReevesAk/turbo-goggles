@@ -114,6 +114,7 @@ class WalletModel(models.Model):
     UPGRADE_STATUS_CHOICES = [
         ("PENDING", "Pending"),
         ("APPROVED", "Approved"),
+        ("DECLINED", "Declined"),
     ]
     tier2_upgrade_status = models.CharField(
         max_length=10,
