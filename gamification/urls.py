@@ -21,7 +21,6 @@ from .views import (  # SubmitActivityImageView,
     StreakLeaderboardView,
     UGCDetailView,
     UGCLeaderboardView,
-    UGCListView,
     UGCTaskSubmitView,
     UGCTaskWithSubmissionView,
     UserUGCProgressView,
@@ -112,10 +111,10 @@ urlpatterns = [
     # ==========================================
     # User Generated Content (UGC) Endpoints
     # ==========================================
-    # Public endpoints - accessible to any authenticated user
-    # GET /v1/ugc/tasks/ - List available UGC tasks (cached for 60s)
+    # Public endpoint - accessible to any authenticated user
     # GET /v1/ugc/tasks/<id>/ - Get detailed view of a specific task (cached for 5min)
-    path("ugc/tasks/", UGCListView.as_view(), name="ugc-list"),
+    # Browsing UGC tasks now happens via the unified feed (tasks/brand/feed/),
+    # not a standalone list here - the mobile client never called this list.
     path("ugc/tasks/<uuid:id>/", UGCDetailView.as_view(), name="ugc-detail"),
     # Brand endpoints - accessible to BrandAd and BrandAdAdmin roles
     # GET /v1/ugc/brand/tasks/ - List tasks owned by the authenticated brand
