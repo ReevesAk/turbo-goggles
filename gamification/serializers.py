@@ -442,7 +442,30 @@ class InAppTaskCreateSerializer(serializers.ModelSerializer):
             "scheduled_start_time",
             "target_min_tier",
             "target_state",
+            "mission_category",
+            "vas_category",
+            "action_type",
+            "required_count",
+            "min_amount_per_action",
+            "total_min_amount",
+            "monthly_cap_points",
+            "is_recurring",
+            "recurrence_period",
+            "kyc_target_tier",
         ]
+
+    FINANCIAL_TASK_FIELDS = (
+        "mission_category",
+        "vas_category",
+        "action_type",
+        "required_count",
+        "min_amount_per_action",
+        "total_min_amount",
+        "monthly_cap_points",
+        "is_recurring",
+        "recurrence_period",
+        "kyc_target_tier",
+    )
 
     def validate(self, data):
         start = data.get("start_date")
@@ -462,7 +485,50 @@ class InAppTaskCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "scheduled_start_time is required when schedule_type is set."
             )
+        self._validate_financial_task_fields(data)
         return data
+
+    def _validate_financial_task_fields(self, data):
+        if data.get("streak_type") != "financial_task":
+            if any(data.get(field) for field in self.FINANCIAL_TASK_FIELDS):
+                raise serializers.ValidationError(
+                    "mission_category/vas_category/action_type and related fields "
+                    "only apply to streak_type='financial_task'."
+                )
+            return
+
+        if not data.get("mission_category"):
+            raise serializers.ValidationError(
+                "mission_category is required for streak_type='financial_task'."
+            )
+        if not data.get("action_type"):
+            raise serializers.ValidationError(
+                "action_type is required for streak_type='financial_task'."
+            )
+        if data["action_type"] == "count_based" and not data.get("required_count"):
+            raise serializers.ValidationError(
+                "required_count is required when action_type='count_based'."
+            )
+        if data["action_type"] == "amount_based" and not data.get("total_min_amount"):
+            raise serializers.ValidationError(
+                "total_min_amount is required when action_type='amount_based'."
+            )
+        if data["mission_category"] in ("vas", "bills_payment") and not data.get(
+            "vas_category"
+        ):
+            raise serializers.ValidationError(
+                "vas_category is required when mission_category is 'vas' or 'bills_payment'."
+            )
+        if data["mission_category"] == "kyc_upgrade" and not data.get(
+            "kyc_target_tier"
+        ):
+            raise serializers.ValidationError(
+                "kyc_target_tier is required when mission_category='kyc_upgrade'."
+            )
+        if data.get("is_recurring") and not data.get("recurrence_period"):
+            raise serializers.ValidationError(
+                "recurrence_period is required when is_recurring is true."
+            )
 
 
 class InAppTaskSerializer(serializers.ModelSerializer):
@@ -501,6 +567,16 @@ class InAppTaskSerializer(serializers.ModelSerializer):
             "scheduled_start_time",
             "target_min_tier",
             "target_state",
+            "mission_category",
+            "vas_category",
+            "action_type",
+            "required_count",
+            "min_amount_per_action",
+            "total_min_amount",
+            "monthly_cap_points",
+            "is_recurring",
+            "recurrence_period",
+            "kyc_target_tier",
             "is_active",
             "is_paused",
             "is_cancelled",
@@ -573,10 +649,31 @@ class InAppTaskUpdateSerializer(serializers.ModelSerializer):
             "participant_cap",
             "target_min_tier",
             "target_state",
+            "mission_category",
+            "vas_category",
+            "action_type",
+            "required_count",
+            "min_amount_per_action",
+            "total_min_amount",
+            "monthly_cap_points",
+            "is_recurring",
+            "recurrence_period",
+            "kyc_target_tier",
             "is_active",
             "is_paused",
             "is_cancelled",
         ]
+
+    def validate(self, data):
+        if self.instance.streak_type != "financial_task":
+            if any(
+                data.get(field) for field in InAppTaskCreateSerializer.FINANCIAL_TASK_FIELDS
+            ):
+                raise serializers.ValidationError(
+                    "mission_category/vas_category/action_type and related fields "
+                    "only apply to streak_type='financial_task'."
+                )
+        return data
 
 
 class ReferralTaskCreateSerializer(serializers.ModelSerializer):
@@ -812,75 +909,6 @@ class RewardTierUpdateSerializer(serializers.ModelSerializer):
 # ==========================================
 # Public / User-facing Serializers
 # ==========================================
-
-
-class UserGeneratedContentListSerializer(serializers.ModelSerializer):
-    """
-    Serializer for public UGC task listing endpoint.
-
-    Excludes sensitive and detailed fields to keep the listing payload light.
-    Use UserGeneratedContentDetailSerializer for full details.
-    """
-
-    available_slots = serializers.SerializerMethodField()
-    is_fully_booked = serializers.SerializerMethodField()
-    task_type_display = serializers.SerializerMethodField()
-    gender_display = serializers.SerializerMethodField()
-    demography_display = serializers.SerializerMethodField()
-
-    class Meta:
-        model = UserGeneratedContent
-        fields = [
-            "id",
-            "business_or_brand_name",
-            "task_name",
-            "task_type",
-            "task_type_display",
-            "description",
-            "thumbnail_url",
-            "slot_cap",
-            "slots_filled",
-            "available_slots",
-            "is_fully_booked",
-            "reward_points",
-            "gender",
-            "gender_display",
-            "demography",
-            "demography_display",
-            "location_perimeter",
-            "task_duration",
-            "campaign_duration",
-            "created_at",
-            "is_active",
-        ]
-        read_only_fields = fields
-
-    @extend_schema_field(serializers.IntegerField(allow_null=True))
-    def get_available_slots(self, obj):
-        """Get the number of available slots for the task."""
-        return obj.available_slots
-
-    @extend_schema_field(serializers.BooleanField())
-    def get_is_fully_booked(self, obj):
-        """Check if the task is fully booked."""
-        return obj.is_fully_booked
-
-    @extend_schema_field(serializers.CharField())
-    def get_task_type_display(self, obj):
-        """Get the display name for the task type."""
-        return dict(UserGeneratedContent.TaskType.choices).get(
-            obj.task_type, obj.task_type
-        )
-
-    @extend_schema_field(serializers.CharField())
-    def get_gender_display(self, obj):
-        """Get the display name for gender."""
-        return obj.get_gender_display() if obj.gender else None
-
-    @extend_schema_field(serializers.CharField(allow_null=True))
-    def get_demography_display(self, obj):
-        """Get the display name for demography."""
-        return obj.get_demography_display() if obj.demography else None
 
 
 class UserGeneratedContentDetailSerializer(serializers.ModelSerializer):

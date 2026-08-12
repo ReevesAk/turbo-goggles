@@ -139,6 +139,40 @@ STREAK_TYPE_CHOICES = (
     ("brand_task", "Brand Task"),
 )
 
+# Structured sub-categorization for streak_type="financial_task" in-app tasks,
+# so the mobile client can deep-link into the right screen instead of parsing
+# free-text description. Only meaningful when streak_type="financial_task" —
+# enforced in InAppTaskCreateSerializer/InAppTaskUpdateSerializer, not here.
+MISSION_CATEGORY_CHOICES = (
+    ("kyc_upgrade", "KYC Tier Upgrade"),
+    ("wallet_funding", "Wallet Funding"),
+    ("vas", "Airtime/Data (VAS)"),
+    ("bills_payment", "Bills Payment"),
+    ("transfer", "Transfer"),
+)
+
+VAS_CATEGORY_CHOICES = (
+    ("airtime", "Airtime"),
+    ("data", "Data"),
+    ("cable_tv", "Cable TV"),
+    ("electricity", "Electricity"),
+    ("internet", "Internet"),
+    ("education", "Education"),
+    ("event_tickets", "Event Tickets"),
+    ("gift_cards", "Gift Cards"),
+)
+
+ACTION_TYPE_CHOICES = (
+    ("count_based", "Count Based"),
+    ("amount_based", "Amount Based"),
+    ("one_time", "One Time"),
+)
+
+RECURRENCE_PERIOD_CHOICES = (
+    ("weekly", "Weekly"),
+    ("monthly", "Monthly"),
+)
+
 SCHEDULE_TYPE_CHOICES = (
     ("once", "Once"),
     ("weekly", "Weekly"),
@@ -223,6 +257,44 @@ class StreakChallenge(models.Model):
         null=True,
         blank=True,
         help_text="Only notify members in this state (mainly relevant for website_visit/store_visit streak types).",
+    )
+    # Structured sub-category fields — only meaningful when streak_type=
+    # "financial_task". Give the mobile app enough to deep-link into the
+    # right screen and render a target/progress, instead of parsing
+    # free-text description.
+    mission_category = models.CharField(
+        max_length=20, choices=MISSION_CATEGORY_CHOICES, null=True, blank=True
+    )
+    vas_category = models.CharField(
+        max_length=20,
+        choices=VAS_CATEGORY_CHOICES,
+        null=True,
+        blank=True,
+        help_text="Only set when mission_category is 'vas' or 'bills_payment'.",
+    )
+    action_type = models.CharField(
+        max_length=20, choices=ACTION_TYPE_CHOICES, null=True, blank=True
+    )
+    required_count = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Used when action_type='count_based'."
+    )
+    min_amount_per_action = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True
+    )
+    total_min_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Used when action_type='amount_based'.",
+    )
+    monthly_cap_points = models.PositiveIntegerField(null=True, blank=True)
+    is_recurring = models.BooleanField(default=False)
+    recurrence_period = models.CharField(
+        max_length=10, choices=RECURRENCE_PERIOD_CHOICES, null=True, blank=True
+    )
+    kyc_target_tier = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Used when mission_category='kyc_upgrade'."
     )
     created_by = models.ForeignKey(
         User,
