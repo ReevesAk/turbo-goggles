@@ -14,8 +14,12 @@ from rest_framework.pagination import PageNumberPagination
 from django.db.models import Q, F
 from adverts.models import CreateAd, StoreVisitQRCode
 from commons import Messaging, first_validation_error, is_slot_target_reached
-from gamification.models import StreakChallenge, UserStreak
+from gamification.models import StreakChallenge, UserStreak, UserGeneratedContent
 from gamification.points import Points
+from gamification.eligibility import (
+    filter_by_viewer_gender_age,
+    filter_ugc_by_viewer_location,
+)
 from security import encrypt, decrypt
 from user_profile.fcm import send_push_to_user
 from .jobs import (
@@ -43,6 +47,7 @@ from .serializers import (
     StoreVisitArriveSerializer,
     SubmitTaskSerializer,
     TaskSubmissionSerializer,
+    UGCFeedSerializer,
     UserTrustScoreSerializer,
 )
 from modules.geo_algorithm import (
@@ -321,6 +326,10 @@ class BrandTaskFeedView(generics.ListAPIView):
         # filter).
         qs = qs.filter(Q(slot_cap__isnull=True) | Q(slots_filled__lt=F("slot_cap")))
 
+        # Only show ads targeted at this member's own gender/age bracket (or
+        # left untargeted) - see gamification/eligibility.py.
+        qs = filter_by_viewer_gender_age(qs, user, "gender", "demography")
+
         # Prevent duplicate rows from relational joins
         return qs.distinct()
 
@@ -464,8 +473,24 @@ class BrandTaskFeedView(generics.ListAPIView):
             is_cancelled=False,
             end_date__gte=timezone.now(),
         ).order_by("-created_at")
-        inapp_data = InAppTaskFeedSerializer(inapp_qs, many=True).data
+        inapp_data = InAppTaskFeedSerializer(
+            inapp_qs, many=True, context={"request": request}
+        ).data
         for task_data in inapp_data:
+            task_data["distance_km"] = None
+            task_data["distance_band"] = "N/A"
+
+        # Get UGC tasks - same gender/age/location matching as the brand
+        # queryset above, but against UGC's own targeting fields/shape.
+        ugc_qs = UserGeneratedContent.objects.filter(is_active=True).order_by(
+            "-created_at"
+        )
+        ugc_qs = filter_by_viewer_gender_age(ugc_qs, user, "gender", "demography")
+        ugc_qs = filter_ugc_by_viewer_location(ugc_qs, user)
+        ugc_data = UGCFeedSerializer(
+            [t for t in ugc_qs if not t.is_finished], many=True
+        ).data
+        for task_data in ugc_data:
             task_data["distance_km"] = None
             task_data["distance_band"] = "N/A"
 
@@ -474,6 +499,7 @@ class BrandTaskFeedView(generics.ListAPIView):
             brand_tasks=store_data + other_brand_data,
             social_tasks=social_data,
             inapp_tasks=inapp_data,
+            ugc_tasks=ugc_data,
             user_lat=user_lat,
             user_lon=user_lon,
             radius_km=radius_km,

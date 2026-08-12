@@ -58,7 +58,6 @@ from .serializers import (
     StreakHistorySerializer,
     RedeemPointsToWalletSerializer,
     StreakLeaderboardEntrySerializer,
-    UserGeneratedContentListSerializer,
     UserGeneratedContentDetailSerializer,
     BrandUserGeneratedContentSerializer,
     AdminUserGeneratedContentSerializer,
@@ -1495,86 +1494,6 @@ class UGCPagination(PageNumberPagination):
 # ==========================================
 # Public / User-facing views
 # ==========================================
-
-
-@extend_schema(
-    summary="List available UGC tasks",
-    tags=["User Generated Content [Users]"],
-    description=(
-        "Public listing of active UGC tasks available for users to complete. "
-        "Lightweight payload — use the detail endpoint for full task info. "
-        "Cached for **60 seconds** per (task_type, page)."
-    ),
-    parameters=[
-        OpenApiParameter(
-            "task_type",
-            OpenApiTypes.STR,
-            OpenApiParameter.QUERY,
-            description="Filter by task type (e.g. 'make_a_video').",
-            required=False,
-        ),
-        OpenApiParameter(
-            "page",
-            OpenApiTypes.INT,
-            OpenApiParameter.QUERY,
-            description="Page number (default: 1)",
-            required=False,
-        ),
-    ],
-    responses={200: UserGeneratedContentListSerializer(many=True)},
-)
-class UGCListView(generics.ListAPIView):
-    """
-    GET /v1/ugc/tasks/
-
-    Public browse endpoint. Only shows tasks that are active — inactive
-    (paused/deactivated) tasks are hidden from end users but remain visible
-    to their owning brand and to admins.
-    """
-
-    serializer_class = UserGeneratedContentListSerializer
-    permission_classes = [IsAuthenticated]
-    pagination_class = UGCPagination
-
-    def get_queryset(self):
-        qs = UserGeneratedContent.objects.filter(is_active=True).order_by("-created_at")
-
-        task_type = self.request.query_params.get("task_type")
-        if task_type:
-            qs = qs.filter(task_type=task_type)
-
-        return qs
-
-    def list(self, request, *args, **kwargs):
-        task_type = request.query_params.get("task_type", "all")
-        page_number = request.query_params.get("page", "1")
-        cache_key = f"ugc_list:{task_type}:{page_number}"
-
-        cached = cache.get(cache_key)
-        if cached:
-            logger.info("Returning cached UGC list (key=%s)", cache_key)
-            return Response(data=encrypt(cached), status=status.HTTP_200_OK)
-
-        queryset = self.filter_queryset(self.get_queryset())
-        page = self.paginate_queryset(queryset)
-        serializer = (
-            self.get_serializer(page, many=True)
-            if page is not None
-            else self.get_serializer(queryset, many=True)
-        )
-        payload = (
-            self.get_paginated_response(serializer.data).data
-            if page is not None
-            else {"results": serializer.data}
-        )
-        response_data = {
-            "status": "success",
-            "message": "UGC tasks retrieved successfully.",
-            "data": payload,
-        }
-
-        cache.set(cache_key, response_data, timeout=60)
-        return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
 
 @extend_schema(

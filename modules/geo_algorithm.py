@@ -33,6 +33,7 @@ TASK_TYPE_PRIORITY = {
     "social_engage": 3,  # Third priority
     "app_download": 4,  # Fourth priority
     "in_app_challenge": 5,  # Fifth priority
+    "ugc_task": 6,  # Sixth priority
 }
 
 
@@ -118,6 +119,7 @@ class TaskSortingStrategy:
         brand_tasks: List[Dict[str, Any]],
         social_tasks: List[Dict[str, Any]],
         inapp_tasks: List[Dict[str, Any]],
+        ugc_tasks: List[Dict[str, Any]] = None,
         user_lat: Optional[float] = None,
         user_lon: Optional[float] = None,
         radius_km: float = DEFAULT_RADIUS_KM,
@@ -134,6 +136,7 @@ class TaskSortingStrategy:
             brand_tasks: List of brand task data (serialized dicts)
             social_tasks: List of social task data (serialized dicts)
             inapp_tasks: List of in-app task data (serialized dicts)
+            ugc_tasks: List of UGC task data (serialized dicts)
             user_lat: User's latitude (for store visits)
             user_lon: User's longitude (for store visits)
             radius_km: Search radius for store visits
@@ -165,6 +168,12 @@ class TaskSortingStrategy:
         # Process in-app tasks
         for task_data in inapp_tasks:
             task_data["sort_priority"] = TASK_TYPE_PRIORITY.get("in_app_challenge", 5)
+            task_data["distance_km"] = None
+            all_tasks.append(task_data)
+
+        # Process UGC tasks
+        for task_data in ugc_tasks or []:
+            task_data["sort_priority"] = TASK_TYPE_PRIORITY.get("ugc_task", 6)
             task_data["distance_km"] = None
             all_tasks.append(task_data)
 

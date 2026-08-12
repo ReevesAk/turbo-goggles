@@ -173,106 +173,6 @@ class JoinCampaignEndpointTests(ThrottleDisabledAPITestCase):
         self.assertIn("Campaign not found", body["message"])
 
 
-# ====================================
-# Public UGC List Tests
-# ====================================
-
-
-class UGCPublicListViewTests(ThrottleDisabledAPITestCase):
-    """Tests for the public UGC task listing endpoint."""
-
-    def setUp(self):
-        self.user = _create_user(active_role="Member")
-        self.client.force_authenticate(user=self.user)
-        cache.clear()
-
-    # --- Success cases ---
-
-    def test_list_active_tasks_returns_success(self):
-        """Authenticated users can list active UGC tasks."""
-        brand_user = _create_user(active_role="BrandAd")
-        _create_ugc_task(brand_user, is_active=True)
-        _create_ugc_task(brand_user, is_active=True)
-
-        response = self.client.get("/v1/gamification/ugc/tasks/")
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-        body = decrypt(response.content)
-        self.assertEqual(body["status"], "success")
-        self.assertEqual(len(body["data"]["results"]), 2)
-
-    def test_list_tasks_returns_cached_response(self):
-        """Responses are cached; second call hits the cache."""
-        brand_user = _create_user(active_role="BrandAd")
-        _create_ugc_task(brand_user, is_active=True)
-
-        response1 = self.client.get("/v1/gamification/ugc/tasks/")
-        self.assertEqual(response1.status_code, status.HTTP_200_OK)
-        body1 = decrypt(response1.content)
-
-        with patch("django.core.cache.cache.get") as mock_cache_get:
-            mock_cache_get.return_value = body1
-            response2 = self.client.get("/v1/gamification/ugc/tasks/")
-            self.assertEqual(response2.status_code, status.HTTP_200_OK)
-            mock_cache_get.assert_called()
-
-    def test_list_tasks_uses_pagination(self):
-        """Default page size is 20; pagination metadata is present."""
-        brand_user = _create_user(active_role="BrandAd")
-        for i in range(25):
-            _create_ugc_task(brand_user, is_active=True, task_name=f"Task {i}")
-
-        response = self.client.get("/v1/gamification/ugc/tasks/")
-        body = decrypt(response.content)
-
-        self.assertEqual(len(body["data"]["results"]), 20)
-        self.assertIsNotNone(body["data"]["next"])
-
-    # --- Filtering ---
-
-    def test_list_tasks_filters_inactive_tasks(self):
-        """Inactive tasks are excluded from the listing."""
-        brand_user = _create_user(active_role="BrandAd")
-        _create_ugc_task(brand_user, is_active=True)
-        _create_ugc_task(brand_user, is_active=False)
-
-        response = self.client.get("/v1/gamification/ugc/tasks/")
-        body = decrypt(response.content)
-
-        self.assertEqual(len(body["data"]["results"]), 1)
-        self.assertTrue(body["data"]["results"][0]["is_active"])
-
-    def test_list_tasks_filters_by_task_type(self):
-        """Query parameter task_type filters results correctly."""
-        brand_user = _create_user(active_role="BrandAd")
-        _create_ugc_task(brand_user, task_type="make_a_video", is_active=True)
-        _create_ugc_task(brand_user, task_type="make_a_photo", is_active=True)
-
-        response = self.client.get("/v1/gamification/ugc/tasks/?task_type=make_a_video")
-        body = decrypt(response.content)
-
-        self.assertEqual(len(body["data"]["results"]), 1)
-        self.assertEqual(body["data"]["results"][0]["task_type"], "make_a_video")
-
-    def test_list_tasks_with_invalid_task_type(self):
-        """An unknown task_type returns an empty result set."""
-        brand_user = _create_user(active_role="BrandAd")
-        _create_ugc_task(brand_user, task_type="make_a_video", is_active=True)
-
-        response = self.client.get("/v1/gamification/ugc/tasks/?task_type=invalid_type")
-        body = decrypt(response.content)
-
-        self.assertEqual(len(body["data"]["results"]), 0)
-
-    # --- Auth ---
-
-    def test_list_tasks_requires_authentication(self):
-        """Unauthenticated requests receive a 401."""
-        self.client.force_authenticate(user=None)
-        response = self.client.get("/v1/gamification/ugc/tasks/")
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-
 # ========================================
 # Brand UGC List & Create Tests
 # ========================================
@@ -955,16 +855,11 @@ class UGCIntegrationTests(ThrottleDisabledAPITestCase):
         self.regular_user = _create_user(active_role="Member")
         self.admin_user = _create_user(active_role="SuperAdmin", is_superuser=True)
 
-        for page in range(1, 6):
-            cache.delete(f"ugc_list:all:{page}")
-            cache.delete(f"ugc_list:brand:{page}")
-            cache.delete(f"ugc_list:admin:{page}")
-
         self.wallet = _create_wallet(self.brand_user)
         BrandAdCreditWallet.objects.get_or_create(user=self.brand_user)
 
     def test_full_workflow_brand_to_public(self):
-        """Brand creates task; public user lists and retrieves it."""
+        """Brand creates task; public user retrieves it."""
         self.client.force_authenticate(user=self.brand_user)
 
         data = BrandUGCListCreateViewTests._valid_payload("Integration Task")
@@ -987,16 +882,8 @@ class UGCIntegrationTests(ThrottleDisabledAPITestCase):
         self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
         task_id = decrypt(create_response.content)["data"]["id"]
 
-        # Public user lists tasks
-        self.client.force_authenticate(user=self.regular_user)
-        list_response = self.client.get("/v1/gamification/ugc/tasks/")
-        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
-
-        body = decrypt(list_response.content)
-        self.assertEqual(len(body["data"]["results"]), 1)
-        self.assertEqual(body["data"]["results"][0]["id"], task_id)
-
         # Public user retrieves detail
+        self.client.force_authenticate(user=self.regular_user)
         detail_response = self.client.get(f"/v1/gamification/ugc/tasks/{task_id}/")
         self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
 
@@ -1029,10 +916,6 @@ class UGCIntegrationTests(ThrottleDisabledAPITestCase):
         self.assertEqual(delete_response.status_code, status.HTTP_200_OK)
 
         self.client.force_authenticate(user=self.regular_user)
-        list_response = self.client.get("/v1/gamification/ugc/tasks/")
-        body = decrypt(list_response.content)
-        self.assertEqual(len(body["data"]["results"]), 0)
-
         detail_response = self.client.get(f"/v1/gamification/ugc/tasks/{task.id}/")
         self.assertEqual(detail_response.status_code, status.HTTP_404_NOT_FOUND)
 
@@ -1043,7 +926,6 @@ class UGCIntegrationTests(ThrottleDisabledAPITestCase):
 
         # Populate caches
         self.client.force_authenticate(user=self.regular_user)
-        self.client.get("/v1/gamification/ugc/tasks/")
         self.client.get(f"/v1/gamification/ugc/tasks/{task.id}/")
 
         self.client.force_authenticate(user=self.brand_user)
