@@ -36,12 +36,12 @@ from .models import (
     UserGeneratedContent,
     UGCTaskSubmission,
     UGCTaskProgress,
-    UGCLeaderboard, 
+    UGCLeaderboard,
     Points as PointsModel,
     PointTransaction,
-    Referral,     
-    ReferralTask,              
-    UserReferralTaskProgress,    
+    Referral,
+    ReferralTask,
+    UserReferralTaskProgress,
 )
 from .points import Points, UGC_ACHIEVEMENTS, STREAK_MILESTONES
 from .referrals import Referrals
@@ -4047,6 +4047,7 @@ class UGCExceptionHandlingTests(ThrottleDisabledAPITestCase):
             response.status_code,
             [status.HTTP_400_BAD_REQUEST, status.HTTP_500_INTERNAL_SERVER_ERROR],
         )
+
 
 # =============================================================================
 # Performance Tests

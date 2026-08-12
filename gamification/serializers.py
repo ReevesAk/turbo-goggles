@@ -667,7 +667,8 @@ class InAppTaskUpdateSerializer(serializers.ModelSerializer):
     def validate(self, data):
         if self.instance.streak_type != "financial_task":
             if any(
-                data.get(field) for field in InAppTaskCreateSerializer.FINANCIAL_TASK_FIELDS
+                data.get(field)
+                for field in InAppTaskCreateSerializer.FINANCIAL_TASK_FIELDS
             ):
                 raise serializers.ValidationError(
                     "mission_category/vas_category/action_type and related fields "

@@ -502,6 +502,8 @@ def sync_ugc_progress():
 
     logger.info("Synced UGC progress for %d users", updated)
     return f"Synced UGC progress for {updated} users"
+
+
 def _targeting_kwargs_for(model_label, obj):
     """Reads the fixed set of targeting fields relevant to this model - see
     gamification/eligibility.py for what each kwarg does."""
