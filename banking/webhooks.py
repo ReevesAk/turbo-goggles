@@ -484,7 +484,7 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
         # wallet was already updated - found via testing, not previously
         # caught since the only existing test only exercises the
         # auth/validation failure path.
-        account_number = webhook_data.get("accountnumber")
+        account_number = webhook_data.get("accountNumber")
         upgrade_status = webhook_data.get("status")
         message = webhook_data.get("message")
 
@@ -632,7 +632,7 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
             {
                 "success": True,
                 "code": "00",
-                "status": "SUCCESS",
+                "status": "success",
                 "message": "Acknowledged",
             },
             status=status.HTTP_200_OK,

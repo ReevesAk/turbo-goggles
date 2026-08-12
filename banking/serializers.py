@@ -393,7 +393,7 @@ class TransferNotificationWebhookSerializer(serializers.Serializer):
 
 
 class UpgradeNotificationWebhookSerializer(serializers.Serializer):
-    accountnumber = serializers.CharField()
+    accountNumber = serializers.CharField()
     status = serializers.CharField()
     message = serializers.CharField()
 
