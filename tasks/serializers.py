@@ -13,7 +13,7 @@ from .models import (
     UserTrustScore,
 )
 from adverts.models import CreateAd, StoreVisitQRCode
-from gamification.models import StreakChallenge, UserStreak
+from gamification.models import StreakChallenge, UserStreak, UserGeneratedContent
 from commons import is_slot_target_reached
 
 
@@ -359,7 +359,59 @@ class InAppTaskFeedSerializer(serializers.ModelSerializer):
                 "duration_days": obj.duration_days,
                 "participant_cap": obj.participant_cap,
                 "schedule_type": obj.schedule_type,
+                "mission_category": obj.mission_category,
+                "vas_category": obj.vas_category,
+                "action_type": obj.action_type,
+                "required_count": obj.required_count,
+                "min_amount_per_action": obj.min_amount_per_action,
+                "total_min_amount": obj.total_min_amount,
+                "monthly_cap_points": obj.monthly_cap_points,
+                "is_recurring": obj.is_recurring,
+                "recurrence_period": obj.recurrence_period,
+                "kyc_target_tier": obj.kyc_target_tier,
+                "progress": self._get_progress(obj),
             },
+        }
+
+    def _get_progress(self, obj):
+        """Stubbed against the generic UserStreak tracking that already
+        exists for every streak type - not yet backed by real per-category
+        transaction sums (see plan doc). Same wire shape either way, so
+        wiring in real tracking later is a backend swap, not a contract
+        change."""
+        if obj.streak_type != "financial_task" or not obj.action_type:
+            return None
+        user = getattr(self.context.get("request"), "user", None)
+        user_streak = (
+            UserStreak.objects.filter(user=user, challenge=obj).first()
+            if user and user.is_authenticated
+            else None
+        )
+        completed = user_streak.completed if user_streak else False
+        current_count = user_streak.current_count if user_streak else 0
+
+        if obj.action_type == "amount_based":
+            return {
+                "completed_count": 1 if completed else 0,
+                "total_required": 1,
+                "amount_spent": (
+                    float(obj.total_min_amount)
+                    if completed and obj.total_min_amount is not None
+                    else 0
+                ),
+                "amount_required": (
+                    float(obj.total_min_amount)
+                    if obj.total_min_amount is not None
+                    else None
+                ),
+                "is_completed": completed,
+            }
+
+        total_required = obj.required_count if obj.action_type == "count_based" else 1
+        return {
+            "completed_count": current_count,
+            "total_required": total_required,
+            "is_completed": completed,
         }
 
     def get_time_remaining(self, obj):
@@ -374,6 +426,71 @@ class InAppTaskFeedSerializer(serializers.ModelSerializer):
                 elif hours > 0:
                     return f"{hours}h {minutes}m remaining"
                 return f"{minutes}m remaining"
+            return "Expired"
+        return None
+
+
+class UGCFeedSerializer(serializers.ModelSerializer):
+    """Read-only task card for UGC (UserGeneratedContent) items on the unified feed.
+
+    No user_status field - UGC has no submission/completion-tracking model,
+    so there's nothing to report per-viewer here yet.
+    """
+
+    task = serializers.SerializerMethodField()
+    time_remaining = serializers.SerializerMethodField()
+    ad_media = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserGeneratedContent
+        fields = [
+            "id",
+            "task_name",
+            "business_or_brand_name",
+            "task",
+            "reward_points",
+            "expiry_date",
+            "time_remaining",
+            "is_active",
+            "ad_media",
+        ]
+        read_only_fields = fields
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        return {
+            "id": data["id"],
+            "source": "ugc",
+            "campaign_name": data["task_name"],
+            "business_or_brand_name": data["business_or_brand_name"],
+            "task": data["task"],
+            "reward_points": data["reward_points"],
+            "expiry_date": data["expiry_date"],
+            "time_remaining": data["time_remaining"],
+            "is_active": data["is_active"],
+            "ad_media": data["ad_media"],
+        }
+
+    def get_task(self, obj) -> dict:
+        return {
+            "type": obj.task_type,
+            "display": obj.get_task_type_display() if obj.task_type else None,
+            "details": {
+                "description": obj.description,
+                "brand_slogan": obj.brand_slogan if obj.use_brand_slogan else None,
+            },
+        }
+
+    def get_ad_media(self, obj) -> list:
+        return [{"images": obj.thumbnail_url, "videos": obj.sample_url}]
+
+    def get_time_remaining(self, obj) -> str | None:
+        if obj.expiry_date:
+            remaining = obj.expiry_date - timezone.now()
+            if remaining.total_seconds() > 0:
+                days = remaining.days
+                hours = remaining.seconds // 3600
+                return f"{days}d {hours}h remaining"
             return "Expired"
         return None
 
