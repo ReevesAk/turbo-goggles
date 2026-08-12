@@ -2611,7 +2611,6 @@ class UGCSubmissionFlowTests(ThrottleDisabledAPITestCase):
         detail_response = self.client.get(
             f"/v1/gamification/ugc/tasks/{self.task.id}/with-submission/"
         )
-        # If the endpoint works, test it; otherwise skip
 
         self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
         detail_body = decrypt(detail_response.content)
@@ -2834,7 +2833,7 @@ class AdminUGCSubmissionStatsViewTests(ThrottleDisabledAPITestCase):
             - The stat data should be included
         """
         _create_ugc_submission(
-            self.user if hasattr(self, "user") else self.brand_user,
+            self.brand_user,
             self.task,
             status="approved",
         )
