@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from django.db import models
 from django.utils import timezone
+from django.db.models import F
 
 
 from accounts.models import User
@@ -1098,3 +1099,277 @@ class UserGeneratedContent(models.Model):
         manually deactivated.
         """
         return self.is_fully_booked or self.is_expired or not self.is_active
+
+
+# ========================================
+# User-Generated Content Submission Models
+# ========================================
+
+
+class UGCTaskSubmission(models.Model):
+    """
+    Represents a user's submission for a UGC task.
+    Auto-approved or rejected instantly - no admin review.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="ugc_submissions"
+    )
+    task = models.ForeignKey(
+        UserGeneratedContent, on_delete=models.CASCADE, related_name="submissions"
+    )
+
+    # Single media URL (only one file per submission)
+    media_url = models.URLField(
+        max_length=500, help_text="URL of the submitted image or video"
+    )
+    caption = models.TextField(
+        blank=True, help_text="Optional caption for the submission"
+    )
+
+    # Status tracking - auto-approved or rejected
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.PENDING
+    )
+    rejection_reason = models.CharField(
+        max_length=255, blank=True, help_text="Reason for rejection"
+    )
+
+    # Timestamps
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    # Points tracking
+    points_awarded = models.PositiveIntegerField(default=0)
+    points_reason = models.CharField(max_length=255, blank=True)
+
+    # Metadata
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-submitted_at"]
+
+        indexes = [
+            models.Index(fields=["user", "status"]),
+            models.Index(fields=["task", "status"]),
+            models.Index(fields=["-submitted_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email} - {self.task.task_name} ({self.status})"
+
+    @classmethod
+    def auto_approve(cls, user, task, media_url, caption="", ip_address=None):
+        """
+        Auto-approve a submission and award points immediately.
+        Returns (submission, success, message)
+        """
+        # Validate task is active
+        if not task.is_active:
+            return None, False, "Task is no longer active"
+
+        if task.is_fully_booked:
+            return None, False, "Task has reached its slot limit"
+
+        if task.is_expired:
+            return None, False, "Task has expired"
+
+        # Check for duplicate submission (pending or approved only)
+        if cls.objects.filter(
+            user=user, task=task, status__in=["pending", "approved"]
+        ).exists():
+            return None, False, "You have already submitted this task"
+
+        # Use atomic transaction with select_for_update
+        from django.db import transaction
+
+        with transaction.atomic():
+            # Lock the task row to prevent race conditions
+            task = UserGeneratedContent.objects.select_for_update().get(id=task.id)
+
+            # Re-check slot availability under lock
+            if task.is_fully_booked:
+                return None, False, "Task has reached its slot limit"
+
+            # Create submission
+            submission = cls.objects.create(
+                user=user,
+                task=task,
+                media_url=media_url,
+                caption=caption,
+                status=cls.Status.APPROVED,
+                reviewed_at=timezone.now(),
+                ip_address=ip_address,
+            )
+
+            # Get UGC level from progress
+            progress, _ = UGCTaskProgress.objects.select_for_update().get_or_create(
+                user=user
+            )
+            # Import Points class from points.py
+            from gamification.points import Points
+
+            ugc_level = Points.get_ugc_level(progress.approved_submissions)
+
+            # Use UGC level multiplier, fallback to generic level
+            level_multiplier = Points.get_level_multiplier(ugc_level)
+            final_points = int((task.reward_points or 0) * level_multiplier)
+
+            success, message = Points.award(
+                user=user,
+                amount=final_points,
+                reason=f"UGC Task completed: {task.task_name}",
+                source="ugc_task_completion",
+                reference_id=str(task.id),
+            )
+
+            if success:
+                submission.points_awarded = final_points
+                submission.points_reason = message
+
+                # Atomic slot increment using F()
+                task.slots_filled = F("slots_filled") + 1
+                task.save(update_fields=["slots_filled"])
+                task.refresh_from_db()  # Get the actual value
+
+                # Update user progress
+                progress.record_submission(submission)
+                progress.record_approval(submission)
+
+                submission.save()
+
+                # Check for streak bonuses and achievements
+                Points.check_ugc_streak_bonus(user, progress)
+                Points.check_ugc_achievement(user, progress)
+
+                return (
+                    submission,
+                    True,
+                    f"Task completed! {final_points} points awarded",
+                )
+            else:
+                # Points award failed - mark as rejected
+                submission.status = cls.Status.REJECTED
+                submission.rejection_reason = "Points award failed"
+                submission.save()
+                return submission, False, message
+
+
+class UGCTaskProgress(models.Model):
+    """
+    Tracks a user's progress and engagement with UGC tasks.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="ugc_progress"
+    )
+
+    # Statistics
+    total_submissions = models.PositiveIntegerField(default=0)
+    approved_submissions = models.PositiveIntegerField(default=0)
+    rejected_submissions = models.PositiveIntegerField(default=0)
+
+    # Streak tracking
+    current_streak = models.PositiveIntegerField(default=0)
+    longest_streak = models.PositiveIntegerField(default=0)
+    last_submission_date = models.DateField(null=True, blank=True)
+
+    # Achievement tracking
+    achievements = models.JSONField(default=list, blank=True)
+
+    # Task completion by type
+    completed_task_types = models.JSONField(default=dict, blank=True)
+
+    # Timestamps
+    first_submission_at = models.DateTimeField(null=True, blank=True)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.email} - {self.approved_submissions} approved"
+
+    def record_submission(self, submission):
+        """Update progress when a submission is made."""
+        self.total_submissions += 1
+
+        if self.first_submission_at is None:
+            self.first_submission_at = timezone.now()
+
+        # Update streak
+        today = timezone.now().date()
+
+        if self.last_submission_date is None:
+            # First submission ever - start the streak
+            self.current_streak = 1
+            self.longest_streak = max(self.longest_streak, 1)
+        elif self.last_submission_date == today:
+            pass  # Already submitted today
+        elif self.last_submission_date == today - timezone.timedelta(days=1):
+            # Consecutive day - increment streak
+            self.current_streak += 1
+            if self.current_streak > self.longest_streak:
+                self.longest_streak = self.current_streak
+        else:
+            # Streak broken - reset to 1
+            self.current_streak = 1
+            # Note: longest_streak stays the same
+
+        self.last_submission_date = today
+        self.save()
+
+    def record_approval(self, submission):
+        """Update progress when a submission is approved."""
+        self.approved_submissions += 1
+
+        # Track completion by task type
+        task_type = submission.task.task_type
+        self.completed_task_types[task_type] = (
+            self.completed_task_types.get(task_type, 0) + 1
+        )
+
+        self.save()
+
+    def record_rejection(self):
+        """Update progress when a submission is rejected."""
+        self.rejected_submissions += 1
+        self.save()
+
+
+class UGCLeaderboard(models.Model):
+    """
+    Cached leaderboard for UGC task completion.
+    """
+
+    class TimeFrame(models.TextChoices):
+        DAILY = "daily", "Daily"
+        WEEKLY = "weekly", "Weekly"
+        MONTHLY = "monthly", "Monthly"
+        ALL_TIME = "all_time", "All Time"
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="ugc_leaderboard_entries"
+    )
+    timeframe = models.CharField(max_length=20, choices=TimeFrame.choices)
+    rank = models.PositiveIntegerField()
+    points_earned = models.PositiveIntegerField()
+    tasks_completed = models.PositiveIntegerField()
+    period_start = models.DateField()
+    period_end = models.DateField()
+    calculated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["timeframe", "rank"]
+        unique_together = ["user", "timeframe", "period_start"]
+        indexes = [
+            models.Index(fields=["timeframe", "rank"]),
+            models.Index(fields=["-calculated_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email} - #{self.rank} ({self.timeframe})"
