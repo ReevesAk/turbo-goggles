@@ -17,7 +17,7 @@ from commons import Messaging, first_validation_error, is_slot_target_reached
 from gamification.models import StreakChallenge, UserStreak, UserGeneratedContent
 from gamification.points import Points
 from gamification.eligibility import (
-    filter_by_viewer_gender_age,
+    filter_by_viewer_gender,
     filter_ugc_by_viewer_location,
 )
 from security import encrypt, decrypt
@@ -326,9 +326,9 @@ class BrandTaskFeedView(generics.ListAPIView):
         # filter).
         qs = qs.filter(Q(slot_cap__isnull=True) | Q(slots_filled__lt=F("slot_cap")))
 
-        # Only show ads targeted at this member's own gender/age bracket (or
-        # left untargeted) - see gamification/eligibility.py.
-        qs = filter_by_viewer_gender_age(qs, user, "gender", "demography")
+        # Only show ads targeted at this member's own gender (or left
+        # untargeted) - see gamification/eligibility.py.
+        qs = filter_by_viewer_gender(qs, user, "gender")
 
         # Prevent duplicate rows from relational joins
         return qs.distinct()
@@ -480,12 +480,12 @@ class BrandTaskFeedView(generics.ListAPIView):
             task_data["distance_km"] = None
             task_data["distance_band"] = "N/A"
 
-        # Get UGC tasks - same gender/age/location matching as the brand
+        # Get UGC tasks - same gender/location matching as the brand
         # queryset above, but against UGC's own targeting fields/shape.
         ugc_qs = UserGeneratedContent.objects.filter(is_active=True).order_by(
             "-created_at"
         )
-        ugc_qs = filter_by_viewer_gender_age(ugc_qs, user, "gender", "demography")
+        ugc_qs = filter_by_viewer_gender(ugc_qs, user, "gender")
         ugc_qs = filter_ugc_by_viewer_location(ugc_qs, user)
         ugc_data = UGCFeedSerializer(
             [t for t in ugc_qs if not t.is_finished], many=True
