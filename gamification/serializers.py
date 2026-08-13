@@ -1183,10 +1183,6 @@ class BrandUserGeneratedContentSerializer(serializers.ModelSerializer):
             serializers.ValidationError: If task name is too short or invalid
         """
         value = value.strip()
-        if len(value) < 5:
-            raise serializers.ValidationError(
-                "Task name must be at least 5 characters long."
-            )
         if len(value) > 255:
             raise serializers.ValidationError("Task name cannot exceed 255 characters.")
         return value
@@ -1205,10 +1201,6 @@ class BrandUserGeneratedContentSerializer(serializers.ModelSerializer):
             serializers.ValidationError: If description is too short or invalid
         """
         value = value.strip()
-        if len(value) < 20:
-            raise serializers.ValidationError(
-                "Description must be at least 20 characters long."
-            )
         if len(value) > 1000:
             raise serializers.ValidationError(
                 "Description cannot exceed 1000 characters."

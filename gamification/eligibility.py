@@ -58,31 +58,26 @@ def eligible_members(
     return qs
 
 
-def filter_by_viewer_gender_age(qs, user, gender_field, age_field):
+def filter_by_viewer_gender(qs, user, gender_field):
     """
     Filters a task queryset (CreateAd or UserGeneratedContent) down to rows
-    whose gender_field/age_field targeting matches `user`'s own MemberSurvey
-    demographics. A task with that field blank/unset/"all" always passes -
-    only an actual mismatch excludes a row. __iexact absorbs the casing
-    difference between CreateAd's "Male"/"Female" and UGC's "male"/"female".
+    whose gender_field targeting matches `user`'s own MemberSurvey gender.
+    A task with that field blank/unset/"all" always passes. Users with no
+    survey data are not filtered - missing data isn't treated as a mismatch.
+    __iexact absorbs the casing difference between CreateAd's "Male"/"Female"
+    and UGC's "male"/"female".
     """
-    survey = MemberSurvey.objects.filter(user=user).only("sex", "age_bracket").first()
+    survey = MemberSurvey.objects.filter(user=user).only("sex").first()
     user_gender = survey.sex if survey else None
-    user_age_bracket = survey.age_bracket if survey else None
 
-    gender_q = (
-        Q(**{f"{gender_field}__isnull": True})
-        | Q(**{gender_field: ""})
-        | Q(**{f"{gender_field}__iexact": "all"})
-    )
     if user_gender:
-        gender_q |= Q(**{f"{gender_field}__iexact": user_gender})
-    qs = qs.filter(gender_q)
-
-    age_q = Q(**{f"{age_field}__isnull": True}) | Q(**{age_field: ""})
-    if user_age_bracket:
-        age_q |= Q(**{age_field: user_age_bracket})
-    qs = qs.filter(age_q)
+        gender_q = (
+            Q(**{f"{gender_field}__isnull": True})
+            | Q(**{gender_field: ""})
+            | Q(**{f"{gender_field}__iexact": "all"})
+            | Q(**{f"{gender_field}__iexact": user_gender})
+        )
+        qs = qs.filter(gender_q)
 
     return qs
 
