@@ -72,7 +72,7 @@ def run_verification(self, submission_id: str):
             _reject_submission(submission, trust, reason="AI verification failed")
         else:
             submission.status = "Pending"
-            submission.save(update_fields=["status"])
+            submission.save(update_fields=["status", "updated_at"])
             logger.info(
                 "Submission %s queued for manual review (verdict=%s)",
                 submission_id,
@@ -88,7 +88,7 @@ def run_verification(self, submission_id: str):
 def _approve_submission(submission, trust):
     submission.status = "Approved"
     submission.reward_issued = True
-    submission.save(update_fields=["status", "reward_issued"])
+    submission.save(update_fields=["status", "reward_issued", "updated_at"])
 
     trust.record_approval()
 
@@ -119,7 +119,7 @@ def _approve_submission(submission, trust):
 def _reject_submission(submission, trust, reason: str = ""):
     submission.status = "Rejected"
     submission.rejection_reason = reason
-    submission.save(update_fields=["status", "rejection_reason"])
+    submission.save(update_fields=["status", "rejection_reason", "updated_at"])
     trust.record_rejection()
     send_push_to_user(
         user=submission.user,
@@ -147,7 +147,13 @@ def manual_approve(submission_id: str, reviewer_id: str):
         submission.reviewed_by = reviewer
         submission.reviewed_at = timezone.now()
         submission.save(
-            update_fields=["status", "reward_issued", "reviewed_by", "reviewed_at"]
+            update_fields=[
+                "status",
+                "reward_issued",
+                "reviewed_by",
+                "reviewed_at",
+                "updated_at",
+            ]
         )
 
         trust, _ = UserTrustScore.objects.get_or_create(user=submission.user)
@@ -189,7 +195,13 @@ def manual_reject(submission_id: str, reviewer_id: str, reason: str = ""):
         submission.reviewed_by = reviewer
         submission.reviewed_at = timezone.now()
         submission.save(
-            update_fields=["status", "rejection_reason", "reviewed_by", "reviewed_at"]
+            update_fields=[
+                "status",
+                "rejection_reason",
+                "reviewed_by",
+                "reviewed_at",
+                "updated_at",
+            ]
         )
 
         trust, _ = UserTrustScore.objects.get_or_create(user=submission.user)
@@ -246,7 +258,13 @@ def approve_brand_submission_now(submission_id: str, reviewer_id: str = None):
         submission.reviewed_by = reviewer
         submission.reviewed_at = timezone.now()
         submission.save(
-            update_fields=["status", "reward_issued", "reviewed_by", "reviewed_at"]
+            update_fields=[
+                "status",
+                "reward_issued",
+                "reviewed_by",
+                "reviewed_at",
+                "updated_at",
+            ]
         )
 
         trust, _ = UserTrustScore.objects.get_or_create(user=submission.user)
@@ -309,7 +327,13 @@ def reject_brand_submission(submission_id: str, reviewer_id: str, reason: str = 
         submission.reviewed_by = reviewer
         submission.reviewed_at = timezone.now()
         submission.save(
-            update_fields=["status", "rejection_reason", "reviewed_by", "reviewed_at"]
+            update_fields=[
+                "status",
+                "rejection_reason",
+                "reviewed_by",
+                "reviewed_at",
+                "updated_at",
+            ]
         )
         trust, _ = UserTrustScore.objects.get_or_create(user=submission.user)
         trust.record_rejection()
@@ -380,7 +404,14 @@ def run_brand_verification(self, submission_id: str):
                 f"AI verification failed: {result['reasoning']}"
             )
             submission.reviewed_at = timezone.now()
-            submission.save(update_fields=["status", "rejection_reason", "reviewed_at"])
+            submission.save(
+                update_fields=[
+                    "status",
+                    "rejection_reason",
+                    "reviewed_at",
+                    "updated_at",
+                ]
+            )
             trust, _ = UserTrustScore.objects.get_or_create(user=submission.user)
             trust.record_rejection()
         send_push_to_user(
@@ -402,7 +433,7 @@ def run_brand_verification(self, submission_id: str):
         with transaction.atomic():
             submission.status = "Flagged"
             submission.reviewed_at = timezone.now()
-            submission.save(update_fields=["status", "reviewed_at"])
+            submission.save(update_fields=["status", "reviewed_at", "updated_at"])
         logger.info(
             "Brand submission %s flagged for manual review (verdict=%s, confidence=%d)",
             submission_id,

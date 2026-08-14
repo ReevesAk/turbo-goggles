@@ -810,7 +810,10 @@ class UserGeneratedContent(models.Model):
         help_text="Type of the user-generated content task",
     )
     description = models.CharField(
-        max_length=1000, help_text="Detailed description of the task requirements"
+        max_length=1000,
+        blank=True,
+        default="",
+        help_text="Detailed description of the task requirements",
     )
     unique_identifiers = models.JSONField(
         default=list,
