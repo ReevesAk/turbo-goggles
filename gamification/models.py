@@ -833,7 +833,10 @@ class UserGeneratedContent(models.Model):
 
     # Media
     thumbnail_url = models.URLField(
-        max_length=500, help_text="URL to the task thumbnail image or video"
+        max_length=500,
+        blank=True,
+        default="",
+        help_text="URL to the task thumbnail image or video",
     )
     sample_url = models.URLField(
         max_length=500, help_text="URL to the task sample image or video"
