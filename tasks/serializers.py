@@ -447,8 +447,10 @@ class UGCFeedSerializer(serializers.ModelSerializer):
             "id",
             "task_name",
             "business_or_brand_name",
+            "unique_identifiers",
             "task",
             "reward_points",
+            "task_duration",
             "expiry_date",
             "time_remaining",
             "is_active",
@@ -463,8 +465,10 @@ class UGCFeedSerializer(serializers.ModelSerializer):
             "source": "ugc",
             "campaign_name": data["task_name"],
             "business_or_brand_name": data["business_or_brand_name"],
+            "unique_identifiers": data["unique_identifiers"],
             "task": data["task"],
             "reward_points": data["reward_points"],
+            "task_duration": data["task_duration"],
             "expiry_date": data["expiry_date"],
             "time_remaining": data["time_remaining"],
             "is_active": data["is_active"],
@@ -492,6 +496,19 @@ class UGCFeedSerializer(serializers.ModelSerializer):
                 hours = remaining.seconds // 3600
                 return f"{days}d {hours}h remaining"
             return "Expired"
+        return None
+
+    def get_task_duration(self, obj):
+        if obj.task_duration:
+            total_seconds = obj.task_duration.total_seconds()
+            hours = int(total_seconds // 3600)
+            minutes = int((total_seconds % 3600) // 60)
+            if hours > 0 and minutes > 0:
+                return f"{hours}h {minutes}m"
+            elif hours > 0:
+                return f"{hours}h"
+            elif minutes > 0:
+                return f"{minutes}m"
         return None
 
 
