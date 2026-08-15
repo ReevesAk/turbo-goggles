@@ -4158,6 +4158,9 @@ class IncomeActivityDashboardView(APIView):
         granularity = request.query_params.get("granularity", "weekly")
         raw_start = request.query_params.get("start_date")
         raw_end = request.query_params.get("end_date")
+        logger.info(
+            "IncomeActivityDashboardView query_params: %s", dict(request.query_params)
+        )
 
         try:
             if raw_start and raw_end:
@@ -4274,6 +4277,9 @@ class CashInVsCashOutChartView(APIView):
         raw_end = request.query_params.get("end_date")
         category = request.query_params.get("category", "all")
         service_type = request.query_params.get("service_type")
+        logger.info(
+            "CashInVsCashOutChartView query_params: %s", dict(request.query_params)
+        )
 
         if category not in SERVICES_TAB_CHOICES:
             return Response(
