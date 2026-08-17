@@ -439,6 +439,7 @@ class UGCFeedSerializer(serializers.ModelSerializer):
 
     task = serializers.SerializerMethodField()
     time_remaining = serializers.SerializerMethodField()
+    task_duration = serializers.SerializerMethodField()
     ad_media = serializers.SerializerMethodField()
 
     class Meta:
