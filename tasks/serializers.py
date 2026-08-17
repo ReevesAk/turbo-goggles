@@ -316,6 +316,22 @@ class BrandTaskFeedSerializer(serializers.ModelSerializer):
         return None
 
 
+# Maps the internal streak_type/mission_category pair onto the flat
+# per-mission `task.type` contract (kyc_task, wallet_task, ...) the
+# frontend expects, replacing the generic "financial_task" value.
+MISSION_CATEGORY_TASK_TYPE = {
+    "kyc_upgrade": ("kyc_task", "KYC Mission"),
+    "wallet_funding": ("wallet_task", "Wallet Activation Mission"),
+    "vas": ("vas_task", "Airtime Rewards"),
+    "bills_payment": ("bill_task", "Bills Payment Rewards"),
+    "transfer": ("transfer_task", "Transfer Rewards"),
+}
+VAS_CATEGORY_DISPLAY = {
+    "airtime": "Airtime Rewards",
+    "data": "Data Bundle Rewards",
+}
+
+
 class InAppTaskFeedSerializer(serializers.ModelSerializer):
     """Unified task card for StreakChallenge in-app tasks on the unified feed."""
 
@@ -351,9 +367,10 @@ class InAppTaskFeedSerializer(serializers.ModelSerializer):
         }
 
     def get_task(self, obj):
+        task_type, display = self._get_task_type_and_display(obj)
         return {
-            "type": obj.streak_type,
-            "display": obj.get_streak_type_display(),
+            "type": task_type,
+            "display": display,
             "details": {
                 "description": obj.description,
                 "duration_days": obj.duration_days,
@@ -372,6 +389,18 @@ class InAppTaskFeedSerializer(serializers.ModelSerializer):
                 "progress": self._get_progress(obj),
             },
         }
+
+    def _get_task_type_and_display(self, obj):
+        if obj.streak_type == "financial_task":
+            task_type, display = MISSION_CATEGORY_TASK_TYPE.get(
+                obj.mission_category, ("streak_task", obj.get_streak_type_display())
+            )
+            if task_type == "vas_task":
+                display = VAS_CATEGORY_DISPLAY.get(obj.vas_category, display)
+            return task_type, display
+        if obj.streak_type == "referral":
+            return "referral_task", "Referral Program"
+        return "streak_task", "Weekly Activity Streak"
 
     def _get_progress(self, obj):
         """Stubbed against the generic UserStreak tracking that already
