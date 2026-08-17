@@ -1497,6 +1497,8 @@ the Brand Ads views (ads/views.py) for consistency across the codebase:
 
 class UGCPagination(PageNumberPagination):
     page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
 
 
 # ==========================================
@@ -2101,12 +2103,6 @@ class AdminUGCDetailView(generics.RetrieveUpdateDestroyAPIView):
 # ==========================================
 #  User-Generated Content (UGC) API views
 # ==========================================
-
-
-class UGCPagination(PageNumberPagination):
-    page_size = 20
-    page_size_query_param = "page_size"
-    max_page_size = 100
 
 
 # ==========================================
