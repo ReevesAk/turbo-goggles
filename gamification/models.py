@@ -149,6 +149,8 @@ MISSION_CATEGORY_CHOICES = (
     ("vas", "Airtime/Data (VAS)"),
     ("bills_payment", "Bills Payment"),
     ("transfer", "Transfer"),
+    ("referral_task", "Referral Task"),
+    ("streak_task", "Streak Task"),
 )
 
 VAS_CATEGORY_CHOICES = (

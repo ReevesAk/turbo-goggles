@@ -325,6 +325,8 @@ MISSION_CATEGORY_TASK_TYPE = {
     "vas": ("vas_task", "Airtime Rewards"),
     "bills_payment": ("bill_task", "Bills Payment Rewards"),
     "transfer": ("transfer_task", "Transfer Rewards"),
+    "referral_task": ("referral_task", "Referral Program"),
+    "streak_task": ("streak_task", "Weekly Activity Streak"),
 }
 VAS_CATEGORY_DISPLAY = {
     "airtime": "Airtime Rewards",

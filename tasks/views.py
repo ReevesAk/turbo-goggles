@@ -14,7 +14,12 @@ from rest_framework.pagination import PageNumberPagination
 from django.db.models import Q, F
 from adverts.models import CreateAd, StoreVisitQRCode
 from commons import Messaging, first_validation_error, is_slot_target_reached
-from gamification.models import StreakChallenge, UserStreak, UserGeneratedContent
+from gamification.models import (
+    StreakChallenge,
+    UserStreak,
+    UserGeneratedContent,
+    UGCTaskSubmission,
+)
 from gamification.points import Points
 from gamification.eligibility import (
     filter_by_viewer_gender,
@@ -482,8 +487,17 @@ class BrandTaskFeedView(generics.ListAPIView):
 
         # Get UGC tasks - same gender/location matching as the brand
         # queryset above, but against UGC's own targeting fields/shape.
-        ugc_qs = UserGeneratedContent.objects.filter(is_active=True).order_by(
-            "-created_at"
+        # Excludes tasks the user already has a submission for (pending
+        # review or approved) - resubmission is only allowed after rejection.
+        completed_ugc_ids = (
+            UGCTaskSubmission.objects.filter(user=user)
+            .exclude(status=UGCTaskSubmission.Status.REJECTED)
+            .values_list("task_id", flat=True)
+        )
+        ugc_qs = (
+            UserGeneratedContent.objects.filter(is_active=True)
+            .exclude(id__in=completed_ugc_ids)
+            .order_by("-created_at")
         )
         ugc_qs = filter_by_viewer_gender(ugc_qs, user, "gender")
         ugc_qs = filter_ugc_by_viewer_location(ugc_qs, user)
