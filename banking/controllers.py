@@ -1,6 +1,7 @@
 import logging
 import string
 import random
+import time
 from datetime import datetime
 import uuid
 import requests
@@ -35,6 +36,38 @@ logger = logging.getLogger(__name__)
 
 def _build_ninepsb_url(resource):
     return f"{base_url.rstrip('/')}/{resource.lstrip('/')}"
+
+
+def _post_with_retry(url, headers, json_payload, timeout, retries=1, backoff_seconds=1.5):
+    """
+    POST with retries on network-level failures only (timeout / connection
+    refused) - never on a definitive HTTP response, since that means 9PSB
+    already answered and retrying could double-process the request.
+
+    Retries resend the exact same json_payload (including transactionId for
+    debit/credit calls), so a retry after a read timeout is only as risky as
+    9PSB's own dedup-by-transactionId guarantee - the same assumption this
+    codebase already relies on when a user manually resubmits a FAILED
+    transaction (see BrandChargeMixin._check_idempotency).
+    """
+    attempt = 0
+    while True:
+        try:
+            return requests.post(
+                url=url, headers=headers, json=json_payload, timeout=timeout
+            )
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            attempt += 1
+            if attempt > retries:
+                raise
+            logging.warning(
+                "Transient error calling %s (attempt %d/%d): %s - retrying",
+                url,
+                attempt,
+                retries + 1,
+                e,
+            )
+            time.sleep(backoff_seconds)
 
 
 _NINE_PSB_TOKEN_KEY = "nine_psb_bearer_token"
@@ -334,20 +367,20 @@ class Wallet:
         }
 
         try:
-            response = requests.post(
+            response = _post_with_retry(
                 url=base_url + resource,
                 headers=headers,
-                json=payload,
+                json_payload=payload,
                 timeout=15,
             )
             if response.status_code == 401:
                 bearer_token = authenticate(force_refresh=True)
                 if bearer_token:
                     headers["Authorization"] = f"Bearer {bearer_token}"
-                    response = requests.post(
+                    response = _post_with_retry(
                         url=base_url + resource,
                         headers=headers,
-                        json=payload,
+                        json_payload=payload,
                         timeout=15,
                     )
             return response
@@ -381,8 +414,8 @@ class Wallet:
         }
 
         try:
-            response = requests.post(
-                url=base_url + resource, headers=headers, json=payload, timeout=30
+            response = _post_with_retry(
+                url=base_url + resource, headers=headers, json_payload=payload, timeout=30
             )
             return response
 
