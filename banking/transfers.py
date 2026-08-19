@@ -516,6 +516,8 @@ class IntraBankTransfer(generics.CreateAPIView):
                     amount=str(total),
                     description=narration,
                     status="PENDING",
+                    is_task=bool(payload.get("is_task")),
+                    task_id=payload.get("task_id"),
                 )
 
             logger.info("Verification successful, proceeding with transfer.")
@@ -931,6 +933,8 @@ class InterBankTransfer(generics.CreateAPIView):
                     transfer_fee=charge["transfer_fee"],
                     description=narration,
                     status="PENDING",
+                    is_task=bool(payload.get("is_task")),
+                    task_id=payload.get("task_id"),
                 )
 
             logger.info("Verification successful, proceeding with transfer.")
