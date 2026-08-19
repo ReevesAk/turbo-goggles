@@ -1386,15 +1386,9 @@ class BrandUserGeneratedContentSerializer(serializers.ModelSerializer):
             task_type = validated_data.get("task_type")
             if task_type:
                 try:
-                    TASK_TYPE_TO_KEY = {
-                        "make_a_video": "Make a video",
-                        "take_a_picture": "Take a picture",
-                    }
-                    key = TASK_TYPE_TO_KEY.get(task_type)
-                    if key:
-                        config = PointConfig.objects.filter(key=key).first()
-                        if config:
-                            validated_data["reward_points"] = config.value
+                    config = PointConfig.objects.filter(key=task_type).first()
+                    if config:
+                        validated_data["reward_points"] = config.value
                 except Exception as e:
                     logger.warning(f"Error storing points: {e}")
 
