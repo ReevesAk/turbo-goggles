@@ -11,9 +11,49 @@ from accounts.models import User, TxModel
 from adverts.models import AdLocation, CreateAd
 from adverts.serializers import AdSerializers
 from banking.models import FundWithCard, WalletModel
+from gamification.models import UserGeneratedContent, StreakChallenge
 from security import decrypt, encrypt
 from tasks.models import BrandTaskSubmission
 from user_profile.models import MemberSurvey
+
+
+def _create_ugc_task(user, **overrides):
+    defaults = {
+        "user": user,
+        "business_or_brand_name": "Test Brand",
+        "type_of_business": "online",
+        "task_name": "Test UGC Task",
+        "task_type": "take_a_picture",
+        "description": "Take a picture with our product",
+        "thumbnail_url": "https://res.cloudinary.com/example/image/upload/thumb.jpg",
+        "sample_url": "https://res.cloudinary.com/example/image/upload/sample.jpg",
+        "slot_cap": 100,
+        "slots_filled": 0,
+        "amount": "10000.00",
+        "reward_points": 50,
+        "targeting_type": "broad",
+        "location_perimeter": "nation_wide",
+        "gender": "all",
+        "is_active": True,
+        "credit_settled": False,
+        "unlimited_slots": False,
+    }
+    defaults.update(overrides)
+    return UserGeneratedContent.objects.create(**defaults)
+
+
+def _create_inapp_task(user, **overrides):
+    defaults = {
+        "created_by": user,
+        "name": "Test In-App Task",
+        "streak_type": "financial_task",
+        "duration_days": 14,
+        "start_date": timezone.now(),
+        "end_date": timezone.now() + timedelta(days=14),
+        "reward_points": 100,
+    }
+    defaults.update(overrides)
+    return StreakChallenge.objects.create(**defaults)
 
 
 def _create_user(**overrides):
@@ -72,6 +112,76 @@ class AdvertsBehaviorTests(APITestCase):
 
         self.assertEqual(serialized["remaining_time"], "Expired")
         self.assertFalse(ad.is_active)
+
+    def test_list_all_ads_includes_ugc_tasks(self):
+        """
+        UGC tasks (UserGeneratedContent) are a separate model/app from
+        CreateAd, but a brand thinks of both as just "my ads" - regression
+        coverage for list-all-ads never surfacing UGC tasks at all.
+        """
+        owner = _create_user(active_role="BrandAd")
+        other = _create_user(active_role="BrandAd")
+
+        CreateAd.objects.create(user=owner, campaign_name="Owner Campaign")
+        _create_ugc_task(owner, task_name="Owner UGC Task")
+        _create_ugc_task(other, task_name="Other Brand's UGC Task")
+
+        self.client.force_authenticate(user=owner)
+        response = self.client.get("/v1/adverts/list-all-ads")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.data)
+        data = body["data"]
+        results = data.get("results") if isinstance(data, dict) else data
+
+        self.assertEqual(len(results), 2)
+        by_type = {row["ad_type"]: row for row in results}
+        self.assertEqual(by_type["brand_ad"]["campaign_name"], "Owner Campaign")
+        self.assertEqual(by_type["ugc"]["task_name"], "Owner UGC Task")
+
+    def test_list_all_ads_orders_mixed_ad_types_by_created_at(self):
+        owner = _create_user(active_role="BrandAd")
+
+        older_ugc = _create_ugc_task(owner, task_name="Older UGC")
+        UserGeneratedContent.objects.filter(pk=older_ugc.pk).update(
+            created_at=timezone.now() - timedelta(days=2)
+        )
+        CreateAd.objects.create(user=owner, campaign_name="Newest Campaign")
+
+        self.client.force_authenticate(user=owner)
+        response = self.client.get("/v1/adverts/list-all-ads")
+
+        body = decrypt(response.data)
+        data = body["data"]
+        results = data.get("results") if isinstance(data, dict) else data
+
+        self.assertEqual(results[0]["ad_type"], "brand_ad")
+        self.assertEqual(results[0]["campaign_name"], "Newest Campaign")
+        self.assertEqual(results[1]["ad_type"], "ugc")
+        self.assertEqual(results[1]["task_name"], "Older UGC")
+
+    def test_list_all_ads_includes_own_inapp_tasks(self):
+        """
+        StreakChallenge (in-app tasks) is owned via created_by, not user -
+        distinct from CreateAd/UserGeneratedContent which are brand-owned.
+        """
+        admin = _create_user(active_role="SuperAdmin")
+        other_admin = _create_user(active_role="SuperAdmin")
+
+        _create_inapp_task(admin, name="My Streak Challenge")
+        _create_inapp_task(other_admin, name="Someone Else's Challenge")
+
+        self.client.force_authenticate(user=admin)
+        response = self.client.get("/v1/adverts/list-all-ads")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.data)
+        data = body["data"]
+        results = data.get("results") if isinstance(data, dict) else data
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["ad_type"], "in_app")
+        self.assertEqual(results[0]["name"], "My Streak Challenge")
 
 
 def _create_ad(user, **overrides):

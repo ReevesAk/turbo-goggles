@@ -37,6 +37,11 @@ from permissions import IsBrandAd, IsBrandAdAdmin, IsSuperAdmin
 from .models import CreateAd
 from banking.helpers import verify_wallet_auth
 from modules.billing_mixings import BrandChargeMixin
+from gamification.models import UserGeneratedContent, StreakChallenge
+from gamification.serializers import (
+    BrandUserGeneratedContentSerializer,
+    InAppTaskSerializer,
+)
 
 from security import encrypt, decrypt
 from commons import first_validation_error, is_slot_target_reached
@@ -450,6 +455,18 @@ class ListAllBrandAdsUsers(generics.ListAPIView):
     responses={200: AdSerializers(many=True)},
 )
 class ListAllBrandAds(generics.ListAPIView):
+    """
+    Unified "my ads" list - merges three structurally separate
+    models/apps a brand/admin otherwise has no single place to see
+    together: CreateAd (regular ad campaigns), UserGeneratedContent (UGC
+    tasks), both owned via `user`, and StreakChallenge (in-app tasks),
+    owned via `created_by` since those are admin-created platform
+    missions rather than brand-scoped content. Each item is tagged with
+    ad_type ("brand_ad"/"ugc"/"in_app") so the client can tell which
+    shape it's looking at, and the merged list is sorted by created_at
+    like the single-model list used to be.
+    """
+
     serializer_class = AdSerializers
     permission_classes = [IsAuthenticated & (IsBrandAd | IsBrandAdAdmin | IsSuperAdmin)]
     pagination_class = PaginationStyle
@@ -464,6 +481,16 @@ class ListAllBrandAds(generics.ListAPIView):
             .order_by("-created_at")
         )
 
+    def get_ugc_queryset(self):
+        return UserGeneratedContent.objects.filter(
+            user=self.request.user
+        ).order_by("-created_at")
+
+    def get_inapp_queryset(self):
+        return StreakChallenge.objects.filter(
+            created_by=self.request.user
+        ).order_by("-created_at")
+
     def list(self, request, *args, **kwargs):
         logger.info("ListAllBrandAds view created by user: %s", request.user.email)
 
@@ -477,18 +504,29 @@ class ListAllBrandAds(generics.ListAPIView):
             encrypted_response = encrypt(cached_ads)
             return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
-        # If not in cache, fetch from database
-        queryset = self.get_queryset()
-        page = self.paginate_queryset(queryset)
-        serializer = (
-            self.serializer_class(page, many=True)
-            if page is not None
-            else self.serializer_class(queryset, many=True)
-        )
+        # If not in cache, fetch from database - merge all three ad types,
+        # tag each with ad_type, and sort by created_at like a single
+        # queryset. Sorted on the model instances (real datetimes) rather
+        # than the serialized output, so it doesn't depend on every
+        # serializer rendering created_at in the same string format.
+        sources = [
+            ("brand_ad", list(self.get_queryset()), AdSerializers),
+            ("ugc", list(self.get_ugc_queryset()), BrandUserGeneratedContentSerializer),
+            ("in_app", list(self.get_inapp_queryset()), InAppTaskSerializer),
+        ]
+        tagged_rows = []
+        for ad_type, objs, serializer_cls in sources:
+            rows = serializer_cls(objs, many=True).data
+            for obj, row in zip(objs, rows):
+                tagged_rows.append((obj.created_at, {**row, "ad_type": ad_type}))
+
+        merged = [row for _, row in sorted(tagged_rows, key=lambda pair: pair[0], reverse=True)]
+
+        page = self.paginate_queryset(merged)
         response = {
             "status": "success",
             "message": "All created ads retrieved successfully!",
-            "data": list(serializer.data),
+            "data": page if page is not None else merged,
         }
 
         # Save to cache (short TTL)
