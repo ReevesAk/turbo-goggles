@@ -102,6 +102,7 @@ from .analytics import (
     get_transaction_overview_snapshot,
     get_customer_insight_extended,
     get_ads_insight_snapshot,
+    get_inbound_credit_sum,
 )
 from security import encrypt, decrypt
 from permissions import (
@@ -3481,17 +3482,11 @@ class AdminDashboardDataView(APIView):
         start_of_year = start_of_today.replace(month=1, day=1)
 
         def get_transfer_sum(start, end, direction=None):
+            # Outbound only - TransferModel never carries an inbound row, see
+            # roles.analytics.get_transfer_sum's docstring. Inbound uses
+            # get_inbound_credit_sum (imported above) instead.
             qs = TransferModel.objects.filter(created_at__gte=start, created_at__lt=end)
-            if direction == "inbound":
-                qs = qs.filter(
-                    Q(transaction_type__in=["INBOUND", "CREDIT"])
-                    | Q(
-                        transaction_type="INTRA_BANK",
-                        beneficiary_account_number__isnull=False,
-                        sender_account_number__isnull=True,
-                    )
-                )
-            elif direction == "outbound":
+            if direction == "outbound":
                 qs = qs.filter(
                     Q(transaction_type__in=["OUTBOUND", "DEBIT"])
                     | Q(
@@ -3526,7 +3521,7 @@ class AdminDashboardDataView(APIView):
             )
 
         def get_cashflow(start, end):
-            inbound = get_transfer_sum(start, end, direction="inbound")
+            inbound = get_inbound_credit_sum(start, end)
             outbound = get_transfer_sum(start, end, direction="outbound")
             card_deposit = get_card_deposit_sum(start, end)
             bill_payments = get_bill_payment_sum(start, end)

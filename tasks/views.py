@@ -479,7 +479,12 @@ class BrandTaskFeedView(generics.ListAPIView):
             end_date__gte=timezone.now(),
         ).order_by("-created_at")
         inapp_data = InAppTaskFeedSerializer(
-            inapp_qs, many=True, context={"request": request}
+            # Same "active" definition the admin dashboard uses (is_ongoing) -
+            # excludes not-yet-started (is_scheduled) and paused challenges,
+            # which the DB filter above doesn't catch on its own.
+            [t for t in inapp_qs if t.is_ongoing],
+            many=True,
+            context={"request": request},
         ).data
         for task_data in inapp_data:
             task_data["distance_km"] = None
