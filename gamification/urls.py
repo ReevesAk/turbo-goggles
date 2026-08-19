@@ -9,6 +9,7 @@ from .views import (  # SubmitActivityImageView,
     BrandUGCDetailView,
     BrandUGCListCreateView,
     CampaignStatusView,
+    GenerateWalkToEarnReferralCodeView,
     GetMemberPointsSummary,
     JoinCampaignView,
     JoinStreakChallengeView,
@@ -18,6 +19,7 @@ from .views import (  # SubmitActivityImageView,
     NextBeeGamificationLSSOLogin,
     PointsLeaderboardView,
     RedeemPointsToWallet,
+    ReviewUGCSubmissionAdminView,
     StreakLeaderboardView,
     UGCDetailView,
     UGCLeaderboardView,
@@ -108,6 +110,11 @@ urlpatterns = [
         MyReferralStatusView.as_view(),
         name="referral-my-status",
     ),
+    path(
+        "referrals/walk-to-earn-code/",
+        GenerateWalkToEarnReferralCodeView.as_view(),
+        name="referral-generate-walk-to-earn-code",
+    ),
     # ==========================================
     # User Generated Content (UGC) Endpoints
     # ==========================================
@@ -166,6 +173,11 @@ urlpatterns = [
         "ugc/admin/submissions/",
         AdminUGCSubmissionsListView.as_view(),
         name="admin-submissions",
+    ),
+    path(
+        "ugc/admin/submissions/<uuid:id>/review/",
+        ReviewUGCSubmissionAdminView.as_view(),
+        name="admin-review-submission",
     ),
     path(
         "ugc/admin/stats/",
