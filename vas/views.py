@@ -153,6 +153,8 @@ class AirTimeTopUp(generics.GenericAPIView):
                         tx_type="Airtime",
                         amount=amount,
                         description=title,
+                        is_task=self.is_task,
+                        task_id=self.task_id,
                     )
                     CashbackService.reward_cashback(
                         user=user, amount=amount, service="airtime", tx_ref=tx_reference
@@ -246,6 +248,8 @@ class AirTimeTopUp(generics.GenericAPIView):
             k: v.strip() if isinstance(v, str) else v
             for k, v in decrypted_payload.items()
         }
+        self.is_task = bool(user_data.get("is_task"))
+        self.task_id = user_data.get("task_id")
 
         user = request.user if request.user.is_authenticated else None
         guest_id = request.headers.get("X-Guest-ID")
@@ -900,6 +904,8 @@ class DataSubscriptionView(generics.GenericAPIView):
                         tx_type="Data",
                         amount=amount,
                         description=title,
+                        is_task=self.is_task,
+                        task_id=self.task_id,
                     )
                     CashbackService.reward_cashback(
                         user=user, amount=amount, service="data", tx_ref=tx_reference
@@ -991,6 +997,8 @@ class DataSubscriptionView(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
+        self.is_task = bool(user_data.get("is_task"))
+        self.task_id = user_data.get("task_id")
 
         user = request.user if request.user.is_authenticated else None
         guest_id = request.headers.get("X-Guest-ID")
@@ -1868,6 +1876,8 @@ class BillPaymentView(generics.GenericAPIView):
                         tx_type="Bill Payment",
                         amount=amount,
                         description=title,
+                        is_task=self.is_task,
+                        task_id=self.task_id,
                     )
             except Exception as e:
                 logger.error(f"TxModel creation error: {str(e)}")
@@ -1994,6 +2004,8 @@ class BillPaymentView(generics.GenericAPIView):
             key: value.strip() if isinstance(value, str) else value
             for key, value in decrypted_payload.items()
         }
+        self.is_task = bool(user_data.get("is_task"))
+        self.task_id = user_data.get("task_id")
         user = request.user if request.user.is_authenticated else None
 
         # Idempotency: check if this request was already processed

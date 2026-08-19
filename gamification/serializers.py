@@ -1848,11 +1848,11 @@ class UGCTaskSubmitSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        """Create a new submission and auto-approve."""
+        """Create a new submission, pending review."""
         user = self.context.get("request").user
         ip_address = self.context.get("ip_address")
 
-        submission, success, message = UGCTaskSubmission.auto_approve(
+        submission, success, message = UGCTaskSubmission.submit(
             user=user,
             task=validated_data["task"],
             media_url=validated_data["media_url"],

@@ -124,10 +124,17 @@ class Register(generics.GenericAPIView):
 
         referred_by_code = user_data.get("referred_by_code")
         referrer = None
+        referrer_code_type = None
         if referred_by_code:
             referrer = User.objects.filter(
                 referral_code=referred_by_code, is_deleted=False
             ).first()
+            referrer_code_type = "gamification"
+            if referrer is None:
+                referrer = User.objects.filter(
+                    walk_to_earn_referral_code=referred_by_code, is_deleted=False
+                ).first()
+                referrer_code_type = "walk_to_earn"
             if referrer is None:
                 return Response(
                     data=encrypt(
@@ -161,11 +168,17 @@ class Register(generics.GenericAPIView):
             user.save(update_fields=["referral_code"])
 
             if referrer is not None:
-                Referrals.record_referral(
-                    referrer=referrer, referred=user, code_used=referred_by_code
-                )
+                if referrer_code_type == "walk_to_earn":
+                    Referrals.record_walk_to_earn_referral(
+                        referrer=referrer, referred=user, code_used=referred_by_code
+                    )
+                else:
+                    Referrals.record_referral(
+                        referrer=referrer, referred=user, code_used=referred_by_code
+                    )
                 logger.info(
-                    "Referral recorded: referrer=%s referred=%s",
+                    "Referral recorded (%s): referrer=%s referred=%s",
+                    referrer_code_type,
                     mask_email(referrer.email),
                     mask_email(user.email),
                 )

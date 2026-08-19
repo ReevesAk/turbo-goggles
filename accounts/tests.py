@@ -246,6 +246,39 @@ class RegisterEndpointTests(APITestCase):
         referrer.refresh_from_db()
         self.assertEqual(referrer.referral_count, 1)
 
+    def test_register_with_walk_to_earn_code_credits_separate_counter(
+        self, mock_points, mock_msg
+    ):
+        """Signing up with a walk_to_earn_referral_code must credit
+        walk_to_earn_referral_count only - never referral_count/
+        gamification tasks, which the regular referral_code path is for."""
+        from gamification.models import Referral
+
+        referrer = _create_user(
+            email="referrer@example.com",
+            phone_number="2348022222222",
+            is_verified=True,
+        )
+        referrer.walk_to_earn_referral_code = "REFCODE1WALK"
+        referrer.save(update_fields=["walk_to_earn_referral_code"])
+
+        response = self.client.post(
+            self.url,
+            data=self._valid_payload(referred_by_code="REFCODE1WALK"),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        new_user = User.objects.get(email="newuser@example.com")
+        referral = Referral.objects.get(referred=new_user)
+        self.assertEqual(referral.referrer, referrer)
+        self.assertEqual(referral.referral_type, "walk_to_earn")
+        self.assertTrue(referral.counted)
+
+        referrer.refresh_from_db()
+        self.assertEqual(referrer.walk_to_earn_referral_count, 1)
+        self.assertEqual(referrer.referral_count, 0)
+
 
 # ---------------------------------------------------------------------------
 # Login endpoint

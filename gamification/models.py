@@ -603,8 +603,14 @@ class RewardTier(models.Model):
 class Referral(models.Model):
     """
     Append-only ledger row for a single successful referral event, created
-    once when a new user registers with another user's referral_code.
+    once when a new user registers with another user's referral_code or
+    walk_to_earn_referral_code.
     """
+
+    REFERRAL_TYPE_CHOICES = (
+        ("gamification", "Gamification"),
+        ("walk_to_earn", "Walk To Earn"),
+    )
 
     referrer = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="referrals_made"
@@ -613,9 +619,18 @@ class Referral(models.Model):
         User, on_delete=models.CASCADE, related_name="referred_by"
     )
     referral_code_used = models.CharField(max_length=50)
+    # Which code was used - determines which counter got incremented:
+    # "gamification" -> referrer.referral_count (drives ReferralTask
+    # mode="gamification" and StreakChallenge referral_task progress).
+    # "walk_to_earn" -> referrer.walk_to_earn_referral_count (drives ONLY
+    # the walk_to_earn_gate check) - these two counters are intentionally
+    # separate, see Referrals.record_referral/record_walk_to_earn_referral.
+    referral_type = models.CharField(
+        max_length=20, choices=REFERRAL_TYPE_CHOICES, default="gamification"
+    )
     # False if the referrer failed Points.check_credibility() at record time —
-    # the referral is still logged, but referrer.referral_count was not
-    # incremented and no ReferralTask progress was advanced.
+    # the referral is still logged, but the relevant counter was not
+    # incremented and no progress was advanced.
     counted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -1129,7 +1144,8 @@ class UserGeneratedContent(models.Model):
 class UGCTaskSubmission(models.Model):
     """
     Represents a user's submission for a UGC task.
-    Auto-approved or rejected instantly - no admin review.
+    Submissions start as PENDING and are approved or rejected by an admin
+    review action - points are only awarded on approval.
     """
 
     class Status(models.TextChoices):
@@ -1185,9 +1201,11 @@ class UGCTaskSubmission(models.Model):
         return f"{self.user.email} - {self.task.task_name} ({self.status})"
 
     @classmethod
-    def auto_approve(cls, user, task, media_url, caption="", ip_address=None):
+    def submit(cls, user, task, media_url, caption="", ip_address=None):
         """
-        Auto-approve a submission and award points immediately.
+        Create a submission in PENDING status. No points are awarded and no
+        notification is sent here - that only happens once a reviewer calls
+        approve() on the submission.
         Returns (submission, success, message)
         """
         # Validate task is active
@@ -1223,18 +1241,39 @@ class UGCTaskSubmission(models.Model):
                 task=task,
                 media_url=media_url,
                 caption=caption,
-                status=cls.Status.APPROVED,
-                reviewed_at=timezone.now(),
+                status=cls.Status.PENDING,
                 ip_address=ip_address,
             )
 
-            # Get UGC level from progress
             progress, _ = UGCTaskProgress.objects.select_for_update().get_or_create(
                 user=user
             )
-            # Import Points class from points.py
-            from gamification.points import Points
+            progress.record_submission(submission)
 
+        return submission, True, "Submission received and pending review"
+
+    def approve(self):
+        """
+        Approve a pending submission and award points.
+        Guards against double-award if the submission is already approved.
+        Returns (success, message)
+        """
+        if self.status == self.Status.APPROVED:
+            return False, "Submission already approved"
+
+        from django.db import transaction
+
+        from gamification.points import Points
+
+        with transaction.atomic():
+            task = UserGeneratedContent.objects.select_for_update().get(
+                id=self.task_id
+            )
+            progress, _ = UGCTaskProgress.objects.select_for_update().get_or_create(
+                user=self.user
+            )
+
+            # Get UGC level from progress
             ugc_level = Points.get_ugc_level(progress.approved_submissions)
 
             # Use UGC level multiplier, fallback to generic level
@@ -1242,43 +1281,53 @@ class UGCTaskSubmission(models.Model):
             final_points = int((task.reward_points or 0) * level_multiplier)
 
             success, message = Points.award(
-                user=user,
+                user=self.user,
                 amount=final_points,
                 reason=f"UGC Task completed: {task.task_name}",
                 source="ugc_task_completion",
                 reference_id=str(task.id),
             )
 
-            if success:
-                submission.points_awarded = final_points
-                submission.points_reason = message
+            if not success:
+                return False, message
 
-                # Atomic slot increment using F()
-                task.slots_filled = F("slots_filled") + 1
-                task.save(update_fields=["slots_filled"])
-                task.refresh_from_db()  # Get the actual value
+            self.status = self.Status.APPROVED
+            self.reviewed_at = timezone.now()
+            self.points_awarded = final_points
+            self.points_reason = message
+            self.save()
 
-                # Update user progress
-                progress.record_submission(submission)
-                progress.record_approval(submission)
+            # Atomic slot increment using F()
+            task.slots_filled = F("slots_filled") + 1
+            task.save(update_fields=["slots_filled"])
 
-                submission.save()
+            # Update user progress
+            progress.record_approval(self)
 
-                # Check for streak bonuses and achievements
-                Points.check_ugc_streak_bonus(user, progress)
-                Points.check_ugc_achievement(user, progress)
+            # Check for streak bonuses and achievements
+            Points.check_ugc_streak_bonus(self.user, progress)
+            Points.check_ugc_achievement(self.user, progress)
 
-                return (
-                    submission,
-                    True,
-                    f"Task completed! {final_points} points awarded",
-                )
-            else:
-                # Points award failed - mark as rejected
-                submission.status = cls.Status.REJECTED
-                submission.rejection_reason = "Points award failed"
-                submission.save()
-                return submission, False, message
+        return True, f"Task approved! {final_points} points awarded"
+
+    def reject(self, reason=""):
+        """
+        Reject a pending submission. No points are awarded and no
+        "points awarded" notification is sent.
+        Returns (success, message)
+        """
+        if self.status == self.Status.APPROVED:
+            return False, "Cannot reject an already-approved submission"
+
+        self.status = self.Status.REJECTED
+        self.rejection_reason = reason
+        self.reviewed_at = timezone.now()
+        self.save()
+
+        progress, _ = UGCTaskProgress.objects.get_or_create(user=self.user)
+        progress.record_rejection()
+
+        return True, "Submission rejected"
 
 
 class UGCTaskProgress(models.Model):

@@ -793,7 +793,9 @@ class GetMemberPointsSummary(generics.GenericAPIView):
     description=(
         "Returns the member's own shareable referral_code, their referral_count, "
         "progress on active gamification-mode referral tasks, and the current "
-        "Walk-to-Earn referral gate status (if one is active)."
+        "Walk-to-Earn referral gate status (if one is active). walk_to_earn_referral_code "
+        "is null until the member generates one via GenerateWalkToEarnReferralCodeView - "
+        "it is not auto-generated here, unlike referral_code."
     ),
     responses={
         200: inline_serializer(
@@ -808,6 +810,8 @@ class GetMemberPointsSummary(generics.GenericAPIView):
                         "gamification_tasks": ReferralTaskProgressEntrySerializer(
                             many=True
                         ),
+                        "walk_to_earn_referral_code": s.CharField(allow_null=True),
+                        "walk_to_earn_referral_count": s.IntegerField(),
                         "walk_to_earn_gate": inline_serializer(
                             name="MyReferralStatusGate",
                             fields={
@@ -879,17 +883,72 @@ class MyReferralStatusView(generics.GenericAPIView):
                         "gamification_tasks": ReferralTaskProgressEntrySerializer(
                             gamification_tasks, many=True
                         ).data,
+                        "walk_to_earn_referral_code": user.walk_to_earn_referral_code,
+                        "walk_to_earn_referral_count": user.walk_to_earn_referral_count,
                         "walk_to_earn_gate": {
                             "active": gate is not None,
                             "target_referral_count": (
                                 gate.target_referral_count if gate else None
                             ),
                             "met": (
-                                user.referral_count >= gate.target_referral_count
+                                user.walk_to_earn_referral_count
+                                >= gate.target_referral_count
                                 if gate
                                 else True
                             ),
                         },
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Generate (or fetch) the member's Walk-to-Earn referral code",
+    tags=["Gamification"],
+    description=(
+        "Unlike referral_code (auto-generated at registration), "
+        "walk_to_earn_referral_code is only created when a member explicitly "
+        "opts in to recruiting for a Walk-to-Earn campaign. Idempotent - "
+        "returns the existing code if one was already generated. Referrals "
+        "made with this code count only toward walk_to_earn_referral_count "
+        "(the gate check), never toward referral_count/gamification tasks."
+    ),
+    responses={
+        200: inline_serializer(
+            name="GenerateWalkToEarnReferralCodeResponse",
+            fields={
+                "status": s.CharField(),
+                "data": inline_serializer(
+                    name="GenerateWalkToEarnReferralCodeData",
+                    fields={"walk_to_earn_referral_code": s.CharField()},
+                ),
+            },
+        ),
+    },
+)
+class GenerateWalkToEarnReferralCodeView(generics.GenericAPIView):
+    """POST — creates (or returns the existing) walk_to_earn_referral_code
+    for the authenticated member."""
+
+    permission_classes = (IsAuthenticated, IsMember)
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+
+        if not user.walk_to_earn_referral_code:
+            user.walk_to_earn_referral_code = Referrals.generate_walk_to_earn_code(
+                user
+            )
+            user.save(update_fields=["walk_to_earn_referral_code"])
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "walk_to_earn_referral_code": user.walk_to_earn_referral_code
                     },
                 }
             ),
@@ -2279,7 +2338,7 @@ class UserUGCTaskSubmissionsView(generics.ListAPIView):
 @extend_schema(
     summary="Submit a UGC task completion",
     tags=["User Generated Content [Users]"],
-    description="Submits a completed UGC task. Points are awarded automatically upon submission.",
+    description="Submits a completed UGC task for review. Points are awarded once an admin approves the submission.",
     request=UGCTaskSubmitSerializer,
     responses={
         201: UGCTaskSubmissionSerializer,
@@ -2351,7 +2410,7 @@ class UGCTaskSubmitView(generics.CreateAPIView):
 
             response_data = {
                 "status": "success",
-                "message": f"Task completed! {submission.points_awarded} points awarded.",
+                "message": "Submission received and pending review.",
                 "data": UGCTaskSubmissionSerializer(submission).data,
             }
 
@@ -2486,6 +2545,86 @@ class AdminUGCSubmissionsListView(generics.ListAPIView):
         }
 
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    summary="Approve or reject a UGC submission (admin)",
+    tags=["User Generated Content [Admin]"],
+    description="Reviews a pending UGC submission. Approving awards points and "
+    "sends the 'points awarded' notification; rejecting does not.",
+    request=inline_serializer(
+        name="ReviewUGCSubmissionRequest",
+        fields={
+            "action": OpenApiTypes.STR,
+            "reason": OpenApiTypes.STR,
+        },
+    ),
+    responses={
+        200: inline_serializer(
+            name="ReviewUGCSubmissionSuccess",
+            fields={"status": OpenApiTypes.STR, "message": OpenApiTypes.STR},
+        ),
+        400: inline_serializer(
+            name="ReviewUGCSubmissionError",
+            fields={"status": OpenApiTypes.STR, "message": OpenApiTypes.STR},
+        ),
+        404: inline_serializer(
+            name="ReviewUGCSubmissionNotFound",
+            fields={"status": OpenApiTypes.STR, "message": OpenApiTypes.STR},
+        ),
+    },
+)
+class ReviewUGCSubmissionAdminView(generics.GenericAPIView):
+    """POST /v1/ugc/admin/submissions/<uuid:id>/review/"""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def post(self, request, id):
+        try:
+            submission = UGCTaskSubmission.objects.select_related(
+                "user", "task"
+            ).get(id=id)
+        except UGCTaskSubmission.DoesNotExist:
+            return Response(
+                data=encrypt(
+                    {"status": "fail", "message": "Submission not found"}
+                ),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        action = request.data.get("action")
+
+        if action == "approve":
+            success, message = submission.approve()
+        elif action == "reject":
+            success, message = submission.reject(
+                reason=request.data.get("reason", "")
+            )
+        else:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "action must be 'approve' or 'reject'",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cache.delete(
+            f"ugc_task_with_submission:{submission.task.id}:{submission.user.id}"
+        )
+        cache.delete(f"user_ugc_submissions:{submission.user.id}")
+        cache.delete(f"ugc_progress:{submission.user.id}")
+
+        response_data = {
+            "status": "success" if success else "fail",
+            "message": message,
+        }
+        response_status = (
+            status.HTTP_200_OK if success else status.HTTP_400_BAD_REQUEST
+        )
+        return Response(data=encrypt(response_data), status=response_status)
 
 
 @extend_schema(
