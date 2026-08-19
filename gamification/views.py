@@ -2338,7 +2338,7 @@ class UserUGCTaskSubmissionsView(generics.ListAPIView):
 @extend_schema(
     summary="Submit a UGC task completion",
     tags=["User Generated Content [Users]"],
-    description="Submits a completed UGC task. Points are awarded automatically upon submission.",
+    description="Submits a completed UGC task for review. Points are awarded once an admin approves the submission.",
     request=UGCTaskSubmitSerializer,
     responses={
         201: UGCTaskSubmissionSerializer,
@@ -2410,7 +2410,7 @@ class UGCTaskSubmitView(generics.CreateAPIView):
 
             response_data = {
                 "status": "success",
-                "message": f"Task completed! {submission.points_awarded} points awarded.",
+                "message": "Submission received and pending review.",
                 "data": UGCTaskSubmissionSerializer(submission).data,
             }
 
@@ -2545,6 +2545,86 @@ class AdminUGCSubmissionsListView(generics.ListAPIView):
         }
 
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    summary="Approve or reject a UGC submission (admin)",
+    tags=["User Generated Content [Admin]"],
+    description="Reviews a pending UGC submission. Approving awards points and "
+    "sends the 'points awarded' notification; rejecting does not.",
+    request=inline_serializer(
+        name="ReviewUGCSubmissionRequest",
+        fields={
+            "action": OpenApiTypes.STR,
+            "reason": OpenApiTypes.STR,
+        },
+    ),
+    responses={
+        200: inline_serializer(
+            name="ReviewUGCSubmissionSuccess",
+            fields={"status": OpenApiTypes.STR, "message": OpenApiTypes.STR},
+        ),
+        400: inline_serializer(
+            name="ReviewUGCSubmissionError",
+            fields={"status": OpenApiTypes.STR, "message": OpenApiTypes.STR},
+        ),
+        404: inline_serializer(
+            name="ReviewUGCSubmissionNotFound",
+            fields={"status": OpenApiTypes.STR, "message": OpenApiTypes.STR},
+        ),
+    },
+)
+class ReviewUGCSubmissionAdminView(generics.GenericAPIView):
+    """POST /v1/ugc/admin/submissions/<uuid:id>/review/"""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def post(self, request, id):
+        try:
+            submission = UGCTaskSubmission.objects.select_related(
+                "user", "task"
+            ).get(id=id)
+        except UGCTaskSubmission.DoesNotExist:
+            return Response(
+                data=encrypt(
+                    {"status": "fail", "message": "Submission not found"}
+                ),
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        action = request.data.get("action")
+
+        if action == "approve":
+            success, message = submission.approve()
+        elif action == "reject":
+            success, message = submission.reject(
+                reason=request.data.get("reason", "")
+            )
+        else:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "action must be 'approve' or 'reject'",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cache.delete(
+            f"ugc_task_with_submission:{submission.task.id}:{submission.user.id}"
+        )
+        cache.delete(f"user_ugc_submissions:{submission.user.id}")
+        cache.delete(f"ugc_progress:{submission.user.id}")
+
+        response_data = {
+            "status": "success" if success else "fail",
+            "message": message,
+        }
+        response_status = (
+            status.HTTP_200_OK if success else status.HTTP_400_BAD_REQUEST
+        )
+        return Response(data=encrypt(response_data), status=response_status)
 
 
 @extend_schema(
