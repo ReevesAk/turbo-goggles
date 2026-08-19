@@ -145,6 +145,22 @@ def _create_ugc_submission(user, task, status="approved", points_awarded=50, **k
     return UGCTaskSubmission.objects.create(**defaults)
 
 
+def _submit_and_approve(user, task, media_url, caption="", ip_address=None):
+    """
+    Test helper: submit a UGC task and immediately approve it, mirroring the
+    old auto_approve() signature/return shape (submission, success, message)
+    for callers that just need an approved submission set up.
+    """
+    submission, success, message = UGCTaskSubmission.submit(
+        user=user, task=task, media_url=media_url, caption=caption, ip_address=ip_address
+    )
+    if not success:
+        return submission, success, message
+
+    success, message = submission.approve()
+    return submission, success, message
+
+
 def _create_ugc_progress(user, **kwargs):
     """
     Create UGC progress with defaults.
@@ -287,7 +303,7 @@ class UGCTaskSubmissionModelTests(ThrottleDisabledAPITestCase):
     """
     Unit tests for UGCTaskSubmission model.
 
-    Tests the auto-approve functionality, validation, and state transitions
+    Tests the submit/approve/reject flow, validation, and state transitions
     for UGC task submissions.
     """
 
@@ -297,22 +313,21 @@ class UGCTaskSubmissionModelTests(ThrottleDisabledAPITestCase):
         self.task = _create_ugc_task(self.brand_user, slot_cap=10)
         self.progress = _create_ugc_progress(self.user)
 
-    def test_auto_approve_success(self):
+    def test_submit_success(self):
         """
-        Successful auto-approve creates submission and awards points.
+        Successful submit creates a PENDING submission with no points awarded.
 
         Given:
             - A valid user, task, and media URL
         When:
-            - auto_approve is called
+            - submit is called
         Then:
-            - A submission is created with APPROVED status
-            - Points are awarded (task completion + achievement)
+            - A submission is created with PENDING status
+            - No points are awarded yet
             - The submission is associated with the correct user and task
         """
         with patch("gamification.points.Points.award") as mock_award:
-            mock_award.return_value = (True, "Points awarded")
-            submission, success, message = UGCTaskSubmission.auto_approve(
+            submission, success, message = UGCTaskSubmission.submit(
                 user=self.user,
                 task=self.task,
                 media_url="https://res.cloudinary.com/example/video.mp4",
@@ -322,23 +337,21 @@ class UGCTaskSubmissionModelTests(ThrottleDisabledAPITestCase):
 
         self.assertTrue(success)
         self.assertIsNotNone(submission)
-        self.assertEqual(submission.status, UGCTaskSubmission.Status.APPROVED)
+        self.assertEqual(submission.status, UGCTaskSubmission.Status.PENDING)
         self.assertEqual(submission.user, self.user)
         self.assertEqual(submission.task, self.task)
         self.assertEqual(submission.ip_address, "127.0.0.1")
-        self.assertIn("points awarded", message)
+        self.assertEqual(submission.points_awarded, 0)
+        mock_award.assert_not_called()
 
-        # Points.award is called twice: task completion + achievement
-        self.assertEqual(mock_award.call_count, 2)
-
-    def test_auto_approve_inactive_task(self):
+    def test_submit_inactive_task(self):
         """
-        Auto-approve fails for inactive tasks.
+        Submit fails for inactive tasks.
 
         Given:
             - A task that is not active
         When:
-            - auto_approve is called
+            - submit is called
         Then:
             - The operation fails
             - An appropriate error message is returned
@@ -346,7 +359,7 @@ class UGCTaskSubmissionModelTests(ThrottleDisabledAPITestCase):
         self.task.is_active = False
         self.task.save()
 
-        submission, success, message = UGCTaskSubmission.auto_approve(
+        submission, success, message = UGCTaskSubmission.submit(
             user=self.user,
             task=self.task,
             media_url="https://res.cloudinary.com/example/video.mp4",
@@ -356,14 +369,14 @@ class UGCTaskSubmissionModelTests(ThrottleDisabledAPITestCase):
         self.assertIsNone(submission)
         self.assertEqual(message, "Task is no longer active")
 
-    def test_auto_approve_fully_booked_task(self):
+    def test_submit_fully_booked_task(self):
         """
-        Auto-approve fails for fully booked tasks.
+        Submit fails for fully booked tasks.
 
         Given:
             - A task where slots_filled equals slot_cap
         When:
-            - auto_approve is called
+            - submit is called
         Then:
             - The operation fails
             - An appropriate error message is returned
@@ -371,7 +384,7 @@ class UGCTaskSubmissionModelTests(ThrottleDisabledAPITestCase):
         self.task.slots_filled = 10
         self.task.save()
 
-        submission, success, message = UGCTaskSubmission.auto_approve(
+        submission, success, message = UGCTaskSubmission.submit(
             user=self.user,
             task=self.task,
             media_url="https://res.cloudinary.com/example/video.mp4",
@@ -381,14 +394,14 @@ class UGCTaskSubmissionModelTests(ThrottleDisabledAPITestCase):
         self.assertIsNone(submission)
         self.assertEqual(message, "Task has reached its slot limit")
 
-    def test_auto_approve_expired_task(self):
+    def test_submit_expired_task(self):
         """
-        Auto-approve fails for expired tasks.
+        Submit fails for expired tasks.
 
         Given:
             - A task whose expiry_date is in the past
         When:
-            - auto_approve is called
+            - submit is called
         Then:
             - The operation fails
             - An appropriate error message is returned
@@ -396,7 +409,7 @@ class UGCTaskSubmissionModelTests(ThrottleDisabledAPITestCase):
         self.task.expiry_date = timezone.now() - timedelta(days=1)
         self.task.save()
 
-        submission, success, message = UGCTaskSubmission.auto_approve(
+        submission, success, message = UGCTaskSubmission.submit(
             user=self.user,
             task=self.task,
             media_url="https://res.cloudinary.com/example/video.mp4",
@@ -406,21 +419,21 @@ class UGCTaskSubmissionModelTests(ThrottleDisabledAPITestCase):
         self.assertIsNone(submission)
         self.assertEqual(message, "Task has expired")
 
-    def test_auto_approve_duplicate_submission(self):
+    def test_submit_duplicate_submission(self):
         """
-        Auto-approve fails for duplicate pending/approved submissions.
+        Submit fails for duplicate pending/approved submissions.
 
         Given:
             - An existing pending submission for the same user and task
         When:
-            - auto_approve is called again
+            - submit is called again
         Then:
             - The operation fails
             - An appropriate error message is returned
         """
         _create_ugc_submission(self.user, self.task, status="pending")
 
-        submission, success, message = UGCTaskSubmission.auto_approve(
+        submission, success, message = UGCTaskSubmission.submit(
             user=self.user,
             task=self.task,
             media_url="https://res.cloudinary.com/example/video.mp4",
@@ -430,132 +443,251 @@ class UGCTaskSubmissionModelTests(ThrottleDisabledAPITestCase):
         self.assertIsNone(submission)
         self.assertEqual(message, "You have already submitted this task")
 
-    def test_auto_approve_duplicate_rejected_allows_resubmission(self):
+    def test_submit_duplicate_rejected_allows_resubmission(self):
         """
-        Auto-approve allows resubmission after rejection.
+        Submit allows resubmission after rejection.
 
         Given:
             - An existing rejected submission for the same user and task
         When:
-            - auto_approve is called again
+            - submit is called again
         Then:
             - The operation succeeds
             - A new submission is created
         """
         _create_ugc_submission(self.user, self.task, status="rejected")
 
-        with patch("gamification.points.Points.award") as mock_award:
-            mock_award.return_value = (True, "Points awarded")
-            submission, success, message = UGCTaskSubmission.auto_approve(
-                user=self.user,
-                task=self.task,
-                media_url="https://res.cloudinary.com/example/video.mp4",
-            )
+        submission, success, message = UGCTaskSubmission.submit(
+            user=self.user,
+            task=self.task,
+            media_url="https://res.cloudinary.com/example/video.mp4",
+        )
 
         self.assertTrue(success)
         self.assertIsNotNone(submission)
 
-    def test_auto_approve_uses_ugc_level_multiplier(self):
+    def test_approve_success(self):
         """
-        Auto-approve uses UGC level for multiplier.
+        Successful approve awards points and marks submission APPROVED.
+
+        Given:
+            - A pending submission
+        When:
+            - approve is called
+        Then:
+            - The submission becomes APPROVED
+            - Points are awarded (task completion + achievement)
+        """
+        submission, _, _ = UGCTaskSubmission.submit(
+            user=self.user,
+            task=self.task,
+            media_url="https://res.cloudinary.com/example/video.mp4",
+        )
+
+        with patch("gamification.points.Points.award") as mock_award:
+            mock_award.return_value = (True, "Points awarded")
+            success, message = submission.approve()
+
+        self.assertTrue(success)
+        self.assertEqual(submission.status, UGCTaskSubmission.Status.APPROVED)
+        self.assertIn("points awarded", message)
+
+        # Points.award is called twice: task completion + achievement
+        self.assertEqual(mock_award.call_count, 2)
+
+    def test_approve_already_approved_is_idempotent(self):
+        """
+        Approving an already-approved submission does not double-award points.
+
+        Given:
+            - A submission that is already APPROVED
+        When:
+            - approve is called again
+        Then:
+            - The operation fails without calling Points.award
+        """
+        submission, _, _ = UGCTaskSubmission.submit(
+            user=self.user,
+            task=self.task,
+            media_url="https://res.cloudinary.com/example/video.mp4",
+        )
+        with patch("gamification.points.Points.award") as mock_award:
+            mock_award.return_value = (True, "Points awarded")
+            submission.approve()
+
+        with patch("gamification.points.Points.award") as mock_award:
+            success, message = submission.approve()
+
+        self.assertFalse(success)
+        self.assertEqual(message, "Submission already approved")
+        mock_award.assert_not_called()
+
+    def test_approve_uses_ugc_level_multiplier(self):
+        """
+        Approve uses UGC level for multiplier.
 
         Given:
             - A user with 100 approved submissions (UGC Legend)
             - A task with 50 reward points
         When:
-            - auto_approve is called
+            - approve is called
         Then:
             - The points awarded should be 50 * 2.0 = 100
         """
         self.progress.approved_submissions = 100
         self.progress.save()
 
+        submission, _, _ = UGCTaskSubmission.submit(
+            user=self.user,
+            task=self.task,
+            media_url="https://res.cloudinary.com/example/video.mp4",
+        )
+
         with patch("gamification.points.Points.award") as mock_award:
             mock_award.return_value = (True, "Points awarded")
-            UGCTaskSubmission.auto_approve(
-                user=self.user,
-                task=self.task,
-                media_url="https://res.cloudinary.com/example/video.mp4",
-            )
+            submission.approve()
 
         call_args = mock_award.call_args[1]
         self.assertEqual(call_args["amount"], 100)
 
-    def test_auto_approve_points_award_failure(self):
+    def test_approve_points_award_failure(self):
         """
-        Points award failure marks submission as rejected.
+        Points award failure leaves the submission pending for retry.
 
         Given:
-            - A valid submission attempt
+            - A pending submission
         When:
-            - Points award fails
+            - Points award fails during approve
         Then:
-            - The submission is marked as REJECTED
-            - An appropriate error message is returned
+            - The operation fails
+            - The submission remains PENDING (not auto-rejected), since the
+              failure is a system-side issue rather than a reviewer decision
         """
+        submission, _, _ = UGCTaskSubmission.submit(
+            user=self.user,
+            task=self.task,
+            media_url="https://res.cloudinary.com/example/video.mp4",
+        )
+
         with patch("gamification.points.Points.award") as mock_award:
             mock_award.return_value = (False, "Credibility check failed")
-            submission, success, message = UGCTaskSubmission.auto_approve(
-                user=self.user,
-                task=self.task,
-                media_url="https://res.cloudinary.com/example/video.mp4",
-            )
+            success, message = submission.approve()
 
         self.assertFalse(success)
-        self.assertIsNotNone(submission)
-        self.assertEqual(submission.status, UGCTaskSubmission.Status.REJECTED)
-        self.assertEqual(submission.rejection_reason, "Points award failed")
+        self.assertEqual(submission.status, UGCTaskSubmission.Status.PENDING)
+        self.assertEqual(message, "Credibility check failed")
 
-    def test_auto_approve_atomic_slot_increment(self):
+    def test_approve_atomic_slot_increment(self):
         """
         Slot increment is atomic using F() expression.
 
         Given:
             - A task with 5 filled slots
         When:
-            - auto_approve is called
+            - approve is called
         Then:
             - slots_filled should be incremented to 6
-            - The increment should be atomic at the database level
         """
         self.task.slots_filled = 5
         self.task.save()
 
+        submission, _, _ = UGCTaskSubmission.submit(
+            user=self.user,
+            task=self.task,
+            media_url="https://res.cloudinary.com/example/video.mp4",
+        )
+
         with patch("gamification.points.Points.award") as mock_award:
             mock_award.return_value = (True, "Points awarded")
-            submission, success, _ = UGCTaskSubmission.auto_approve(
-                user=self.user,
-                task=self.task,
-                media_url="https://res.cloudinary.com/example/video.mp4",
-            )
+            success, _ = submission.approve()
 
         self.assertTrue(success)
         self.task.refresh_from_db()
         self.assertEqual(self.task.slots_filled, 6)
 
-    def test_auto_approve_updates_progress(self):
+    def test_submit_then_approve_updates_progress(self):
         """
-        Auto-approve updates user progress.
+        Submit and approve update user progress separately.
 
         Given:
             - A valid submission attempt
         When:
-            - auto_approve is called and succeeds
+            - submit is called, then approve is called
         Then:
-            - The user's progress should be updated
-            - total_submissions and approved_submissions should be incremented
+            - total_submissions is incremented on submit
+            - approved_submissions is only incremented on approve
         """
-        with patch("gamification.points.Points.award") as mock_award:
-            mock_award.return_value = (True, "Points awarded")
-            UGCTaskSubmission.auto_approve(
-                user=self.user,
-                task=self.task,
-                media_url="https://res.cloudinary.com/example/video.mp4",
-            )
+        submission, _, _ = UGCTaskSubmission.submit(
+            user=self.user,
+            task=self.task,
+            media_url="https://res.cloudinary.com/example/video.mp4",
+        )
 
         self.progress.refresh_from_db()
         self.assertEqual(self.progress.total_submissions, 1)
+        self.assertEqual(self.progress.approved_submissions, 0)
+
+        with patch("gamification.points.Points.award") as mock_award:
+            mock_award.return_value = (True, "Points awarded")
+            submission.approve()
+
+        self.progress.refresh_from_db()
         self.assertEqual(self.progress.approved_submissions, 1)
+
+    def test_reject_success(self):
+        """
+        Reject marks a pending submission REJECTED without awarding points.
+
+        Given:
+            - A pending submission
+        When:
+            - reject is called with a reason
+        Then:
+            - The submission becomes REJECTED with the given reason
+            - Points.award is never called
+            - rejected_submissions on progress is incremented
+        """
+        submission, _, _ = UGCTaskSubmission.submit(
+            user=self.user,
+            task=self.task,
+            media_url="https://res.cloudinary.com/example/video.mp4",
+        )
+
+        with patch("gamification.points.Points.award") as mock_award:
+            success, message = submission.reject(reason="Low quality media")
+
+        self.assertTrue(success)
+        self.assertEqual(submission.status, UGCTaskSubmission.Status.REJECTED)
+        self.assertEqual(submission.rejection_reason, "Low quality media")
+        mock_award.assert_not_called()
+
+        self.progress.refresh_from_db()
+        self.assertEqual(self.progress.rejected_submissions, 1)
+
+    def test_reject_already_approved_fails(self):
+        """
+        Rejecting an already-approved submission is not allowed.
+
+        Given:
+            - A submission that is already APPROVED
+        When:
+            - reject is called
+        Then:
+            - The operation fails and the submission stays APPROVED
+        """
+        submission, _, _ = UGCTaskSubmission.submit(
+            user=self.user,
+            task=self.task,
+            media_url="https://res.cloudinary.com/example/video.mp4",
+        )
+        with patch("gamification.points.Points.award") as mock_award:
+            mock_award.return_value = (True, "Points awarded")
+            submission.approve()
+
+        success, message = submission.reject(reason="Changed my mind")
+
+        self.assertFalse(success)
+        self.assertEqual(submission.status, UGCTaskSubmission.Status.APPROVED)
 
 
 class UGCTaskProgressModelTests(ThrottleDisabledAPITestCase):
@@ -2259,8 +2391,8 @@ class UGCSubmissionFlowTests(ThrottleDisabledAPITestCase):
 
         Expected Results:
         - Rejected submission doesn't block new submissions
-        - New submission is created successfully
-        - Points are awarded again
+        - New submission is created (pending) successfully
+        - Points are awarded once the new submission is approved
         """
         # Step 1: Create a rejected submission
         rejected_submission = _create_ugc_submission(
@@ -2274,25 +2406,29 @@ class UGCSubmissionFlowTests(ThrottleDisabledAPITestCase):
             "caption": "Resubmitting after rejection",
         }
 
-        with patch("gamification.points.Points.award") as mock_award:
-            mock_award.return_value = (True, "Points awarded")
-            submit_response = self.client.post(
-                "/v1/gamification/ugc/submit/",
-                data=encrypt(submit_data),
-                format="json",
-            )
+        submit_response = self.client.post(
+            "/v1/gamification/ugc/submit/",
+            data=encrypt(submit_data),
+            format="json",
+        )
 
         self.assertEqual(submit_response.status_code, status.HTTP_201_CREATED)
 
-        # Step 3: Verify new submission was created
+        # Step 3: Verify new submission was created, pending review
         submissions = UGCTaskSubmission.objects.filter(user=self.user, task=self.task)
         self.assertEqual(submissions.count(), 2)
 
         new_submission = submissions.order_by("-submitted_at").first()
-        self.assertEqual(new_submission.status, UGCTaskSubmission.Status.APPROVED)
+        self.assertEqual(new_submission.status, UGCTaskSubmission.Status.PENDING)
         self.assertNotEqual(new_submission.id, rejected_submission.id)
 
-        # Step 4: Verify progress was updated
+        # Step 4: A reviewer approves the new submission
+        with patch("gamification.points.Points.award") as mock_award:
+            mock_award.return_value = (True, "Points awarded")
+            success, _ = new_submission.approve()
+        self.assertTrue(success)
+
+        # Step 5: Verify progress was updated
         progress = UGCTaskProgress.objects.get(user=self.user)
         self.assertEqual(progress.total_submissions, 1)  # Only approved counts
         self.assertEqual(progress.approved_submissions, 1)
@@ -2415,19 +2551,21 @@ class UGCSubmissionFlowTests(ThrottleDisabledAPITestCase):
 
     def test_full_submission_flow_success(self):
         """
-        Complete submission flow: view -> submit -> points awarded.
+        Complete submission flow: view -> submit (pending) -> admin approves -> points awarded.
 
         Test Steps:
         1. User views task details with submission status
         2. User submits the task
-        3. User verifies submission was created
-        4. User checks progress was updated
-        5. User verifies points were awarded
+        3. User verifies submission was created pending, with no points yet
+        4. A reviewer approves the submission
+        5. User checks progress was updated
+        6. User verifies points were awarded
 
         Expected Results:
         - Task detail shows can_submit=True
-        - Submission is created with status APPROVED
-        - Points are awarded (task completion + achievement)
+        - Submission is created with status PENDING and no points
+        - Approving the submission awards points (task completion + achievement)
+          and moves it to APPROVED
         - Progress shows 1 approved submission
         - Submission appears in user's submissions list
 
@@ -2463,19 +2601,28 @@ class UGCSubmissionFlowTests(ThrottleDisabledAPITestCase):
         self.assertEqual(submit_response.status_code, status.HTTP_201_CREATED)
         submit_body = decrypt(submit_response.content)
         self.assertEqual(submit_body["status"], "success")
-        self.assertIn("points awarded", submit_body["message"])
+        self.assertIn("pending review", submit_body["message"])
 
         # Get the submission ID from the response
         submission_id = submit_body["data"]["id"]
 
-        # Step 3: Verify submission was created
+        # Step 3: Verify submission was created pending, with no points yet
         submission = UGCTaskSubmission.objects.get(id=submission_id)
         self.assertEqual(submission.user, self.user)
         self.assertEqual(submission.task, self.task)
-        self.assertEqual(submission.status, UGCTaskSubmission.Status.APPROVED)
-        self.assertEqual(submission.points_awarded, 50)  # Base reward points
+        self.assertEqual(submission.status, UGCTaskSubmission.Status.PENDING)
+        self.assertEqual(submission.points_awarded, 0)
         self.assertEqual(submission.media_url, submit_data["media_url"])
         self.assertEqual(submission.caption, submit_data["caption"])
+
+        # Step 3b: A reviewer approves the submission
+        approve_success, approve_message = submission.approve()
+        self.assertTrue(approve_success)
+        self.assertIn("points awarded", approve_message)
+
+        submission.refresh_from_db()
+        self.assertEqual(submission.status, UGCTaskSubmission.Status.APPROVED)
+        self.assertEqual(submission.points_awarded, 50)  # Base reward points
 
         # Step 4: Check user's submissions list
         submissions_response = self.client.get("/v1/gamification/ugc/submissions/")
@@ -2559,6 +2706,11 @@ class UGCSubmissionFlowTests(ThrottleDisabledAPITestCase):
             )
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
+            body = decrypt(response.content)
+            submission = UGCTaskSubmission.objects.get(id=body["data"]["id"])
+            success, _ = submission.approve()
+            self.assertTrue(success)
+
         # Check progress after 5 submissions
         progress = UGCTaskProgress.objects.get(user=self.user)
         progress.refresh_from_db()
@@ -2627,6 +2779,11 @@ class UGCSubmissionFlowTests(ThrottleDisabledAPITestCase):
                     format="json",
                 )
                 self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+                body = decrypt(response.content)
+                submission = UGCTaskSubmission.objects.get(id=body["data"]["id"])
+                success, _ = submission.approve()
+                self.assertTrue(success)
 
         # Check streak was tracked
         progress.refresh_from_db()
@@ -3097,15 +3254,16 @@ class UGCSecurityAuditTests(ThrottleDisabledAPITestCase):
 
     def test_credibility_check_blocks_fraudulent_users(self):
         """
-        Users with low trust scores cannot earn points.
+        Users with low trust scores cannot earn points, even on approval.
 
         Given:
             - A user with a low trust score
         When:
-            - The user attempts to submit a task
+            - The user submits a task, then a reviewer attempts to approve it
         Then:
-            - The submission should be rejected
-            - No points should be awarded
+            - The submission itself is accepted as PENDING (the trust check
+              lives in Points.award, which now only runs on approval)
+            - The approval attempt fails and no points are awarded
         """
         try:
             from tasks.models import UserTrustScore
@@ -3130,7 +3288,15 @@ class UGCSecurityAuditTests(ThrottleDisabledAPITestCase):
             data=encrypt(data),
             format="json",
         )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        submission = UGCTaskSubmission.objects.get(user=self.user, task=self.task)
+        self.assertEqual(submission.status, UGCTaskSubmission.Status.PENDING)
+
+        success, message = submission.approve()
+        self.assertFalse(success)
+        self.assertIn("Trust score too low", message)
+        self.assertEqual(submission.points_awarded, 0)
 
     def test_slot_overbooking_prevention(self):
         """
@@ -3154,13 +3320,13 @@ class UGCSecurityAuditTests(ThrottleDisabledAPITestCase):
         with patch("gamification.points.Points.award") as mock_award:
             mock_award.return_value = (True, "Points awarded")
 
-            submission1, success1, _ = UGCTaskSubmission.auto_approve(
+            submission1, success1, _ = _submit_and_approve(
                 user=self.user,
                 task=self.task,
                 media_url="https://res.cloudinary.com/example/video1.mp4",
             )
 
-            submission2, success2, _ = UGCTaskSubmission.auto_approve(
+            submission2, success2, _ = _submit_and_approve(
                 user=user2,
                 task=self.task,
                 media_url="https://res.cloudinary.com/example/video2.mp4",
@@ -3198,7 +3364,7 @@ class UGCDataIntegrityTests(ThrottleDisabledAPITestCase):
         """
         task = _create_ugc_task(self.brand_user)
 
-        UGCTaskSubmission.auto_approve(
+        _submit_and_approve(
             user=self.user,
             task=task,
             media_url="https://res.cloudinary.com/example/video.mp4",
@@ -3241,7 +3407,7 @@ class UGCDataIntegrityTests(ThrottleDisabledAPITestCase):
                 slot_cap=100,
             )
 
-            UGCTaskSubmission.auto_approve(
+            _submit_and_approve(
                 user=self.user,
                 task=task,
                 media_url=f"https://res.cloudinary.com/example/video{i}.mp4",
@@ -3280,7 +3446,7 @@ class UGCDataIntegrityTests(ThrottleDisabledAPITestCase):
                 slot_cap=100,
             )
 
-            UGCTaskSubmission.auto_approve(
+            _submit_and_approve(
                 user=self.user,
                 task=task,
                 media_url=f"https://res.cloudinary.com/example/video{i}.mp4",
@@ -4142,7 +4308,7 @@ class UGCPerformanceTests(ThrottleDisabledAPITestCase):
 
             for i in range(100):
                 user = _create_user(active_role="Member", email=f"user{i}@example.com")
-                UGCTaskSubmission.auto_approve(
+                _submit_and_approve(
                     user=user,
                     task=task,
                     media_url=f"https://res.cloudinary.com/example/video{i}.mp4",
