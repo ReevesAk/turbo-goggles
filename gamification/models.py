@@ -603,8 +603,14 @@ class RewardTier(models.Model):
 class Referral(models.Model):
     """
     Append-only ledger row for a single successful referral event, created
-    once when a new user registers with another user's referral_code.
+    once when a new user registers with another user's referral_code or
+    walk_to_earn_referral_code.
     """
+
+    REFERRAL_TYPE_CHOICES = (
+        ("gamification", "Gamification"),
+        ("walk_to_earn", "Walk To Earn"),
+    )
 
     referrer = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="referrals_made"
@@ -613,9 +619,18 @@ class Referral(models.Model):
         User, on_delete=models.CASCADE, related_name="referred_by"
     )
     referral_code_used = models.CharField(max_length=50)
+    # Which code was used - determines which counter got incremented:
+    # "gamification" -> referrer.referral_count (drives ReferralTask
+    # mode="gamification" and StreakChallenge referral_task progress).
+    # "walk_to_earn" -> referrer.walk_to_earn_referral_count (drives ONLY
+    # the walk_to_earn_gate check) - these two counters are intentionally
+    # separate, see Referrals.record_referral/record_walk_to_earn_referral.
+    referral_type = models.CharField(
+        max_length=20, choices=REFERRAL_TYPE_CHOICES, default="gamification"
+    )
     # False if the referrer failed Points.check_credibility() at record time —
-    # the referral is still logged, but referrer.referral_count was not
-    # incremented and no ReferralTask progress was advanced.
+    # the referral is still logged, but the relevant counter was not
+    # incremented and no progress was advanced.
     counted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 

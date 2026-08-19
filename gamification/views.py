@@ -793,7 +793,9 @@ class GetMemberPointsSummary(generics.GenericAPIView):
     description=(
         "Returns the member's own shareable referral_code, their referral_count, "
         "progress on active gamification-mode referral tasks, and the current "
-        "Walk-to-Earn referral gate status (if one is active)."
+        "Walk-to-Earn referral gate status (if one is active). walk_to_earn_referral_code "
+        "is null until the member generates one via GenerateWalkToEarnReferralCodeView - "
+        "it is not auto-generated here, unlike referral_code."
     ),
     responses={
         200: inline_serializer(
@@ -808,6 +810,8 @@ class GetMemberPointsSummary(generics.GenericAPIView):
                         "gamification_tasks": ReferralTaskProgressEntrySerializer(
                             many=True
                         ),
+                        "walk_to_earn_referral_code": s.CharField(allow_null=True),
+                        "walk_to_earn_referral_count": s.IntegerField(),
                         "walk_to_earn_gate": inline_serializer(
                             name="MyReferralStatusGate",
                             fields={
@@ -879,17 +883,72 @@ class MyReferralStatusView(generics.GenericAPIView):
                         "gamification_tasks": ReferralTaskProgressEntrySerializer(
                             gamification_tasks, many=True
                         ).data,
+                        "walk_to_earn_referral_code": user.walk_to_earn_referral_code,
+                        "walk_to_earn_referral_count": user.walk_to_earn_referral_count,
                         "walk_to_earn_gate": {
                             "active": gate is not None,
                             "target_referral_count": (
                                 gate.target_referral_count if gate else None
                             ),
                             "met": (
-                                user.referral_count >= gate.target_referral_count
+                                user.walk_to_earn_referral_count
+                                >= gate.target_referral_count
                                 if gate
                                 else True
                             ),
                         },
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Generate (or fetch) the member's Walk-to-Earn referral code",
+    tags=["Gamification"],
+    description=(
+        "Unlike referral_code (auto-generated at registration), "
+        "walk_to_earn_referral_code is only created when a member explicitly "
+        "opts in to recruiting for a Walk-to-Earn campaign. Idempotent - "
+        "returns the existing code if one was already generated. Referrals "
+        "made with this code count only toward walk_to_earn_referral_count "
+        "(the gate check), never toward referral_count/gamification tasks."
+    ),
+    responses={
+        200: inline_serializer(
+            name="GenerateWalkToEarnReferralCodeResponse",
+            fields={
+                "status": s.CharField(),
+                "data": inline_serializer(
+                    name="GenerateWalkToEarnReferralCodeData",
+                    fields={"walk_to_earn_referral_code": s.CharField()},
+                ),
+            },
+        ),
+    },
+)
+class GenerateWalkToEarnReferralCodeView(generics.GenericAPIView):
+    """POST — creates (or returns the existing) walk_to_earn_referral_code
+    for the authenticated member."""
+
+    permission_classes = (IsAuthenticated, IsMember)
+
+    def post(self, request, *args, **kwargs):
+        user = request.user
+
+        if not user.walk_to_earn_referral_code:
+            user.walk_to_earn_referral_code = Referrals.generate_walk_to_earn_code(
+                user
+            )
+            user.save(update_fields=["walk_to_earn_referral_code"])
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "walk_to_earn_referral_code": user.walk_to_earn_referral_code
                     },
                 }
             ),

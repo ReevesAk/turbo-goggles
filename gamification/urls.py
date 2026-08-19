@@ -9,6 +9,7 @@ from .views import (  # SubmitActivityImageView,
     BrandUGCDetailView,
     BrandUGCListCreateView,
     CampaignStatusView,
+    GenerateWalkToEarnReferralCodeView,
     GetMemberPointsSummary,
     JoinCampaignView,
     JoinStreakChallengeView,
@@ -107,6 +108,11 @@ urlpatterns = [
         "referrals/my-status/",
         MyReferralStatusView.as_view(),
         name="referral-my-status",
+    ),
+    path(
+        "referrals/walk-to-earn-code/",
+        GenerateWalkToEarnReferralCodeView.as_view(),
+        name="referral-generate-walk-to-earn-code",
     ),
     # ==========================================
     # User Generated Content (UGC) Endpoints

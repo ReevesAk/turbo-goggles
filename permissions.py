@@ -107,7 +107,7 @@ class HasMetReferralRequirement(permissions.BasePermission):
         if gate is None:
             return True
 
-        referred_count = request.user.referral_count or 0
+        referred_count = request.user.walk_to_earn_referral_count or 0
         if referred_count >= gate.target_referral_count:
             return True
 

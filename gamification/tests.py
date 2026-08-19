@@ -4294,6 +4294,67 @@ class ReferralsServiceTests(ThrottleDisabledAPITestCase):
 
         self.assertNotEqual(code1, code2)
 
+    def test_generate_walk_to_earn_code_contains_walk_suffix(self):
+        code = Referrals.generate_walk_to_earn_code(self.referrer)
+
+        self.assertTrue(code.endswith("WALK"))
+
+    def test_code_uniqueness_namespace_is_shared_across_both_fields(self):
+        """referral_code and walk_to_earn_referral_code share one uniqueness
+        namespace - a code taken in either field is unavailable in both,
+        so a signup code lookup can never be ambiguous."""
+        self.referrer.referral_code = "SHARED123"
+        self.referrer.save(update_fields=["referral_code"])
+        self.assertTrue(Referrals._is_code_taken("SHARED123"))
+
+        self.referrer.referral_code = None
+        self.referrer.walk_to_earn_referral_code = "SHAREDWALK"
+        self.referrer.save(update_fields=["referral_code", "walk_to_earn_referral_code"])
+        self.assertTrue(Referrals._is_code_taken("SHAREDWALK"))
+
+        self.assertFalse(Referrals._is_code_taken("NEVERUSED123"))
+
+    def test_record_walk_to_earn_referral_increments_separate_counter(self):
+        Referrals.record_walk_to_earn_referral(
+            referrer=self.referrer, referred=self.referred, code_used="ABC123WALK"
+        )
+
+        self.referrer.refresh_from_db()
+        self.assertEqual(self.referrer.walk_to_earn_referral_count, 1)
+        self.assertEqual(self.referrer.referral_count, 0)
+
+    def test_record_walk_to_earn_referral_does_not_advance_gamification_tasks(self):
+        admin = _create_user()
+        task = ReferralTask.objects.create(
+            name="First referral bonus",
+            mode="gamification",
+            target_referral_count=1,
+            reward_points=100,
+            created_by=admin,
+        )
+
+        Referrals.record_walk_to_earn_referral(
+            referrer=self.referrer, referred=self.referred, code_used="ABC123WALK"
+        )
+
+        self.assertFalse(
+            UserReferralTaskProgress.objects.filter(
+                user=self.referrer, task=task
+            ).exists()
+        )
+
+    def test_record_walk_to_earn_referral_not_credible_does_not_increment(self):
+        self.referrer.is_verified = False
+        self.referrer.save(update_fields=["is_verified"])
+
+        referral = Referrals.record_walk_to_earn_referral(
+            referrer=self.referrer, referred=self.referred, code_used="ABC123WALK"
+        )
+
+        self.assertFalse(referral.counted)
+        self.referrer.refresh_from_db()
+        self.assertEqual(self.referrer.walk_to_earn_referral_count, 0)
+
     def test_get_active_gate_returns_none_when_no_gate_active(self):
         self.assertIsNone(Referrals.get_active_gate())
 
@@ -4506,7 +4567,7 @@ class JoinCampaignReferralGateTests(ThrottleDisabledAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
-    def test_join_blocked_when_referral_count_below_gate_target(self):
+    def test_join_blocked_when_walk_to_earn_referral_count_below_gate_target(self):
         ReferralTask.objects.create(
             name="Refer 2 to unlock",
             mode="walk_to_earn_gate",
@@ -4514,14 +4575,14 @@ class JoinCampaignReferralGateTests(ThrottleDisabledAPITestCase):
             created_by=self.admin,
         )
         user = _create_user(
-            active_role="Member", has_done_survey=True, referral_count=1
+            active_role="Member", has_done_survey=True, walk_to_earn_referral_count=1
         )
 
         response = self._join(user)
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
-    def test_join_allowed_when_referral_count_meets_gate_target(self):
+    def test_join_allowed_when_walk_to_earn_referral_count_meets_gate_target(self):
         ReferralTask.objects.create(
             name="Refer 2 to unlock",
             mode="walk_to_earn_gate",
@@ -4529,12 +4590,87 @@ class JoinCampaignReferralGateTests(ThrottleDisabledAPITestCase):
             created_by=self.admin,
         )
         user = _create_user(
-            active_role="Member", has_done_survey=True, referral_count=2
+            active_role="Member", has_done_survey=True, walk_to_earn_referral_count=2
         )
 
         response = self._join(user)
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_join_blocked_by_gate_even_with_high_regular_referral_count(self):
+        """referral_count (gamification code) must not satisfy the gate -
+        only walk_to_earn_referral_count (walk-to-earn code) counts."""
+        ReferralTask.objects.create(
+            name="Refer 2 to unlock",
+            mode="walk_to_earn_gate",
+            target_referral_count=2,
+            created_by=self.admin,
+        )
+        user = _create_user(
+            active_role="Member", has_done_survey=True, referral_count=10
+        )
+
+        response = self._join(user)
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class MyReferralStatusAndWalkToEarnCodeViewTests(ThrottleDisabledAPITestCase):
+    """API-level coverage for MyReferralStatusView's walk-to-earn fields and
+    GenerateWalkToEarnReferralCodeView."""
+
+    def setUp(self):
+        self.user = _create_user(active_role="Member", has_done_survey=True)
+
+    def test_status_view_walk_to_earn_code_is_null_until_generated(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get("/v1/gamification/referrals/my-status/")
+
+        body = decrypt(response.data)
+        self.assertIsNone(body["data"]["walk_to_earn_referral_code"])
+        self.assertEqual(body["data"]["walk_to_earn_referral_count"], 0)
+
+    def test_generate_walk_to_earn_code_creates_and_persists_code(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.post("/v1/gamification/referrals/walk-to-earn-code/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.data)
+        code = body["data"]["walk_to_earn_referral_code"]
+        self.assertTrue(code.endswith("WALK"))
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.walk_to_earn_referral_code, code)
+
+    def test_generate_walk_to_earn_code_is_idempotent(self):
+        self.client.force_authenticate(user=self.user)
+
+        first = self.client.post("/v1/gamification/referrals/walk-to-earn-code/")
+        second = self.client.post("/v1/gamification/referrals/walk-to-earn-code/")
+
+        first_code = decrypt(first.data)["data"]["walk_to_earn_referral_code"]
+        second_code = decrypt(second.data)["data"]["walk_to_earn_referral_code"]
+        self.assertEqual(first_code, second_code)
+
+    def test_status_view_gate_met_reflects_walk_to_earn_count_only(self):
+        admin = _create_user()
+        ReferralTask.objects.create(
+            name="Refer 2 to unlock",
+            mode="walk_to_earn_gate",
+            target_referral_count=2,
+            created_by=admin,
+        )
+        self.user.referral_count = 10
+        self.user.walk_to_earn_referral_count = 2
+        self.user.save(update_fields=["referral_count", "walk_to_earn_referral_count"])
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get("/v1/gamification/referrals/my-status/")
+
+        body = decrypt(response.data)
+        self.assertTrue(body["data"]["walk_to_earn_gate"]["met"])
 
 
 class InAppTaskCreateSerializerActionTypeTests(APITestCase):
