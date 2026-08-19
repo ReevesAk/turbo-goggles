@@ -3,7 +3,7 @@ import random
 import string
 
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.utils import timezone
 
 from accounts.models import User
@@ -13,9 +13,19 @@ from .points import Points
 logger = logging.getLogger(__name__)
 
 CODE_RANDOM_LENGTH = 6
+WALK_TO_EARN_CODE_SUFFIX = "WALK"
 
 
 class Referrals:
+    @staticmethod
+    def _is_code_taken(code: str) -> bool:
+        # Checked against both code fields across all users - referral_code
+        # and walk_to_earn_referral_code share one namespace, so a signup
+        # code lookup unambiguously resolves to exactly one referrer/type.
+        return User.objects.filter(
+            Q(referral_code=code) | Q(walk_to_earn_referral_code=code)
+        ).exists()
+
     @staticmethod
     def generate_code(user) -> str:
         """
@@ -31,7 +41,26 @@ class Referrals:
                 )
             )
             code = f"{prefix}{suffix}"
-            if not User.objects.filter(referral_code=code).exists():
+            if not Referrals._is_code_taken(code):
+                return code
+
+    @staticmethod
+    def generate_walk_to_earn_code(user) -> str:
+        """
+        Same shape as generate_code, with WALK appended so the code is
+        recognizable at a glance as the walk-to-earn variant - separate
+        code space (see _is_code_taken) but shares the same uniqueness
+        pool as generate_code.
+        """
+        prefix = (user.first_name or "USER").upper().replace(" ", "")[:5]
+        while True:
+            suffix = "".join(
+                random.choices(
+                    string.ascii_uppercase + string.digits, k=CODE_RANDOM_LENGTH
+                )
+            )
+            code = f"{prefix}{suffix}{WALK_TO_EARN_CODE_SUFFIX}"
+            if not Referrals._is_code_taken(code):
                 return code
 
     @staticmethod
@@ -51,11 +80,13 @@ class Referrals:
     @staticmethod
     def record_referral(referrer, referred, code_used: str):
         """
-        Called once per successful registration-with-code. Always creates the
-        Referral ledger row. Only advances referrer.referral_count and checks
-        gamification-task completion if the referrer passes
+        Called once per successful registration with referrer.referral_code
+        (not walk_to_earn_referral_code - see record_walk_to_earn_referral
+        for that). Always creates the Referral ledger row. Only advances
+        referrer.referral_count and checks gamification-task/in-app
+        referral_task completion if the referrer passes
         Points.check_credibility — an untrustworthy referrer can't farm
-        Walk-to-Earn access via referrals.
+        reward-bearing referral progress.
         """
         with transaction.atomic():
             credible, reason = Points.check_credibility(referrer)
@@ -64,6 +95,7 @@ class Referrals:
                 referrer=referrer,
                 referred=referred,
                 referral_code_used=code_used,
+                referral_type="gamification",
                 counted=credible,
             )
 
@@ -82,6 +114,43 @@ class Referrals:
             referrer.refresh_from_db(fields=["referral_count"])
             Referrals._check_gamification_tasks(referrer)
             Referrals._check_inapp_referral_tasks(referrer)
+
+        return referral
+
+    @staticmethod
+    def record_walk_to_earn_referral(referrer, referred, code_used: str):
+        """
+        Called once per successful registration with referrer.
+        walk_to_earn_referral_code specifically. Deliberately does not touch
+        referral_count or check gamification/in-app referral_task progress -
+        this is a separate counter (walk_to_earn_referral_count) that only
+        the walk_to_earn_gate reads, so a walk-to-earn referral can't also
+        farm reward-bearing referral tasks and vice versa.
+        """
+        with transaction.atomic():
+            credible, reason = Points.check_credibility(referrer)
+
+            referral = Referral.objects.create(
+                referrer=referrer,
+                referred=referred,
+                referral_code_used=code_used,
+                referral_type="walk_to_earn",
+                counted=credible,
+            )
+
+            if not credible:
+                logger.info(
+                    "Walk-to-earn referral recorded but not counted (referrer "
+                    "failed credibility): referrer=%s reason=%s",
+                    referrer.email,
+                    reason,
+                )
+                return referral
+
+            User.objects.filter(pk=referrer.pk).update(
+                walk_to_earn_referral_count=F("walk_to_earn_referral_count") + 1
+            )
+            referrer.refresh_from_db(fields=["walk_to_earn_referral_count"])
 
         return referral
 

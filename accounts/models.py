@@ -71,6 +71,17 @@ class User(AbstractBaseUser, PermissionsMixin):
     referral_code = models.CharField(
         max_length=50, null=True, blank=True, unique=True, db_index=True
     )
+    # Separate code + counter for walk-to-earn recruiting specifically -
+    # unlike referral_code, this is not generated at registration; it's
+    # generated on demand (see Referrals.generate_walk_to_earn_code) only
+    # when a member chooses to go recruit for a walk-to-earn campaign.
+    # Deliberately tracked apart from referral_count/referral_code so a
+    # walk-to-earn referral never also credits gamification ReferralTasks
+    # or in-app referral_task missions, and vice versa.
+    walk_to_earn_referral_code = models.CharField(
+        max_length=50, null=True, blank=True, unique=True, db_index=True
+    )
+    walk_to_earn_referral_count = models.PositiveIntegerField(default=0)
     state = models.CharField(max_length=155, blank=False)
     city = models.CharField(max_length=155, blank=False)
     profile_img_url = models.CharField(max_length=255, null=True)
