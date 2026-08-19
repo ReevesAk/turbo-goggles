@@ -4367,3 +4367,56 @@ class JoinCampaignReferralGateTests(ThrottleDisabledAPITestCase):
         response = self._join(user)
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+
+class InAppTaskCreateSerializerActionTypeTests(APITestCase):
+    """
+    action_type="streak" regression coverage - mission_category="streak_task"
+    was added without a matching action_type value, so creating a
+    streak_task financial_task always 400'd with "streak is not a valid
+    choice" until action_type gained a "streak" option treated the same as
+    count_based (see gamification/serializers.py's
+    _validate_financial_task_fields and tasks/serializers.py's
+    InAppTaskFeedSerializer._get_progress).
+    """
+
+    def _base_payload(self, **overrides):
+        payload = {
+            "name": "Test Streak Task",
+            "streak_type": "financial_task",
+            "duration_days": 7,
+            "start_date": timezone.now(),
+            "end_date": timezone.now() + timedelta(days=7),
+            "reward_points": 100,
+            "mission_category": "streak_task",
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_action_type_streak_is_accepted(self):
+        from .serializers import InAppTaskCreateSerializer
+
+        serializer = InAppTaskCreateSerializer(
+            data=self._base_payload(action_type="streak", required_count=5)
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+    def test_action_type_streak_requires_required_count(self):
+        from .serializers import InAppTaskCreateSerializer
+
+        serializer = InAppTaskCreateSerializer(
+            data=self._base_payload(action_type="streak")
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("required_count", str(serializer.errors))
+
+    def test_action_type_count_based_still_works(self):
+        from .serializers import InAppTaskCreateSerializer
+
+        serializer = InAppTaskCreateSerializer(
+            data=self._base_payload(action_type="count_based", required_count=3)
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)

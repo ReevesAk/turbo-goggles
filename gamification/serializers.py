@@ -505,9 +505,11 @@ class InAppTaskCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "action_type is required for streak_type='financial_task'."
             )
-        if data["action_type"] == "count_based" and not data.get("required_count"):
+        if data["action_type"] in ("count_based", "streak") and not data.get(
+            "required_count"
+        ):
             raise serializers.ValidationError(
-                "required_count is required when action_type='count_based'."
+                f"required_count is required when action_type='{data['action_type']}'."
             )
         if data["action_type"] == "amount_based" and not data.get("total_min_amount"):
             raise serializers.ValidationError(

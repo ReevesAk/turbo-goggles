@@ -168,6 +168,13 @@ ACTION_TYPE_CHOICES = (
     ("count_based", "Count Based"),
     ("amount_based", "Amount Based"),
     ("one_time", "One Time"),
+    # Same semantics as count_based (required_count times within the
+    # challenge window) - a distinct value so the client/admin UI can label
+    # it "streak" for mission_category="streak_task" without it being
+    # confused with a generic count-based mission. See
+    # _validate_financial_task_fields and InAppTaskFeedSerializer._get_progress
+    # for the two places that treat it identically to count_based.
+    ("streak", "Streak"),
 )
 
 RECURRENCE_PERIOD_CHOICES = (
