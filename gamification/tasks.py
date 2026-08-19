@@ -66,7 +66,17 @@ def _check_user_activity(user, streak_type, date):
 @shared_task(name="gamification.tasks.check_and_update_streaks")
 def check_and_update_streaks():
     """
-    Daily task (runs ~midnight) that increments or resets each user's active streaks.
+    Daily task (runs ~midnight) that increments or resets each user's active
+    day-based streaks (did you do the activity yesterday, yes/no).
+
+    Excludes streak_type="financial_task": those are cumulative-threshold
+    missions ("reach N total", not "N days in a row"), tracked and completed
+    elsewhere as the underlying activity happens (see e.g.
+    Referrals._check_inapp_referral_tasks for mission_category=
+    "referral_task"). Running this day-streak logic on them was resetting
+    current_count to 0 every night, since _check_user_activity has no way to
+    detect "financial_task" activity - there's no source="financial_task"
+    PointTransaction, by design.
     """
     from .models import StreakChallenge, UserStreak, StreakHistory
     from .points import Points
@@ -77,7 +87,7 @@ def check_and_update_streaks():
         is_active=True,
         is_paused=False,
         end_date__gte=yesterday,
-    )
+    ).exclude(streak_type="financial_task")
 
     processed = 0
     for challenge in active_challenges:

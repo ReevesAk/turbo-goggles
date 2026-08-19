@@ -42,6 +42,8 @@ from .models import (
     Referral,
     ReferralTask,
     UserReferralTaskProgress,
+    StreakChallenge,
+    UserStreak,
 )
 from .points import Points, UGC_ACHIEVEMENTS, STREAK_MILESTONES
 from .referrals import Referrals
@@ -4164,6 +4166,72 @@ class UGCPerformanceTests(ThrottleDisabledAPITestCase):
 # =============================================================================
 
 
+class CheckAndUpdateStreaksFinancialTaskTests(ThrottleDisabledAPITestCase):
+    """
+    check_and_update_streaks (the nightly day-streak cron) must not touch
+    streak_type="financial_task" challenges - those are cumulative-threshold
+    missions tracked elsewhere (e.g. Referrals._check_inapp_referral_tasks),
+    not "did you do it yesterday" day-streaks. Regression coverage for the
+    cron resetting current_count to 0 every night since it had no way to
+    detect "financial_task" activity.
+    """
+
+    def test_financial_task_current_count_is_not_reset(self):
+        from gamification.tasks import check_and_update_streaks
+
+        admin = _create_user()
+        user = _create_user(active_role="Member")
+        challenge = StreakChallenge.objects.create(
+            name="Refer 3 Friends",
+            streak_type="financial_task",
+            mission_category="referral_task",
+            action_type="count_based",
+            required_count=3,
+            duration_days=30,
+            start_date=timezone.now() - timedelta(days=2),
+            end_date=timezone.now() + timedelta(days=28),
+            reward_points=200,
+            created_by=admin,
+        )
+        user_streak = UserStreak.objects.create(
+            user=user, challenge=challenge, current_count=2
+        )
+
+        check_and_update_streaks()
+
+        user_streak.refresh_from_db()
+        self.assertEqual(user_streak.current_count, 2)
+
+    def test_daily_login_streak_still_resets_on_missed_day(self):
+        """Non-financial_task challenges keep the original day-streak
+        reset behavior - this fix only excludes financial_task."""
+        from gamification.tasks import check_and_update_streaks
+
+        admin = _create_user()
+        user = _create_user(active_role="Member")
+        challenge = StreakChallenge.objects.create(
+            name="Daily Login Streak",
+            streak_type="daily_login",
+            duration_days=7,
+            start_date=timezone.now() - timedelta(days=2),
+            end_date=timezone.now() + timedelta(days=5),
+            reward_points=100,
+            created_by=admin,
+        )
+        UserStreak.objects.create(
+            user=user,
+            challenge=challenge,
+            current_count=3,
+            last_activity_date=timezone.now().date() - timedelta(days=5),
+        )
+        # No login yesterday -> _check_user_activity returns False -> reset.
+
+        check_and_update_streaks()
+
+        user_streak = UserStreak.objects.get(user=user, challenge=challenge)
+        self.assertEqual(user_streak.current_count, 0)
+
+
 class ReferralTaskModelTests(ThrottleDisabledAPITestCase):
     """Tests for ReferralTask.save()'s single-active-gate enforcement."""
 
@@ -4309,6 +4377,106 @@ class ReferralsServiceTests(ThrottleDisabledAPITestCase):
             ).count(),
             1,
         )
+
+    def _create_referral_inapp_task(self, admin, **overrides):
+        defaults = {
+            "name": "Refer 3 Friends",
+            "streak_type": "financial_task",
+            "mission_category": "referral_task",
+            "action_type": "count_based",
+            "required_count": 3,
+            "duration_days": 30,
+            "start_date": timezone.now() - timedelta(days=1),
+            "end_date": timezone.now() + timedelta(days=29),
+            "reward_points": 200,
+            "created_by": admin,
+        }
+        defaults.update(overrides)
+        return StreakChallenge.objects.create(**defaults)
+
+    def test_record_referral_advances_inapp_referral_task_progress(self):
+        admin = _create_user()
+        challenge = self._create_referral_inapp_task(admin)
+        user_streak = UserStreak.objects.create(user=self.referrer, challenge=challenge)
+
+        Referrals.record_referral(
+            referrer=self.referrer, referred=self.referred, code_used="ABC123"
+        )
+
+        user_streak.refresh_from_db()
+        self.assertEqual(user_streak.current_count, 1)
+        self.assertFalse(user_streak.completed)
+        self.assertFalse(user_streak.reward_issued)
+
+    def test_record_referral_completes_inapp_referral_task_at_required_count(self):
+        admin = _create_user()
+        challenge = self._create_referral_inapp_task(admin, required_count=2)
+        UserStreak.objects.create(user=self.referrer, challenge=challenge)
+
+        Referrals.record_referral(
+            referrer=self.referrer, referred=self.referred, code_used="ABC123"
+        )
+        second_referred = _create_user(active_role="Member")
+        Referrals.record_referral(
+            referrer=self.referrer, referred=second_referred, code_used="ABC123"
+        )
+
+        user_streak = UserStreak.objects.get(user=self.referrer, challenge=challenge)
+        self.assertEqual(user_streak.current_count, 2)
+        self.assertTrue(user_streak.completed)
+        self.assertTrue(user_streak.reward_issued)
+
+        self.referrer.refresh_from_db()
+        self.assertEqual(self.referrer.total_points, 200)
+
+    def test_record_referral_ignores_unjoined_inapp_referral_task(self):
+        """No UserStreak row = user never joined - progress must not be
+        created implicitly, mirroring how UserReferralTaskProgress is only
+        ever touched for tasks the completion check itself creates it for -
+        but here, unlike ReferralTask, joining is an explicit separate step
+        (JoinStreakChallengeView), so no row should appear at all."""
+        admin = _create_user()
+        challenge = self._create_referral_inapp_task(admin)
+
+        Referrals.record_referral(
+            referrer=self.referrer, referred=self.referred, code_used="ABC123"
+        )
+
+        self.assertFalse(
+            UserStreak.objects.filter(user=self.referrer, challenge=challenge).exists()
+        )
+
+    def test_record_referral_ignores_non_referral_mission_category(self):
+        admin = _create_user()
+        kyc_challenge = self._create_referral_inapp_task(
+            admin, mission_category="kyc_upgrade", kyc_target_tier=1
+        )
+        user_streak = UserStreak.objects.create(
+            user=self.referrer, challenge=kyc_challenge
+        )
+
+        Referrals.record_referral(
+            referrer=self.referrer, referred=self.referred, code_used="ABC123"
+        )
+
+        user_streak.refresh_from_db()
+        self.assertEqual(user_streak.current_count, 0)
+
+    def test_record_referral_does_not_double_award_completed_inapp_task(self):
+        admin = _create_user()
+        challenge = self._create_referral_inapp_task(admin, required_count=1)
+        UserStreak.objects.create(user=self.referrer, challenge=challenge)
+
+        Referrals.record_referral(
+            referrer=self.referrer, referred=self.referred, code_used="ABC123"
+        )
+        second_referred = _create_user(active_role="Member")
+        Referrals.record_referral(
+            referrer=self.referrer, referred=second_referred, code_used="ABC123"
+        )
+
+        self.referrer.refresh_from_db()
+        self.assertEqual(self.referrer.total_points, 200)
 
 
 class JoinCampaignReferralGateTests(ThrottleDisabledAPITestCase):
