@@ -629,10 +629,7 @@ class InAppTaskSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(serializers.IntegerField())
     def get_days_remaining(self, obj):
-        from django.utils import timezone
-
-        remaining = obj.end_date - timezone.now()
-        return max(0, remaining.days)
+        return obj.days_remaining
 
 
 class InAppTaskUpdateSerializer(serializers.ModelSerializer):

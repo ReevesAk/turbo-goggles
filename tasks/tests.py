@@ -115,6 +115,73 @@ class BrandTaskFeedViewTests(APITestCase):
         self.assertIn("Survey Task", names)
         self.assertNotIn("Video Task", names)
 
+    def test_excludes_streak_challenge_not_yet_started(self):
+        """
+        A StreakChallenge scheduled to start in the future must not show up
+        as an available task on the feed - it isn't "active" until its
+        start_date, same as the admin dashboard's task_status/is_ongoing.
+        """
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from gamification.models import StreakChallenge
+
+        StreakChallenge.objects.create(
+            name="Not Started Yet",
+            streak_type="financial_task",
+            mission_category="kyc_upgrade",
+            duration_days=14,
+            start_date=timezone.now() + timedelta(days=2),
+            end_date=timezone.now() + timedelta(days=16),
+            reward_points=175,
+            is_active=True,
+        )
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get(self.url)
+
+        body = decrypt(response.data)
+        names = [item["campaign_name"] for item in body["data"]]
+        self.assertNotIn("Not Started Yet", names)
+
+    def test_includes_ongoing_streak_challenge_with_status_fields(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from gamification.models import StreakChallenge
+
+        StreakChallenge.objects.create(
+            name="Share Picadailys App on X",
+            streak_type="financial_task",
+            mission_category="kyc_upgrade",
+            action_type="one_time",
+            kyc_target_tier=1,
+            duration_days=14,
+            start_date=timezone.now() - timedelta(days=1),
+            end_date=timezone.now() + timedelta(days=13),
+            reward_points=175,
+            is_active=True,
+        )
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get(self.url)
+
+        body = decrypt(response.data)
+        item = next(
+            i
+            for i in body["data"]
+            if i["campaign_name"] == "Share Picadailys App on X"
+        )
+        self.assertEqual(item["source"], "inapp")
+        details = item["task"]["details"]
+        self.assertEqual(details["task_status"], "active")
+        self.assertFalse(details["is_scheduled"])
+        self.assertFalse(details["is_paused"])
+        self.assertFalse(details["is_cancelled"])
+        self.assertEqual(details["kyc_target_tier"], 1)
+
 
 # Submit Brand Task
 class SubmitBrandTaskViewTests(APITestCase):

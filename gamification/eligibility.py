@@ -6,6 +6,12 @@ from user_profile.models import MemberSurvey
 
 TIER_ORDER = [lvl["title"] for lvl in LEVELS]
 
+# Temporarily disabled: gender/age/state/tier/verification/location targeting
+# is switched off below so eligible_members() only applies the has_done_survey
+# gate. Flip this back to True to re-integrate the rest - the filter logic is
+# left in place untouched, just skipped.
+_APPLY_EXTRA_TARGETING_FILTERS = False
+
 
 def eligible_members(
     *,
@@ -23,8 +29,15 @@ def eligible_members(
     filter. Any filter left as None/blank is skipped entirely, so calling
     this with no arguments returns the same has_done_survey pool that gets
     notified today.
+
+    NOTE: all targeting kwargs below are currently no-ops - see
+    _APPLY_EXTRA_TARGETING_FILTERS. Only has_done_survey/is_active/is_deleted
+    is applied for now; the rest is re-integrated by flipping that flag.
     """
     qs = User.objects.filter(has_done_survey=True, is_active=True, is_deleted=False)
+
+    if not _APPLY_EXTRA_TARGETING_FILTERS:
+        return qs
 
     if gender and gender != "all":
         # MemberSurvey.sex is stored as "Male"/"Female"; target values are

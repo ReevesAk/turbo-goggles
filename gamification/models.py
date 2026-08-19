@@ -349,6 +349,11 @@ class StreakChallenge(models.Model):
         return not self.is_cancelled and today < start
 
     @property
+    def days_remaining(self):
+        remaining = self.end_date - timezone.now()
+        return max(0, remaining.days)
+
+    @property
     def task_status(self):
         if self.is_cancelled:
             return "cancelled"

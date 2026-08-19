@@ -109,22 +109,53 @@ VAS_TX_TYPES = [tx_type for tx_type in VAS_CATEGORY_TX_TYPES.values() if tx_type
 
 
 def get_transfer_sum(start, end, direction=None):
+    """
+    NOTE: only handles outbound. TransferModel is written exactly once, in
+    banking.tasks.post_transfer_update, which always sets sender_account_number
+    to the initiating user's own account and transaction_type to "INTRA_BANK"/
+    "OUTBOUND" - never "INBOUND"/"CREDIT", and never with a null sender. So an
+    "inbound" filter here can never match live data - see
+    get_inbound_credit_sum() for where genuine incoming wallet credits
+    (the 9PSB inflow webhook's TxModel row) actually live.
+    """
     qs = TransferModel.objects.filter(created_at__gte=start, created_at__lt=end)
-    if direction == "inbound":
-        qs = qs.filter(
-            Q(transaction_type__in=["INBOUND", "CREDIT"])
-            | Q(
-                transaction_type="INTRA_BANK",
-                beneficiary_account_number__isnull=False,
-                sender_account_number__isnull=True,
-            )
-        )
-    elif direction == "outbound":
+    if direction == "outbound":
         qs = qs.filter(
             Q(transaction_type__in=["OUTBOUND", "DEBIT"])
             | Q(transaction_type="INTRA_BANK", sender_account_number__isnull=False)
         )
     return float(qs.aggregate(total=Sum("amount")).get("total") or 0)
+
+
+# Substring the 9PSB webhook's description carries when the "Wallet Credit"
+# TxModel row it writes is actually the settlement leg of a card funding
+# (Wallet.Credit -> FundWallet), not a genuine third-party transfer in - see
+# banking/webhooks.py's is_card_funding_settlement. Card fundings are already
+# counted via get_card_deposit_sum/FundWithCard, so they're excluded here to
+# avoid double-counting.
+CARD_FUNDING_SETTLEMENT_MARKER = "You funded your wallet with"
+
+
+def get_inbound_credit_sum(start, end):
+    """
+    Genuine third-party money credited into wallets for [start, end) - e.g.
+    another user (or an external bank) sending money in. Sourced from the
+    9PSB inflow webhook's TxModel row (tx_type="Wallet Credit" - see
+    banking/webhooks.py), not TransferModel; see get_transfer_sum's docstring
+    for why TransferModel can't be used for this.
+    """
+    return float(
+        TxModel.objects.filter(
+            date__gte=start,
+            date__lt=end,
+            status="SUCCESS",
+            tx_type="Wallet Credit",
+        )
+        .exclude(description__icontains=CARD_FUNDING_SETTLEMENT_MARKER)
+        .aggregate(total=Sum("amount"))
+        .get("total")
+        or 0
+    )
 
 
 def get_card_deposit_sum(start, end):
@@ -173,7 +204,7 @@ def get_self_service_and_partner_sum(start, end):
 
 def get_cashflow_snapshot(start, end):
     """Cash inflow/outflow/self-service+partner revenue for [start, end)."""
-    inbound = get_transfer_sum(start, end, direction="inbound")
+    inbound = get_inbound_credit_sum(start, end)
     outbound = get_transfer_sum(start, end, direction="outbound")
     card_deposit = get_card_deposit_sum(start, end)
     bill_payments = get_bill_payment_sum(start, end)
@@ -191,24 +222,32 @@ def get_cashflow_snapshot(start, end):
     }
 
 
-def _daily_transfer_totals(start, end, direction):
-    qs = TransferModel.objects.filter(created_at__gte=start, created_at__lt=end)
-    if direction == "inbound":
-        qs = qs.filter(
-            Q(transaction_type__in=["INBOUND", "CREDIT"])
-            | Q(
-                transaction_type="INTRA_BANK",
-                beneficiary_account_number__isnull=False,
-                sender_account_number__isnull=True,
-            )
-        )
-    else:
-        qs = qs.filter(
-            Q(transaction_type__in=["OUTBOUND", "DEBIT"])
-            | Q(transaction_type="INTRA_BANK", sender_account_number__isnull=False)
-        )
+def _daily_transfer_totals(start, end):
+    """Day-bucketed outbound transfer totals - see get_transfer_sum's docstring
+    for why this is outbound-only."""
+    qs = TransferModel.objects.filter(created_at__gte=start, created_at__lt=end).filter(
+        Q(transaction_type__in=["OUTBOUND", "DEBIT"])
+        | Q(transaction_type="INTRA_BANK", sender_account_number__isnull=False)
+    )
     rows = (
         qs.annotate(day=TruncDate("created_at"))
+        .values("day")
+        .annotate(total=Sum("amount"))
+    )
+    return {row["day"]: float(row["total"] or 0) for row in rows}
+
+
+def _daily_inbound_credit_totals(start, end):
+    """Day-bucketed version of get_inbound_credit_sum - see its docstring."""
+    rows = (
+        TxModel.objects.filter(
+            date__gte=start,
+            date__lt=end,
+            status="SUCCESS",
+            tx_type="Wallet Credit",
+        )
+        .exclude(description__icontains=CARD_FUNDING_SETTLEMENT_MARKER)
+        .annotate(day=TruncDate("date"))
         .values("day")
         .annotate(total=Sum("amount"))
     )
@@ -257,8 +296,8 @@ def get_daily_cashflow_series(start, end):
     cash_out = outbound transfers + VAS bill payments + self-service/partner
     spend (all of these debit a user's wallet).
     """
-    inbound_by_day = _daily_transfer_totals(start, end, direction="inbound")
-    outbound_by_day = _daily_transfer_totals(start, end, direction="outbound")
+    inbound_by_day = _daily_inbound_credit_totals(start, end)
+    outbound_by_day = _daily_transfer_totals(start, end)
     card_deposit_by_day = {
         row["day"]: float(row["total"] or 0)
         for row in (

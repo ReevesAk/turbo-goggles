@@ -15,7 +15,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import AccountType, DeviceId, OTP, TxModel, User, UserNotification
-from banking.models import WalletModel
+from banking.models import WalletModel, TransferModel
 from partners.models import PartnerServices, PartnerPurchase
 from support.models import Ticket
 from security import decrypt, encrypt
@@ -34,6 +34,8 @@ from .analytics import (
     get_fraud_alerts_list,
     get_alert_and_risk_snapshot,
     get_all_transactions,
+    get_cashflow_snapshot,
+    get_inbound_credit_sum,
     RECONCILIATION_GRACE_PERIOD_HOURS,
     DUPLICATE_TRANSACTION_WINDOW_MINUTES,
 )
@@ -2030,3 +2032,82 @@ class AlertAndRiskViewTests(APITestCase):
         body = decrypt(response.data)
         self.assertIsNotNone(body["data"]["reconciliation_differences"]["value"])
         self.assertEqual(body["data"]["fraud_alerts"]["value"], 0)
+
+
+class GetInboundCreditSumTests(TestCase):
+    """
+    get_inbound_credit_sum / get_cashflow_snapshot's "inbound" figure -
+    regression coverage for the bug where genuine incoming wallet credits
+    (recorded as TxModel tx_type="Wallet Credit" by the 9PSB inflow webhook)
+    were invisible because the dashboard summed TransferModel instead, which
+    is only ever written for the *sender's* side of an outgoing transfer and
+    can never hold an inbound row.
+    """
+
+    def setUp(self):
+        self.user = _create_user()
+        self.start = timezone.now() - timedelta(days=1)
+        self.end = timezone.now() + timedelta(days=1)
+
+    def _wallet_credit(self, amount, description="Credit from Jane Doe (GTBank): rent"):
+        return TxModel.objects.create(
+            user=self.user,
+            tx_type="Wallet Credit",
+            amount=amount,
+            status="SUCCESS",
+            description=description,
+        )
+
+    def test_counts_genuine_wallet_credit(self):
+        self._wallet_credit(5000)
+
+        self.assertEqual(get_inbound_credit_sum(self.start, self.end), 5000.0)
+
+    def test_excludes_card_funding_settlement(self):
+        self._wallet_credit(
+            5000,
+            description="Credit from PICADAILYS (Wema): You funded your wallet with 5000 via card",
+        )
+
+        self.assertEqual(get_inbound_credit_sum(self.start, self.end), 0.0)
+
+    def test_excludes_non_wallet_credit_tx_types(self):
+        TxModel.objects.create(
+            user=self.user,
+            tx_type="Airtime",
+            amount=1000,
+            status="SUCCESS",
+            description="Airtime purchase",
+        )
+
+        self.assertEqual(get_inbound_credit_sum(self.start, self.end), 0.0)
+
+    def test_excludes_non_success_status(self):
+        self._wallet_credit(5000)
+        TxModel.objects.filter(user=self.user).update(status="PENDING")
+
+        self.assertEqual(get_inbound_credit_sum(self.start, self.end), 0.0)
+
+    def test_transfer_model_rows_never_counted_as_inbound(self):
+        """TransferModel can't hold a genuine inbound row (see
+        get_transfer_sum's docstring) - even a row shaped like one shouldn't
+        leak into the inbound total now that it's sourced elsewhere."""
+        TransferModel.objects.create(
+            user=self.user,
+            amount=15000,
+            transaction_type="INTRA_BANK",
+            sender_account_number=None,
+            beneficiary_account_number="1234567890",
+        )
+
+        snapshot = get_cashflow_snapshot(self.start, self.end)
+
+        self.assertEqual(snapshot["inbound"], 0.0)
+
+    def test_cashflow_snapshot_inbound_matches_wallet_credits(self):
+        self._wallet_credit(3000)
+        self._wallet_credit(2000)
+
+        snapshot = get_cashflow_snapshot(self.start, self.end)
+
+        self.assertEqual(snapshot["inbound"], 5000.0)
