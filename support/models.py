@@ -84,15 +84,17 @@ class Ticket(BaseModel):
         return int(delta.total_seconds())
 
     def save(self, *args, **kwargs):
-        is_new = self.pk is None
+        # self.pk is never None for a UUID pk with a client-side default -
+        # it's assigned at instantiation, before the row is inserted. Use
+        # _state.adding instead to detect a genuinely new row.
+        is_new = self._state.adding
 
         super().save(*args, **kwargs)
 
-        # Only generate number after the first save
         if is_new and not self.number:
-            self.number = f"TCK{self.id:04d}"
-            # Save again without triggering another number generation
-            kwargs["force_insert"] = False
+            from support.utils import generate_ticket_number
+
+            self.number = generate_ticket_number()
             super().save(update_fields=["number"])
 
 
