@@ -47,8 +47,8 @@ class TicketModelBehaviorTests(TestCase):
             status="New",
         )
 
-        # Ticket model inherits UUID primary key; number is set by endpoint helper.
-        self.assertIsNone(ticket.number)
+        self.assertIsNotNone(ticket.number)
+        self.assertTrue(ticket.number.startswith("TCK-"))
 
     def test_remaining_time_is_none_without_opened_at(self):
         user = _create_user()

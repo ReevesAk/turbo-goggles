@@ -52,13 +52,31 @@ collection_account = config("CENTRAL_COLLECTION_ACCOUNT", default="")
 logger = logging.getLogger(__name__)
 
 
-def _handle_pending_response():
+def _handle_pending_response(
+    user=None, tx_reference=None, tx_type=None, amount=None, description=""
+):
     """
     Shared response for a purchase the provider explicitly flagged as still
     processing (e.g. responseCode 202), even after a patient status poll.
     No refund is issued here - 9PSB settles/reverses a pending transaction
     on their side once it resolves.
     """
+    if user and tx_reference:
+        try:
+            with transaction.atomic():
+                TxModel.objects.update_or_create(
+                    tx_reference=tx_reference,
+                    defaults={
+                        "user": user,
+                        "tx_type": tx_type,
+                        "amount": amount,
+                        "description": description,
+                        "status": "PENDING",
+                    },
+                )
+        except Exception as e:
+            logging.error(f"Database query error: {str(e)}")
+
     return Response(
         data=encrypt(
             {
@@ -147,14 +165,17 @@ class AirTimeTopUp(generics.GenericAPIView):
             create_activity(user=user, title=title, description=description)
             try:
                 with transaction.atomic():
-                    TxModel.objects.create(
-                        user=user,
+                    TxModel.objects.update_or_create(
                         tx_reference=tx_reference,
-                        tx_type="Airtime",
-                        amount=amount,
-                        description=title,
-                        is_task=self.is_task,
-                        task_id=self.task_id,
+                        defaults={
+                            "user": user,
+                            "tx_type": "Airtime",
+                            "amount": amount,
+                            "description": title,
+                            "status": "SUCCESS",
+                            "is_task": self.is_task,
+                            "task_id": self.task_id,
+                        },
                     )
                     CashbackService.reward_cashback(
                         user=user, amount=amount, service="airtime", tx_ref=tx_reference
@@ -188,6 +209,7 @@ class AirTimeTopUp(generics.GenericAPIView):
         amount=None,
         airtime_response=None,
         reason="",
+        tx_reference=None,
     ):
         """Handle failed airtime purchase."""
         title = "Failed airtime purchase"
@@ -200,6 +222,21 @@ class AirTimeTopUp(generics.GenericAPIView):
         if user:
             create_notification(user=user, title=title, message=message)
             create_activity(user=user, title=title, description=description)
+            if tx_reference:
+                try:
+                    with transaction.atomic():
+                        TxModel.objects.update_or_create(
+                            tx_reference=tx_reference,
+                            defaults={
+                                "user": user,
+                                "tx_type": "Airtime",
+                                "amount": amount,
+                                "description": title,
+                                "status": "FAILED",
+                            },
+                        )
+                except Exception as e:
+                    logging.error(f"Database query error: {str(e)}")
         elif guest_id:
             create_activity(guest_id=guest_id, title=title, description=description)
 
@@ -255,12 +292,16 @@ class AirTimeTopUp(generics.GenericAPIView):
         guest_id = request.headers.get("X-Guest-ID")
         idempotency_key = request.headers.get("Idempotency-Key")
 
-        # Idempotency: check if this request was already processed
+        # Idempotency: check if this request was already processed.
+        # Only short-circuit on a confirmed outcome - a PENDING row means the
+        # last attempt never resolved, and a FAILED row means it's safe to
+        # retry, so both fall through to reprocess rather than lying about
+        # the outcome.
         if user and idempotency_key:
             existing_tx = TxModel.objects.filter(
                 user=user, tx_reference=idempotency_key
             ).first()
-            if existing_tx:
+            if existing_tx and existing_tx.status == "SUCCESS":
                 logger.info(
                     f"Idempotent request detected for {user.id} with key {idempotency_key}"
                 )
@@ -270,6 +311,11 @@ class AirTimeTopUp(generics.GenericAPIView):
                     "tx_reference": idempotency_key,
                 }
                 return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+            if existing_tx and existing_tx.status == "PENDING":
+                logger.info(
+                    f"Idempotent request for {user.id} with key {idempotency_key} is still pending"
+                )
+                return _handle_pending_response()
 
         tx_reference = (
             idempotency_key if idempotency_key else VAS.generate_unique_code("PICA")
@@ -427,6 +473,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                 if not token:
                     _refund_welcome_bonus(user, amount)
                     return self._handle_airtime_failure(
+                        tx_reference=tx_reference,
                         user=user,
                         phone=phone,
                         amount=amount,
@@ -456,6 +503,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         )
                     _refund_welcome_bonus(user, amount)
                     return self._handle_airtime_failure(
+                        tx_reference=tx_reference,
                         user=user,
                         phone=phone,
                         amount=amount,
@@ -485,9 +533,16 @@ class AirTimeTopUp(generics.GenericAPIView):
                         account_number=account_number,
                     )
                 if outcome == "pending":
-                    return _handle_pending_response()
+                    return _handle_pending_response(
+                        user=user,
+                        tx_reference=tx_reference,
+                        tx_type="Airtime",
+                        amount=amount,
+                        description="Airtime purchase pending.",
+                    )
                 _refund_welcome_bonus(user, amount)
                 return self._handle_airtime_failure(
+                    tx_reference=tx_reference,
                     user=user,
                     phone=phone,
                     amount=amount,
@@ -496,6 +551,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                 )
             else:
                 return self._handle_airtime_failure(
+                    tx_reference=tx_reference,
                     user=user,
                     phone=phone,
                     amount=amount,
@@ -509,6 +565,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         token = VAS.authenticate()
                         if not token:
                             return self._handle_airtime_failure(
+                                tx_reference=tx_reference,
                                 user=user,
                                 phone=phone,
                                 amount=amount,
@@ -537,6 +594,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                                     account_number=account_number,
                                 )
                             return self._handle_airtime_failure(
+                                tx_reference=tx_reference,
                                 user=user,
                                 phone=phone,
                                 amount=amount,
@@ -567,8 +625,15 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 account_number=account_number,
                             )
                         if outcome == "pending":
-                            return _handle_pending_response()
+                            return _handle_pending_response(
+                                user=user,
+                                tx_reference=tx_reference,
+                                tx_type="Airtime",
+                                amount=amount,
+                                description="Airtime purchase pending.",
+                            )
                         return self._handle_airtime_failure(
+                            tx_reference=tx_reference,
                             user=user,
                             phone=phone,
                             amount=amount,
@@ -586,6 +651,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         if pts_used:
                             Pay.refund_pts(user=user, naira_amount=pts_used)
                         return self._handle_airtime_failure(
+                            tx_reference=tx_reference,
                             user=user,
                             phone=phone,
                             amount=purchase_amount,
@@ -620,6 +686,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         if pts_used:
                             Pay.refund_pts(user=user, naira_amount=pts_used)
                         return self._handle_airtime_failure(
+                            tx_reference=tx_reference,
                             user=user,
                             phone=phone,
                             amount=purchase_amount,
@@ -650,7 +717,13 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 account_number=account_number,
                             )
                         if outcome == "pending":
-                            return _handle_pending_response()
+                            return _handle_pending_response(
+                                user=user,
+                                tx_reference=tx_reference,
+                                tx_type="Airtime",
+                                amount=purchase_amount,
+                                description="Airtime purchase pending.",
+                            )
                         if cashback_used:
                             CashbackService.refund_cashback(
                                 user=user, cashback_amount=cashback_used
@@ -658,6 +731,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         if pts_used:
                             Pay.refund_pts(user=user, naira_amount=pts_used)
                         return self._handle_airtime_failure(
+                            tx_reference=tx_reference,
                             user=user,
                             phone=phone,
                             amount=purchase_amount,
@@ -675,6 +749,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     token = VAS.authenticate()
                     if not token:
                         return self._handle_airtime_failure(
+                            tx_reference=tx_reference,
                             user=user,
                             guest_id=guest_id,
                             phone=phone,
@@ -705,6 +780,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                                 account_number=account_number,
                             )
                         return self._handle_airtime_failure(
+                            tx_reference=tx_reference,
                             user=user,
                             guest_id=guest_id,
                             phone=phone,
@@ -737,8 +813,15 @@ class AirTimeTopUp(generics.GenericAPIView):
                             account_number=account_number,
                         )
                     if outcome == "pending":
-                        return _handle_pending_response()
+                        return _handle_pending_response(
+                            user=user,
+                            tx_reference=tx_reference,
+                            tx_type="Airtime",
+                            amount=amount,
+                            description="Airtime purchase pending.",
+                        )
                     return self._handle_airtime_failure(
+                        tx_reference=tx_reference,
                         user=user,
                         guest_id=guest_id,
                         phone=phone,
@@ -898,14 +981,17 @@ class DataSubscriptionView(generics.GenericAPIView):
             create_activity(user=user, title=title, description=description)
             try:
                 with transaction.atomic():
-                    TxModel.objects.create(
-                        user=user,
+                    TxModel.objects.update_or_create(
                         tx_reference=tx_reference,
-                        tx_type="Data",
-                        amount=amount,
-                        description=title,
-                        is_task=self.is_task,
-                        task_id=self.task_id,
+                        defaults={
+                            "user": user,
+                            "tx_type": "Data",
+                            "amount": amount,
+                            "description": title,
+                            "status": "SUCCESS",
+                            "is_task": self.is_task,
+                            "task_id": self.task_id,
+                        },
                     )
                     CashbackService.reward_cashback(
                         user=user, amount=amount, service="data", tx_ref=tx_reference
@@ -942,6 +1028,7 @@ class DataSubscriptionView(generics.GenericAPIView):
         amount=None,
         data_response=None,
         reason="",
+        tx_reference=None,
     ):
         """Handle failed data purchase."""
         title = "Failed data purchase"
@@ -954,6 +1041,21 @@ class DataSubscriptionView(generics.GenericAPIView):
         if user:
             create_notification(user=user, title=title, message=message)
             create_activity(user=user, title=title, description=description)
+            if tx_reference:
+                try:
+                    with transaction.atomic():
+                        TxModel.objects.update_or_create(
+                            tx_reference=tx_reference,
+                            defaults={
+                                "user": user,
+                                "tx_type": "Data",
+                                "amount": amount,
+                                "description": title,
+                                "status": "FAILED",
+                            },
+                        )
+                except Exception as e:
+                    logger.error(f"Database query error: {str(e)}")
         elif guest_id:
             create_activity(guest_id=guest_id, title=title, description=description)
 
@@ -1004,12 +1106,16 @@ class DataSubscriptionView(generics.GenericAPIView):
         guest_id = request.headers.get("X-Guest-ID")
         idempotency_key = request.headers.get("Idempotency-Key")
 
-        # Idempotency: check if this request was already processed
+        # Idempotency: check if this request was already processed.
+        # Only short-circuit on a confirmed outcome - a PENDING row means the
+        # last attempt never resolved, and a FAILED row means it's safe to
+        # retry, so both fall through to reprocess rather than lying about
+        # the outcome.
         if user and idempotency_key:
             existing_tx = TxModel.objects.filter(
                 user=user, tx_reference=idempotency_key
             ).first()
-            if existing_tx:
+            if existing_tx and existing_tx.status == "SUCCESS":
                 logger.info(
                     f"Idempotent request detected for {user.id} with key {idempotency_key}"
                 )
@@ -1019,6 +1125,11 @@ class DataSubscriptionView(generics.GenericAPIView):
                     "tx_reference": idempotency_key,
                 }
                 return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+            if existing_tx and existing_tx.status == "PENDING":
+                logger.info(
+                    f"Idempotent request for {user.id} with key {idempotency_key} is still pending"
+                )
+                return _handle_pending_response()
 
         pin = user_data.get("pin")
         use_bonus = user_data.get("use_bonus")
@@ -1114,6 +1225,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                 if not token:
                     _refund_welcome_bonus(user, amount)
                     return self._handle_data_failure(
+                        tx_reference=tx_reference,
                         user=user,
                         phone=phone,
                         amount=amount,
@@ -1131,6 +1243,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                 if data_response is None:
                     _refund_welcome_bonus(user, amount)
                     return self._handle_data_failure(
+                        tx_reference=tx_reference,
                         user=user,
                         phone=phone,
                         amount=amount,
@@ -1160,9 +1273,16 @@ class DataSubscriptionView(generics.GenericAPIView):
                         cashback=cashback_used,
                     )
                 if outcome == "pending":
-                    return _handle_pending_response()
+                    return _handle_pending_response(
+                        user=user,
+                        tx_reference=tx_reference,
+                        tx_type="Data",
+                        amount=amount,
+                        description="Data purchase pending.",
+                    )
                 _refund_welcome_bonus(user, amount)
                 return self._handle_data_failure(
+                    tx_reference=tx_reference,
                     user=user,
                     phone=phone,
                     amount=amount,
@@ -1171,6 +1291,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                 )
             else:
                 return self._handle_data_failure(
+                    tx_reference=tx_reference,
                     user=user,
                     phone=phone,
                     amount=amount,
@@ -1224,6 +1345,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     token = VAS.authenticate()
                     if not token:
                         return self._handle_data_failure(
+                            tx_reference=tx_reference,
                             user=user,
                             phone=phone,
                             amount=amount,
@@ -1240,6 +1362,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     )
                     if data_response is None:
                         return self._handle_data_failure(
+                            tx_reference=tx_reference,
                             user=user,
                             phone=phone,
                             amount=amount,
@@ -1270,8 +1393,15 @@ class DataSubscriptionView(generics.GenericAPIView):
                             cashback=cashback_used,
                         )
                     if outcome == "pending":
-                        return _handle_pending_response()
+                        return _handle_pending_response(
+                            user=user,
+                            tx_reference=tx_reference,
+                            tx_type="Data",
+                            amount=amount,
+                            description="Data purchase pending.",
+                        )
                     return self._handle_data_failure(
+                        tx_reference=tx_reference,
                         user=user,
                         phone=phone,
                         amount=amount,
@@ -1289,6 +1419,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     if pts_used:
                         Pay.refund_pts(user=user, naira_amount=pts_used)
                     return self._handle_data_failure(
+                        tx_reference=tx_reference,
                         user=user,
                         phone=phone,
                         amount=purchase_amount,
@@ -1311,6 +1442,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     if pts_used:
                         Pay.refund_pts(user=user, naira_amount=pts_used)
                     return self._handle_data_failure(
+                        tx_reference=tx_reference,
                         user=user,
                         phone=phone,
                         amount=purchase_amount,
@@ -1341,7 +1473,13 @@ class DataSubscriptionView(generics.GenericAPIView):
                             cashback=cashback_used,
                         )
                     if outcome == "pending":
-                        return _handle_pending_response()
+                        return _handle_pending_response(
+                            user=user,
+                            tx_reference=tx_reference,
+                            tx_type="Data",
+                            amount=purchase_amount,
+                            description="Data purchase pending.",
+                        )
                     if cashback_used:
                         CashbackService.refund_cashback(
                             user=user, cashback_amount=cashback_used
@@ -1349,6 +1487,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     if pts_used:
                         Pay.refund_pts(user=user, naira_amount=pts_used)
                     return self._handle_data_failure(
+                        tx_reference=tx_reference,
                         user=user,
                         phone=phone,
                         amount=purchase_amount,
@@ -1367,6 +1506,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                 token = VAS.authenticate()
                 if not token:
                     return self._handle_data_failure(
+                        tx_reference=tx_reference,
                         user=user,
                         guest_id=guest_id,
                         phone=phone,
@@ -1383,6 +1523,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                 )
                 if data_response is None:
                     return self._handle_data_failure(
+                        tx_reference=tx_reference,
                         user=user,
                         guest_id=guest_id,
                         phone=phone,
@@ -1413,8 +1554,15 @@ class DataSubscriptionView(generics.GenericAPIView):
                         tx_reference=tx_reference,
                     )
                 if outcome == "pending":
-                    return _handle_pending_response()
+                    return _handle_pending_response(
+                        user=user,
+                        tx_reference=tx_reference,
+                        tx_type="Data",
+                        amount=amount,
+                        description="Data purchase pending.",
+                    )
                 return self._handle_data_failure(
+                    tx_reference=tx_reference,
                     user=user,
                     guest_id=guest_id,
                     phone=phone,
@@ -1870,14 +2018,17 @@ class BillPaymentView(generics.GenericAPIView):
             create_activity(user=user, title=title, description=description)
             try:
                 with transaction.atomic():
-                    TxModel.objects.create(
-                        user=user,
+                    TxModel.objects.update_or_create(
                         tx_reference=tx_reference,
-                        tx_type="Bill Payment",
-                        amount=amount,
-                        description=title,
-                        is_task=self.is_task,
-                        task_id=self.task_id,
+                        defaults={
+                            "user": user,
+                            "tx_type": "Bill Payment",
+                            "amount": amount,
+                            "description": title,
+                            "status": "SUCCESS",
+                            "is_task": self.is_task,
+                            "task_id": self.task_id,
+                        },
                     )
             except Exception as e:
                 logger.error(f"TxModel creation error: {str(e)}")
@@ -1960,6 +2111,7 @@ class BillPaymentView(generics.GenericAPIView):
         amount=None,
         vas_response=None,
         reason="",
+        tx_reference=None,
     ):
         """Central failure handler for both Electricity and Cable payment failures."""
         if vas_response is not None:
@@ -1983,6 +2135,21 @@ class BillPaymentView(generics.GenericAPIView):
         if user:
             create_notification(user=user, title=title, message=message)
             create_activity(user=user, title=title, description=description)
+            if tx_reference:
+                try:
+                    with transaction.atomic():
+                        TxModel.objects.update_or_create(
+                            tx_reference=tx_reference,
+                            defaults={
+                                "user": user,
+                                "tx_type": "Bill Payment",
+                                "amount": amount,
+                                "description": title,
+                                "status": "FAILED",
+                            },
+                        )
+                except Exception as e:
+                    logger.error(f"Database query error: {str(e)}")
         elif guest_id:
             create_activity(guest_id=guest_id, title=title, description=description)
 
@@ -2008,12 +2175,16 @@ class BillPaymentView(generics.GenericAPIView):
         self.task_id = user_data.get("task_id")
         user = request.user if request.user.is_authenticated else None
 
-        # Idempotency: check if this request was already processed
+        # Idempotency: check if this request was already processed.
+        # Only short-circuit on a confirmed outcome - a PENDING row means the
+        # last attempt never resolved, and a FAILED row means it's safe to
+        # retry, so both fall through to reprocess rather than lying about
+        # the outcome.
         if user and idempotency_key:
             existing_tx = TxModel.objects.filter(
                 user=user, tx_reference=idempotency_key
             ).first()
-            if existing_tx:
+            if existing_tx and existing_tx.status == "SUCCESS":
                 logger.info(
                     f"Idempotent request detected for {user.id} with key {idempotency_key}"
                 )
@@ -2023,6 +2194,11 @@ class BillPaymentView(generics.GenericAPIView):
                     "tx_reference": idempotency_key,
                 }
                 return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
+            if existing_tx and existing_tx.status == "PENDING":
+                logger.info(
+                    f"Idempotent request for {user.id} with key {idempotency_key} is still pending"
+                )
+                return _handle_pending_response()
 
         # Extract fields
         # billerId → VTPass serviceID (e.g. ikeja-electric, dstv)
@@ -2167,6 +2343,7 @@ class BillPaymentView(generics.GenericAPIView):
                     if pts_used:
                         Pay.refund_pts(user=user, naira_amount=pts_used)
                     return self._handle_failure(
+                        tx_reference=tx_reference,
                         user=user,
                         guest_id=guest_id,
                         phone_number=phone_number,
@@ -2199,6 +2376,7 @@ class BillPaymentView(generics.GenericAPIView):
                     if pts_used:
                         Pay.refund_pts(user=user, naira_amount=pts_used)
                     return self._handle_failure(
+                        tx_reference=tx_reference,
                         user=user,
                         guest_id=guest_id,
                         phone_number=phone_number,
@@ -2246,7 +2424,15 @@ class BillPaymentView(generics.GenericAPIView):
                         account_number=account_number,
                     )
                 if outcome == "pending":
-                    return _handle_pending_response()
+                    return _handle_pending_response(
+                        user=user,
+                        tx_reference=tx_reference,
+                        tx_type="Bill Payment",
+                        amount=(
+                            purchase_amount if (use_points or use_cashback) else amount
+                        ),
+                        description="Bill payment pending.",
+                    )
                 if cashback_used:
                     CashbackService.refund_cashback(
                         user=user, cashback_amount=cashback_used
@@ -2254,6 +2440,7 @@ class BillPaymentView(generics.GenericAPIView):
                 if pts_used:
                     Pay.refund_pts(user=user, naira_amount=pts_used)
                 return self._handle_failure(
+                    tx_reference=tx_reference,
                     user=user,
                     guest_id=guest_id,
                     phone_number=phone_number,
@@ -2273,6 +2460,7 @@ class BillPaymentView(generics.GenericAPIView):
                 token = VAS.authenticate()
                 if not token:
                     return self._handle_failure(
+                        tx_reference=tx_reference,
                         user=user,
                         guest_id=guest_id,
                         phone_number=phone_number,
@@ -2292,6 +2480,7 @@ class BillPaymentView(generics.GenericAPIView):
                 )
                 if vas_response is None:
                     return self._handle_failure(
+                        tx_reference=tx_reference,
                         user=user,
                         guest_id=guest_id,
                         phone_number=phone_number,
@@ -2332,8 +2521,15 @@ class BillPaymentView(generics.GenericAPIView):
                         account_number=account_number,
                     )
                 if outcome == "pending":
-                    return _handle_pending_response()
+                    return _handle_pending_response(
+                        user=user,
+                        tx_reference=tx_reference,
+                        tx_type="Bill Payment",
+                        amount=amount,
+                        description="Bill payment pending.",
+                    )
                 return self._handle_failure(
+                    tx_reference=tx_reference,
                     user=user,
                     guest_id=guest_id,
                     phone_number=phone_number,
