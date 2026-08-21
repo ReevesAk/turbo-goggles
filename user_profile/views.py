@@ -2313,10 +2313,12 @@ class CustomerTicketCreation(generics.GenericAPIView):
                 data=encrypt(serializer.errors), status=status.HTTP_400_BAD_REQUEST
             )
 
+        category = payload.get("category")
         ticket = Ticket.objects.create(
             user=request.user,
+            title=f"{category} support request" if category else "Support request",
             description=payload.get("description"),
-            category=payload.get("category"),
+            category=category,
             resolution_hours=5,
             status="Queuing",
             channel="App",
@@ -2427,7 +2429,7 @@ class RateAgentViewByCustomer(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ✅ Create rating
+        # Create rating
         AgentRating.objects.create(
             user=request.user,
             agent=ticket.resolved_by,
