@@ -482,14 +482,14 @@ class ListAllBrandAds(generics.ListAPIView):
         )
 
     def get_ugc_queryset(self):
-        return UserGeneratedContent.objects.filter(
-            user=self.request.user
-        ).order_by("-created_at")
+        return UserGeneratedContent.objects.filter(user=self.request.user).order_by(
+            "-created_at"
+        )
 
     def get_inapp_queryset(self):
-        return StreakChallenge.objects.filter(
-            created_by=self.request.user
-        ).order_by("-created_at")
+        return StreakChallenge.objects.filter(created_by=self.request.user).order_by(
+            "-created_at"
+        )
 
     def list(self, request, *args, **kwargs):
         logger.info("ListAllBrandAds view created by user: %s", request.user.email)
@@ -520,7 +520,10 @@ class ListAllBrandAds(generics.ListAPIView):
             for obj, row in zip(objs, rows):
                 tagged_rows.append((obj.created_at, {**row, "ad_type": ad_type}))
 
-        merged = [row for _, row in sorted(tagged_rows, key=lambda pair: pair[0], reverse=True)]
+        merged = [
+            row
+            for _, row in sorted(tagged_rows, key=lambda pair: pair[0], reverse=True)
+        ]
 
         page = self.paginate_queryset(merged)
         response = {

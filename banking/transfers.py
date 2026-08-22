@@ -6,6 +6,7 @@ from decimal import Decimal
 
 
 from django.db import transaction
+from django.db.models import Max, Count
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
@@ -721,6 +722,72 @@ class IntraBankFreeTransferCount(APIView):
                     "fee_after_limit": "10.00",
                 }
             ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Get suggested transfer beneficiaries",
+    tags=["Banking"],
+    description="Return the authenticated user's most recent/frequent transfer recipients, derived from past successful transfers, for autofill in the send-money flow.",
+    parameters=[
+        OpenApiParameter(
+            name="limit",
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.QUERY,
+            required=False,
+            description="Maximum number of suggestions to return. Defaults to 10.",
+        )
+    ],
+    responses={
+        200: inline_serializer(
+            name="SuggestedBeneficiariesResponse",
+            fields={
+                "status": s.CharField(),
+                "data": inline_serializer(
+                    name="SuggestedBeneficiary",
+                    fields={
+                        "beneficiary_account_number": s.CharField(),
+                        "beneficiary_bank_code": s.CharField(),
+                        "beneficiary_name": s.CharField(),
+                        "last_used": s.DateTimeField(),
+                        "times_used": s.IntegerField(),
+                    },
+                    many=True,
+                ),
+            },
+        ),
+    },
+)
+class SuggestedBeneficiaries(APIView):
+    """
+    Recent/frequent transfer recipients, ranked by most-recently-used,
+    for autofill in the send-money flow.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            limit = int(request.query_params.get("limit", 10))
+        except (TypeError, ValueError):
+            limit = 10
+
+        beneficiaries = (
+            TransferModel.objects.filter(user=request.user, tx__status="SUCCESS")
+            .exclude(beneficiary_account_number__isnull=True)
+            .exclude(beneficiary_account_number="")
+            .values(
+                "beneficiary_account_number",
+                "beneficiary_bank_code",
+                "beneficiary_name",
+            )
+            .annotate(last_used=Max("created_at"), times_used=Count("id"))
+            .order_by("-last_used")[:limit]
+        )
+
+        return Response(
+            data=encrypt({"status": "success", "data": list(beneficiaries)}),
             status=status.HTTP_200_OK,
         )
 

@@ -1266,9 +1266,7 @@ class UGCTaskSubmission(models.Model):
         from gamification.points import Points
 
         with transaction.atomic():
-            task = UserGeneratedContent.objects.select_for_update().get(
-                id=self.task_id
-            )
+            task = UserGeneratedContent.objects.select_for_update().get(id=self.task_id)
             progress, _ = UGCTaskProgress.objects.select_for_update().get_or_create(
                 user=self.user
             )

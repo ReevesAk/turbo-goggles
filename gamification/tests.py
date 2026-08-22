@@ -152,7 +152,11 @@ def _submit_and_approve(user, task, media_url, caption="", ip_address=None):
     for callers that just need an approved submission set up.
     """
     submission, success, message = UGCTaskSubmission.submit(
-        user=user, task=task, media_url=media_url, caption=caption, ip_address=ip_address
+        user=user,
+        task=task,
+        media_url=media_url,
+        caption=caption,
+        ip_address=ip_address,
     )
     if not success:
         return submission, success, message
@@ -4475,7 +4479,9 @@ class ReferralsServiceTests(ThrottleDisabledAPITestCase):
 
         self.referrer.referral_code = None
         self.referrer.walk_to_earn_referral_code = "SHAREDWALK"
-        self.referrer.save(update_fields=["referral_code", "walk_to_earn_referral_code"])
+        self.referrer.save(
+            update_fields=["referral_code", "walk_to_earn_referral_code"]
+        )
         self.assertTrue(Referrals._is_code_taken("SHAREDWALK"))
 
         self.assertFalse(Referrals._is_code_taken("NEVERUSED123"))
@@ -4704,6 +4710,172 @@ class ReferralsServiceTests(ThrottleDisabledAPITestCase):
 
         self.referrer.refresh_from_db()
         self.assertEqual(self.referrer.total_points, 200)
+
+
+class FinancialTaskTransferProgressTests(ThrottleDisabledAPITestCase):
+    """Tests for gamification.financial_tasks.record_financial_task_progress,
+    wired via the TxModel post_save signal in gamification/signals.py — the
+    transfer-driven analog of _check_inapp_referral_tasks above, for
+    mission_category="transfer" financial_task challenges."""
+
+    def setUp(self):
+        self.user = _create_user()
+        self.admin = _create_user()
+
+    def _create_transfer_challenge(self, **overrides):
+        defaults = {
+            "name": "Transfer 5 times",
+            "streak_type": "financial_task",
+            "mission_category": "transfer",
+            "action_type": "count_based",
+            "required_count": 5,
+            "min_amount_per_action": Decimal("100.00"),
+            "duration_days": 30,
+            "start_date": timezone.now() - timedelta(days=1),
+            "end_date": timezone.now() + timedelta(days=29),
+            "reward_points": 200,
+            "created_by": self.admin,
+        }
+        defaults.update(overrides)
+        return StreakChallenge.objects.create(**defaults)
+
+    def _make_tx(self, challenge, amount):
+        tx = TxModel.objects.create(
+            user=self.user,
+            tx_reference=str(uuid4()),
+            tx_type="Transfer to Bank Account",
+            amount=amount,
+            status="PENDING",
+            is_task=True,
+            task_id=challenge.id,
+        )
+        tx.status = "SUCCESS"
+        tx.save(update_fields=["status"])
+        return tx
+
+    def test_qualifying_transfer_advances_joined_task(self):
+        challenge = self._create_transfer_challenge()
+        UserStreak.objects.create(user=self.user, challenge=challenge)
+
+        self._make_tx(challenge, "150.00")
+
+        user_streak = UserStreak.objects.get(user=self.user, challenge=challenge)
+        self.assertEqual(user_streak.current_count, 1)
+        self.assertFalse(user_streak.completed)
+
+    def test_ignores_transfer_for_unjoined_task(self):
+        challenge = self._create_transfer_challenge()
+
+        self._make_tx(challenge, "150.00")
+
+        self.assertFalse(
+            UserStreak.objects.filter(user=self.user, challenge=challenge).exists()
+        )
+
+    def test_ignores_transfer_below_minimum_amount(self):
+        challenge = self._create_transfer_challenge()
+        UserStreak.objects.create(user=self.user, challenge=challenge)
+
+        self._make_tx(challenge, "50.00")
+
+        user_streak = UserStreak.objects.get(user=self.user, challenge=challenge)
+        self.assertEqual(user_streak.current_count, 0)
+
+    def test_completing_required_count_awards_points_and_resets(self):
+        challenge = self._create_transfer_challenge(required_count=2)
+        UserStreak.objects.create(user=self.user, challenge=challenge)
+
+        self._make_tx(challenge, "150.00")
+        self._make_tx(challenge, "150.00")
+
+        user_streak = UserStreak.objects.get(user=self.user, challenge=challenge)
+        self.assertEqual(user_streak.current_count, 0)
+        self.assertFalse(user_streak.completed)
+        self.assertFalse(user_streak.reward_issued)
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.total_points, 200)
+
+    def test_task_is_repeatable_after_completion(self):
+        challenge = self._create_transfer_challenge(required_count=1)
+        UserStreak.objects.create(user=self.user, challenge=challenge)
+
+        self._make_tx(challenge, "150.00")
+        self._make_tx(challenge, "150.00")
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.total_points, 400)
+
+    def test_does_not_double_count_on_repeated_save(self):
+        challenge = self._create_transfer_challenge()
+        UserStreak.objects.create(user=self.user, challenge=challenge)
+
+        tx = self._make_tx(challenge, "150.00")
+        tx.description = "updated"
+        tx.save(update_fields=["description"])
+
+        user_streak = UserStreak.objects.get(user=self.user, challenge=challenge)
+        self.assertEqual(user_streak.current_count, 1)
+
+    def test_ignores_non_task_transfer(self):
+        challenge = self._create_transfer_challenge()
+        UserStreak.objects.create(user=self.user, challenge=challenge)
+
+        tx = TxModel.objects.create(
+            user=self.user,
+            tx_reference=str(uuid4()),
+            tx_type="Transfer to Bank Account",
+            amount="150.00",
+            status="PENDING",
+            is_task=False,
+        )
+        tx.status = "SUCCESS"
+        tx.save(update_fields=["status"])
+
+        user_streak = UserStreak.objects.get(user=self.user, challenge=challenge)
+        self.assertEqual(user_streak.current_count, 0)
+
+    def test_vas_purchase_advances_task_despite_create_at_success(self):
+        """vas/views.py writes its TxModel row via update_or_create(...,
+        defaults={"status": "SUCCESS", ...}) - reaching SUCCESS in the same
+        step that creates the row (created=True), unlike transfers' PENDING
+        -> SUCCESS two-step. Confirms the signal isn't accidentally gated on
+        `created` and fires for this shape too."""
+        challenge = self._create_transfer_challenge(
+            name="Buy airtime 3 times",
+            mission_category="vas",
+            required_count=3,
+            min_amount_per_action=Decimal("50.00"),
+        )
+        UserStreak.objects.create(user=self.user, challenge=challenge)
+
+        TxModel.objects.update_or_create(
+            tx_reference=str(uuid4()),
+            defaults={
+                "user": self.user,
+                "tx_type": "Airtime",
+                "amount": "100.00",
+                "status": "SUCCESS",
+                "is_task": True,
+                "task_id": challenge.id,
+            },
+        )
+
+        user_streak = UserStreak.objects.get(user=self.user, challenge=challenge)
+        self.assertEqual(user_streak.current_count, 1)
+
+    def test_ignores_amount_based_financial_task(self):
+        challenge = self._create_transfer_challenge(
+            action_type="amount_based",
+            required_count=None,
+            total_min_amount=Decimal("500.00"),
+        )
+        UserStreak.objects.create(user=self.user, challenge=challenge)
+
+        self._make_tx(challenge, "150.00")
+
+        user_streak = UserStreak.objects.get(user=self.user, challenge=challenge)
+        self.assertEqual(user_streak.current_count, 0)
 
 
 class JoinCampaignReferralGateTests(ThrottleDisabledAPITestCase):

@@ -38,7 +38,9 @@ def _build_ninepsb_url(resource):
     return f"{base_url.rstrip('/')}/{resource.lstrip('/')}"
 
 
-def _post_with_retry(url, headers, json_payload, timeout, retries=1, backoff_seconds=1.5):
+def _post_with_retry(
+    url, headers, json_payload, timeout, retries=1, backoff_seconds=1.5
+):
     """
     POST with retries on network-level failures only (timeout / connection
     refused) - never on a definitive HTTP response, since that means 9PSB
@@ -415,7 +417,10 @@ class Wallet:
 
         try:
             response = _post_with_retry(
-                url=base_url + resource, headers=headers, json_payload=payload, timeout=30
+                url=base_url + resource,
+                headers=headers,
+                json_payload=payload,
+                timeout=30,
             )
             return response
 

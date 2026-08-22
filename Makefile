@@ -11,10 +11,10 @@ migrate:
 	python3 manage.py migrate
 
 lint:
-	flake8 accounts ai_support adverts banking blog gamification partners roles self_service support tasks treasury user_profile vas waitlist web
+	flake8 accounts ai_support adverts banking blog flights gamification partners roles self_service support tasks treasury user_profile vas waitlist web
 
 fmt:
-	black accounts ai_support adverts banking blog gamification partners roles self_service support tasks treasury user_profile vas waitlist web
+	black accounts ai_support adverts banking blog flights gamification partners roles self_service support tasks treasury user_profile vas waitlist web
 
 purge:
 	python3 manage.py flush --no-input
@@ -26,7 +26,7 @@ removecron:
 	python manage.py crontab remove
 
 test:
-	.venv/bin/python -m pytest -v
+	python -m pytest -v
 
 test-app:
-	.venv/bin/python -m pytest $(app)/tests.py -v
+	python -m pytest $(app)/tests.py -v

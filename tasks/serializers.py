@@ -449,9 +449,7 @@ class InAppTaskFeedSerializer(serializers.ModelSerializer):
             }
 
         total_required = (
-            obj.required_count
-            if obj.action_type in ("count_based", "streak")
-            else 1
+            obj.required_count if obj.action_type in ("count_based", "streak") else 1
         )
         return {
             "completed_count": current_count,

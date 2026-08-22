@@ -2,10 +2,12 @@ import io
 import logging
 import secrets
 import string
+from datetime import timedelta
 
 import cloudinary.uploader
 import qrcode
 from celery import shared_task
+from django.utils import timezone
 
 from commons import Messaging
 
@@ -103,3 +105,20 @@ def _email_qr_to_brand(ad, qr_image_url: str, visit_code: str):
         )
     except Exception:
         logger.exception("Failed to email QR code to brand %s", brand_user.email)
+
+
+@shared_task(name="adverts.tasks.cleanup_expired_ads")
+def cleanup_expired_ads():
+    """
+    Delete brand ad campaigns that expired more than 3 days ago.
+    Runs daily. The 3-day grace period keeps recently-expired tasks visible
+    to brand admins before they're removed for good.
+    """
+    from .models import CreateAd
+
+    cutoff_date = timezone.now() - timedelta(days=3)
+
+    deleted, _ = CreateAd.objects.filter(expiry_date__lt=cutoff_date).delete()
+
+    logger.info("Cleaned up %d expired ad campaigns", deleted)
+    return f"Cleaned up {deleted} expired ad campaigns"

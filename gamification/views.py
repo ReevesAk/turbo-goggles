@@ -938,9 +938,7 @@ class GenerateWalkToEarnReferralCodeView(generics.GenericAPIView):
         user = request.user
 
         if not user.walk_to_earn_referral_code:
-            user.walk_to_earn_referral_code = Referrals.generate_walk_to_earn_code(
-                user
-            )
+            user.walk_to_earn_referral_code = Referrals.generate_walk_to_earn_code(user)
             user.save(update_fields=["walk_to_earn_referral_code"])
 
         return Response(
@@ -2581,14 +2579,12 @@ class ReviewUGCSubmissionAdminView(generics.GenericAPIView):
 
     def post(self, request, id):
         try:
-            submission = UGCTaskSubmission.objects.select_related(
-                "user", "task"
-            ).get(id=id)
+            submission = UGCTaskSubmission.objects.select_related("user", "task").get(
+                id=id
+            )
         except UGCTaskSubmission.DoesNotExist:
             return Response(
-                data=encrypt(
-                    {"status": "fail", "message": "Submission not found"}
-                ),
+                data=encrypt({"status": "fail", "message": "Submission not found"}),
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -2597,9 +2593,7 @@ class ReviewUGCSubmissionAdminView(generics.GenericAPIView):
         if action == "approve":
             success, message = submission.approve()
         elif action == "reject":
-            success, message = submission.reject(
-                reason=request.data.get("reason", "")
-            )
+            success, message = submission.reject(reason=request.data.get("reason", ""))
         else:
             return Response(
                 data=encrypt(
@@ -2621,9 +2615,7 @@ class ReviewUGCSubmissionAdminView(generics.GenericAPIView):
             "status": "success" if success else "fail",
             "message": message,
         }
-        response_status = (
-            status.HTTP_200_OK if success else status.HTTP_400_BAD_REQUEST
-        )
+        response_status = status.HTTP_200_OK if success else status.HTTP_400_BAD_REQUEST
         return Response(data=encrypt(response_data), status=response_status)
 
 

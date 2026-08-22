@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 
 from celery import shared_task
 from django.db import transaction
@@ -454,3 +455,19 @@ def run_brand_verification(self, submission_id: str):
             ),
             data={"type": "manual_review_brand", "submission_id": submission_id},
         )
+
+
+@shared_task(name="tasks.jobs.cleanup_completed_brand_submissions")
+def cleanup_completed_brand_submissions():
+    """
+    Delete approved brand task submissions (completed participation) older
+    than 1 month. Runs monthly.
+    """
+    cutoff_date = timezone.now() - timedelta(days=30)
+
+    deleted, _ = BrandTaskSubmission.objects.filter(
+        status="Approved", reviewed_at__lt=cutoff_date
+    ).delete()
+
+    logger.info("Cleaned up %d completed brand task submissions", deleted)
+    return f"Cleaned up {deleted} completed brand task submissions"
