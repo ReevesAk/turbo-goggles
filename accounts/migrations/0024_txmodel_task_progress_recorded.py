@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0023_txmodel_is_task_txmodel_task_id'),
+        ("accounts", "0023_txmodel_is_task_txmodel_task_id"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='txmodel',
-            name='task_progress_recorded',
+            model_name="txmodel",
+            name="task_progress_recorded",
             field=models.BooleanField(default=False),
         ),
     ]
