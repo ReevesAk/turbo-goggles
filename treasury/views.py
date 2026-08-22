@@ -281,8 +281,8 @@ class GetTreasuryAccountDetails(generics.GenericAPIView):
 
         resp_data["tier2_upgrade_status"] = account.tier2_upgrade_status
         resp_data["tier3_upgrade_status"] = account.tier3_upgrade_status
-        resp_data["transfer_fee"] = "15.00"
-        resp_data["vat"] = "1.13"
+        resp_data["transfer_fee"] = "20.00"
+        resp_data["vat"] = "1.50"
 
         tier_limits = {
             1: {"max_balance": 300000, "daily_deposit": 50000, "daily_transfer": 20000},

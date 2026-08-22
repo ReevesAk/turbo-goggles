@@ -307,6 +307,7 @@ class BankTransfersSerializer(serializers.ModelSerializer):
             "beneficiary_name",
             "beneficiary_account_number",
             "beneficiary_bank_code",
+            "beneficiary_bank_name",
             "sender_account_number",
             "description",
             "amount",

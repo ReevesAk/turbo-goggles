@@ -2,7 +2,7 @@ from decimal import Decimal, ROUND_HALF_UP
 
 VAT_RATE = Decimal("0.075")  # 7.5% VAT
 TRANSFER_FEE = Decimal("10.00")  # Flat NIP transfer fee
-MERCHANT_FEE = Decimal("5.00")  # Picadailys flat merchant fee
+MERCHANT_FEE = Decimal("10.00")  # Picadailys flat merchant fee
 
 
 class TransferCharge:
@@ -13,8 +13,8 @@ class TransferCharge:
         Returns charge breakdown for an interbank transfer.
 
         Exposed to frontend:
-          - transfer_fee: NIP fee + merchant fee (₦10 + ₦5 = ₦15)
-          - vat:          VAT on both fees (₦0.75 + ₦0.38 = ₦1.13)
+          - transfer_fee: NIP fee + merchant fee (₦10 + ₦10 = ₦20)
+          - vat:          VAT on both fees (₦0.75 + ₦0.75 = ₦1.50)
           - total:        principal + transfer_fee + vat
 
         SMS/Email alerts use principal only.

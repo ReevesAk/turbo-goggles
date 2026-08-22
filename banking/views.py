@@ -1217,8 +1217,8 @@ class GetAccountDetails(generics.GenericAPIView):
             response["data"]["is_live_balance"] = False
 
         response["data"]["upgrade_status"] = acct_details.tier2_upgrade_status
-        response["data"]["transfer_fee"] = "15.00"
-        response["data"]["vat"] = "1.13"
+        response["data"]["transfer_fee"] = "20.00"
+        response["data"]["vat"] = "1.50"
         response["data"]["stamp_duty"] = "50.00"
         response["data"]["stamp_duty_threshold"] = "10000.00"
 
