@@ -78,6 +78,8 @@ def post_transfer_update(
     phone_number,
     email,
     beneficiary_name=None,
+    beneficiary_bank_code=None,
+    beneficiary_bank_name=None,
 ):
     from accounts.models import UserNotification
     from banking.models import WalletModel, TransferModel
@@ -111,6 +113,8 @@ def post_transfer_update(
             tx=tx,
             beneficiary_account_number=beneficiary_account_number,
             beneficiary_name=beneficiary_name,
+            beneficiary_bank_code=beneficiary_bank_code,
+            beneficiary_bank_name=beneficiary_bank_name,
             sender_name=sender_full_name,
             sender_account_number=account_number,
             amount=amount_str,
@@ -293,6 +297,8 @@ def resolve_pending_transfer(
     phone_number,
     email,
     beneficiary_name=None,
+    beneficiary_bank_code=None,
+    beneficiary_bank_name=None,
 ):
     from accounts.models import TxModel
     from banking.controllers import Transfers
@@ -326,6 +332,8 @@ def resolve_pending_transfer(
                 phone_number=phone_number,
                 email=email,
                 beneficiary_name=beneficiary_name,
+                beneficiary_bank_code=beneficiary_bank_code,
+                beneficiary_bank_name=beneficiary_bank_name,
             )
         elif tx_status in ("FAILED", "REVERSED", "REJECTED"):
             tx.status = "FAILED"

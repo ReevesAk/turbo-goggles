@@ -307,7 +307,7 @@ class ValidateAccountOfOtherBank(generics.GenericAPIView):
 @extend_schema(
     summary="Transfer funds to another Picadailys user (intra-bank)",
     tags=["Banking"],
-    description="Send funds to another Picadailys/9PSB wallet. Requires an Idempotency-Key header to prevent duplicate debits. Authorization via PIN or biometrics. First 5 transfers to the same beneficiary per day are free; subsequent ones attract a ₦10 fee.",
+    description="Send funds to another Picadailys/9PSB wallet. Requires an Idempotency-Key header to prevent duplicate debits. Authorization via PIN or biometrics. First 5 transfers to the same beneficiary per day are free; subsequent ones attract a ₦20 fee.",
     request=BankTransfersSerializer,
     parameters=[
         OpenApiParameter(
@@ -490,7 +490,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                     transfers__beneficiary_account_number=beneficiary_account,
                     date__date=today,
                 ).count()
-                intra_merchant_fee = Decimal("10") if intra_count >= 5 else Decimal("0")
+                intra_merchant_fee = Decimal("20") if intra_count >= 5 else Decimal("0")
                 total = amount + intra_merchant_fee
 
                 if account.balance < total:
@@ -558,6 +558,8 @@ class IntraBankTransfer(generics.CreateAPIView):
                         phone_number=getattr(authenticated_user, "phone_number", None),
                         email=getattr(authenticated_user, "email", None),
                         beneficiary_name=payload.get("beneficiary_name"),
+                        beneficiary_bank_code=payload.get("beneficiary_bank_code"),
+                        beneficiary_bank_name=payload.get("beneficiary_bank_name"),
                     ),
                     countdown=30,
                 )
@@ -592,6 +594,8 @@ class IntraBankTransfer(generics.CreateAPIView):
                     phone_number=getattr(authenticated_user, "phone_number", None),
                     email=getattr(authenticated_user, "email", None),
                     beneficiary_name=payload.get("beneficiary_name"),
+                    beneficiary_bank_code=payload.get("beneficiary_bank_code"),
+                    beneficiary_bank_name=payload.get("beneficiary_bank_name"),
                 )
 
                 resp_data = {
@@ -719,7 +723,7 @@ class IntraBankFreeTransferCount(APIView):
                     "free_transfers_used": used,
                     "free_transfers_remaining": remaining,
                     "free_limit": free_limit,
-                    "fee_after_limit": "10.00",
+                    "fee_after_limit": "20.00",
                 }
             ),
             status=status.HTTP_200_OK,
@@ -749,6 +753,7 @@ class IntraBankFreeTransferCount(APIView):
                     fields={
                         "beneficiary_account_number": s.CharField(),
                         "beneficiary_bank_code": s.CharField(),
+                        "beneficiary_bank_name": s.CharField(),
                         "beneficiary_name": s.CharField(),
                         "last_used": s.DateTimeField(),
                         "times_used": s.IntegerField(),
@@ -780,6 +785,7 @@ class SuggestedBeneficiaries(APIView):
             .values(
                 "beneficiary_account_number",
                 "beneficiary_bank_code",
+                "beneficiary_bank_name",
                 "beneficiary_name",
             )
             .annotate(last_used=Max("created_at"), times_used=Count("id"))
@@ -1041,6 +1047,8 @@ class InterBankTransfer(generics.CreateAPIView):
                         phone_number=getattr(authenticated_user, "phone_number", None),
                         email=getattr(authenticated_user, "email", None),
                         beneficiary_name=payload.get("beneficiary_name"),
+                        beneficiary_bank_code=payload.get("beneficiary_bank_code"),
+                        beneficiary_bank_name=payload.get("beneficiary_bank_name"),
                     ),
                     countdown=30,
                 )
@@ -1075,6 +1083,8 @@ class InterBankTransfer(generics.CreateAPIView):
                     phone_number=getattr(authenticated_user, "phone_number", None),
                     email=getattr(authenticated_user, "email", None),
                     beneficiary_name=payload.get("beneficiary_name"),
+                    beneficiary_bank_code=payload.get("beneficiary_bank_code"),
+                    beneficiary_bank_name=payload.get("beneficiary_bank_name"),
                 )
 
                 return Response(

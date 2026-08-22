@@ -221,6 +221,7 @@ class TransferModel(models.Model):
     beneficiary_bank_code = models.CharField(
         max_length=100, null=True, blank=True
     )  # "bank"
+    beneficiary_bank_name = models.CharField(max_length=150, null=True, blank=True)
     beneficiary_account_number = models.CharField(
         max_length=30, null=True, blank=True, db_index=True
     )  # "number"
