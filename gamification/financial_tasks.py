@@ -60,9 +60,10 @@ def record_financial_task_progress(user, task_id, amount):
         if not challenge.is_ongoing:
             return
 
-        if challenge.min_amount_per_action is not None and Decimal(
-            str(amount)
-        ) < challenge.min_amount_per_action:
+        if (
+            challenge.min_amount_per_action is not None
+            and Decimal(str(amount)) < challenge.min_amount_per_action
+        ):
             logger.info(
                 "record_financial_task_progress: %s below min_amount_per_action "
                 "(%s) for challenge=%s user=%s — not counted.",
