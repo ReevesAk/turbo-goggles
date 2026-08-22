@@ -251,6 +251,15 @@ class BrandTaskFeedView(generics.ListAPIView):
     (ST_DWithin / Distance over a geography-typed location column). Tasks are
     sorted with nearby store visits prioritized, followed by other task types
     in a balanced interleaved manner.
+
+    The response nests three lists under `data`:
+    - active: the full pipeline above.
+    - completed: brand ads with an approved submission from this user, most
+      recently reviewed first. Skips location/gender targeting - it's the
+      user's own history.
+    - expired: brand ads past their expiry_date, scoped with the same
+      location/country/gender targeting as the active feed, excluding ads
+      the user already completed.
     """
 
     serializer_class = BrandTaskFeedSerializer
@@ -271,28 +280,12 @@ class BrandTaskFeedView(generics.ListAPIView):
             logger.warning(f"No location found for user {user.email}")
             return None, None
 
-    def get_queryset(self):
-        user = self.request.user
-        completed_ad_ids = (
-            BrandTaskSubmission.objects.filter(user=user)
-            .exclude(status="Rejected")
-            .values_list("ad_id", flat=True)
-        )
-
-        # Base queryset
-        qs = (
-            CreateAd.objects.filter(is_active=True, expiry_date__gt=timezone.now())
-            .exclude(id__in=completed_ad_ids)
-            .prefetch_related("ad_media")
-            .order_by("-created_at")
-        )
-
-        # Filter by task_type if provided
-        task_type = self.request.query_params.get("task_type")
-        if task_type:
-            qs = qs.filter(task_type=task_type)
-
-        # Get user's location from their profile
+    def _apply_targeting(self, qs, user):
+        """
+        Location/country/gender targeting shared by the active and expired
+        brand-task lists. Completed tasks skip this - it's the user's own
+        history, not a discovery filter.
+        """
         user_city = user.city
         user_state = user.state
         user_country = user.country
@@ -321,6 +314,33 @@ class BrandTaskFeedView(generics.ListAPIView):
                 | Q(countries__contains=[user_country])
             )
 
+        # Only show ads targeted at this member's own gender (or left
+        # untargeted) - see gamification/eligibility.py.
+        return filter_by_viewer_gender(qs, user, "gender")
+
+    def get_queryset(self):
+        user = self.request.user
+        completed_ad_ids = (
+            BrandTaskSubmission.objects.filter(user=user)
+            .exclude(status="Rejected")
+            .values_list("ad_id", flat=True)
+        )
+
+        # Base queryset
+        qs = (
+            CreateAd.objects.filter(is_active=True, expiry_date__gt=timezone.now())
+            .exclude(id__in=completed_ad_ids)
+            .prefetch_related("ad_media")
+            .order_by("-created_at")
+        )
+
+        # Filter by task_type if provided
+        task_type = self.request.query_params.get("task_type")
+        if task_type:
+            qs = qs.filter(task_type=task_type)
+
+        qs = self._apply_targeting(qs, user)
+
         # Filter out ads that have hit their true slot cap ceiling. slot_cap
         # is required on new ads, but older rows may still have it unset -
         # NULL must be treated as "no limit", not excluded (slots_filled <
@@ -331,11 +351,41 @@ class BrandTaskFeedView(generics.ListAPIView):
         # filter).
         qs = qs.filter(Q(slot_cap__isnull=True) | Q(slots_filled__lt=F("slot_cap")))
 
-        # Only show ads targeted at this member's own gender (or left
-        # untargeted) - see gamification/eligibility.py.
-        qs = filter_by_viewer_gender(qs, user, "gender")
-
         # Prevent duplicate rows from relational joins
+        return qs.distinct()
+
+    def get_completed_ads(self, user):
+        """Brand ads this user has an approved (rewarded) submission for, most recent first."""
+        submissions = (
+            BrandTaskSubmission.objects.filter(user=user, status="Approved")
+            .select_related("ad")
+            .prefetch_related("ad__ad_media")
+            .order_by("-reviewed_at")
+        )
+        return [s.ad for s in submissions if s.ad_id]
+
+    def get_expired_ads(self, user):
+        """
+        Expired brand ads, scoped with the same location/country/gender
+        targeting as the active feed. Ads the user already completed are
+        excluded so they only show up in the completed list.
+        """
+        completed_ad_ids = BrandTaskSubmission.objects.filter(
+            user=user, status="Approved"
+        ).values_list("ad_id", flat=True)
+
+        qs = (
+            CreateAd.objects.filter(expiry_date__lte=timezone.now())
+            .exclude(id__in=completed_ad_ids)
+            .prefetch_related("ad_media")
+            .order_by("-expiry_date")
+        )
+
+        task_type = self.request.query_params.get("task_type")
+        if task_type:
+            qs = qs.filter(task_type=task_type)
+
+        qs = self._apply_targeting(qs, user)
         return qs.distinct()
 
     def list(self, request, *args, **kwargs):
@@ -570,13 +620,40 @@ class BrandTaskFeedView(generics.ListAPIView):
                     or t.get("type") == task_type_filter
                 ]
 
+        # Completed and expired brand tasks are nested alongside the active
+        # feed in the same response, rather than requiring separate calls.
+        completed_data = BrandTaskFeedSerializer(
+            self.get_completed_ads(user), many=True, context={"request": request}
+        ).data
+        expired_data = BrandTaskFeedSerializer(
+            self.get_expired_ads(user), many=True, context={"request": request}
+        ).data
+        if task_type_filter:
+            completed_data = [
+                t
+                for t in completed_data
+                if t.get("task", {}).get("type") == task_type_filter
+            ]
+            expired_data = [
+                t
+                for t in expired_data
+                if t.get("task", {}).get("type") == task_type_filter
+            ]
+
         # Prepare response data with metadata
         response_data = {
             "status": "success",
             "message": "Tasks retrieved successfully.",
-            "data": final_data,
+            "data": {
+                "active": final_data,
+                "completed": completed_data,
+                "expired": expired_data,
+            },
             "metadata": {
                 "total_tasks": len(final_data),
+                "active_count": len(final_data),
+                "completed_count": len(completed_data),
+                "expired_count": len(expired_data),
                 "store_visits_found": len(store_tasks),
                 "other_tasks_found": len(other_tasks),
                 "user_location": (

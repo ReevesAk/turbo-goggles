@@ -216,16 +216,20 @@ class Referrals:
         current_count is set to the true referral_count rather than
         incremented, so this is idempotent and can't drift.
         """
-        candidates = UserStreak.objects.select_for_update().filter(
-            user=referrer,
-            completed=False,
-            challenge__streak_type="financial_task",
-            challenge__mission_category="referral_task",
-            challenge__action_type__in=("count_based", "streak"),
-            challenge__is_active=True,
-            challenge__is_paused=False,
-            challenge__is_cancelled=False,
-        ).select_related("challenge")
+        candidates = (
+            UserStreak.objects.select_for_update()
+            .filter(
+                user=referrer,
+                completed=False,
+                challenge__streak_type="financial_task",
+                challenge__mission_category="referral_task",
+                challenge__action_type__in=("count_based", "streak"),
+                challenge__is_active=True,
+                challenge__is_paused=False,
+                challenge__is_cancelled=False,
+            )
+            .select_related("challenge")
+        )
 
         for user_streak in candidates:
             challenge = user_streak.challenge

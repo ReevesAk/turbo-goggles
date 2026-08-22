@@ -28,6 +28,7 @@ from .transfers import (
     ValidateAccountOfOtherBank,
     IntraBankTransfer,
     IntraBankFreeTransferCount,
+    SuggestedBeneficiaries,
     InterBankTransfer,
     TransactionStatus,
     PayWithCard,
@@ -86,6 +87,11 @@ urlpatterns = [
         "transfers/intra-bank/free-count",
         IntraBankFreeTransferCount.as_view(),
         name="intra_bank_free_count",
+    ),
+    path(
+        "transfers/beneficiaries/suggested",
+        SuggestedBeneficiaries.as_view(),
+        name="suggested_beneficiaries",
     ),
     path("transfers/inter-bank", InterBankTransfer.as_view(), name="inter_bank"),
     path(

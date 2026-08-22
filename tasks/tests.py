@@ -170,9 +170,7 @@ class BrandTaskFeedViewTests(APITestCase):
 
         body = decrypt(response.data)
         item = next(
-            i
-            for i in body["data"]
-            if i["campaign_name"] == "Share Picadailys App on X"
+            i for i in body["data"] if i["campaign_name"] == "Share Picadailys App on X"
         )
         self.assertEqual(item["source"], "inapp")
         details = item["task"]["details"]
