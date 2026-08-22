@@ -40,6 +40,7 @@ from roles.models import ActivityModel
 from gamification.points import Points
 from gamification.referrals import Referrals
 from gamification.models import StreakChallenge
+from waitlist.models import WaitlistModel
 from commons import Biometrics, Messaging
 from security import encrypt, decrypt
 from .utils import mask_email, mask_phone
@@ -166,6 +167,24 @@ class Register(generics.GenericAPIView):
 
             user.referral_code = Referrals.generate_code(user)
             user.save(update_fields=["referral_code"])
+
+            if email:
+                waitlist_entry = WaitlistModel.objects.filter(
+                    email=email, converted_user__isnull=True
+                ).first()
+                if waitlist_entry:
+                    # Accumulated waitlist points are dropped on conversion -
+                    # only the link/timestamp carries over.
+                    waitlist_entry.converted_user = user
+                    waitlist_entry.converted_at = timezone.now()
+                    waitlist_entry.save(
+                        update_fields=["converted_user", "converted_at"]
+                    )
+                    logger.info(
+                        "Waitlist entry %s converted to user %s",
+                        waitlist_entry.id,
+                        mask_email(user.email),
+                    )
 
             if referrer is not None:
                 if referrer_code_type == "walk_to_earn":

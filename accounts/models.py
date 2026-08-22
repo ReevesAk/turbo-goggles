@@ -223,6 +223,10 @@ class TxModel(models.Model):
     status = models.CharField(max_length=20, default="PENDING", choices=STATUS_CHOICES)
     is_task = models.BooleanField(default=False)
     task_id = models.UUIDField(null=True, blank=True)
+    # Idempotency guard for gamification.signals.track_financial_task_progress
+    # - set once this row has counted toward its task's progress, so a
+    # later re-save (retry, webhook replay) can never double-count it.
+    task_progress_recorded = models.BooleanField(default=False)
     date = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:

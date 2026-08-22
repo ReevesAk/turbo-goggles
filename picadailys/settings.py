@@ -88,6 +88,7 @@ INSTALLED_APPS = [
     "ai_support.apps.AiSupportConfig",
     "csp",
     "tasks",
+    "flights",
 ]
 
 MIDDLEWARE = [
@@ -467,6 +468,18 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(hour=3, minute=30, day_of_week="sunday"),  # Sunday 3:00 AM
         "description": "Remove stale device records",
     },
+    "cleanup-expired-ads": {
+        "task": "adverts.tasks.cleanup_expired_ads",
+        "schedule": crontab(hour=2, minute=15),  # 2:15 AM daily
+        "description": "Remove brand ad campaigns 3 days after they expire",
+    },
+    "cleanup-completed-brand-submissions": {
+        "task": "tasks.jobs.cleanup_completed_brand_submissions",
+        "schedule": crontab(
+            hour=5, minute=30, day_of_month=1
+        ),  # 1st day of month at 5:30 AM
+        "description": "Remove completed brand task submissions older than 1 month",
+    },
 }
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -490,6 +503,13 @@ TESTING = (
         for arg in sys.argv
     )
     or "PYTEST_CURRENT_TEST" in os.environ
+    # `python -m pytest` sets sys.argv[0] to pytest's __main__.py path, which
+    # matches none of the argv checks above — but pytest is already imported
+    # into sys.modules by the time Django settings load, regardless of
+    # whether it was launched via the console script, `-m pytest`, or
+    # `py.test`. This is what actually caught the invocation the argv checks
+    # missed.
+    or "pytest" in sys.modules
 )
 if TESTING:
     print("=========================")
@@ -525,6 +545,7 @@ CRONJOBS = [
     # is now stale/wrong and was clobbering the internal Points engine.
     ("*/30 * * * *", "banking.tasks.reconcile_pending_transfers"),
     ("0 0 * * *", "waitlist.jobs.remove_unverified_waitlist_users"),
+    ("0 3 * * *", "flights.jobs.sync_airports"),
 ]
 
 if conf("ENVIRONMENT") == "production":

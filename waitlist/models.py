@@ -2,6 +2,7 @@ import string
 import random
 
 from django.db import models
+from django.conf import settings
 
 
 # Create your models here.
@@ -21,6 +22,15 @@ class WaitlistModel(models.Model):
     institution = models.CharField(max_length=150, null=True, blank=True)
     is_verified = models.BooleanField(default=False)
     joined_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    converted_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="waitlist_entry",
+        help_text="The real account this waitlist entry turned into, once they registered.",
+    )
+    converted_at = models.DateTimeField(null=True, blank=True)
 
     @classmethod
     def generate_referral_code(cls, first_name, length=4):

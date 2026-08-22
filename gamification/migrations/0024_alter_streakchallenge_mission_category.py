@@ -6,13 +6,26 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('gamification', '0023_alter_usergeneratedcontent_thumbnail_url'),
+        ("gamification", "0023_alter_usergeneratedcontent_thumbnail_url"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='streakchallenge',
-            name='mission_category',
-            field=models.CharField(blank=True, choices=[('kyc_upgrade', 'KYC Tier Upgrade'), ('wallet_funding', 'Wallet Funding'), ('vas', 'Airtime/Data (VAS)'), ('bills_payment', 'Bills Payment'), ('transfer', 'Transfer'), ('referral_task', 'Referral Task'), ('streak_task', 'Streak Task')], max_length=20, null=True),
+            model_name="streakchallenge",
+            name="mission_category",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("kyc_upgrade", "KYC Tier Upgrade"),
+                    ("wallet_funding", "Wallet Funding"),
+                    ("vas", "Airtime/Data (VAS)"),
+                    ("bills_payment", "Bills Payment"),
+                    ("transfer", "Transfer"),
+                    ("referral_task", "Referral Task"),
+                    ("streak_task", "Streak Task"),
+                ],
+                max_length=20,
+                null=True,
+            ),
         ),
     ]
