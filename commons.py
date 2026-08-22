@@ -190,11 +190,11 @@ class Messaging:
             ],
             "attribs": {
         "whatsapp_template": {
-            "name": "auth_login_code",
+            "name": "auth_verify_code",
             "language": "en_US"
         },
-        "template_id": "auth_login_code:en_US",
-        "template_name": "auth_login_code",
+        "template_id": "auth_verify_code:en_US",
+        "template_name": "auth_verify_code",
         "components": [
             {
             "type": "body",
