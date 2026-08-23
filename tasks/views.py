@@ -252,14 +252,19 @@ class BrandTaskFeedView(generics.ListAPIView):
     sorted with nearby store visits prioritized, followed by other task types
     in a balanced interleaved manner.
 
-    The response nests three lists under `data`:
+    The response nests three lists under `data`, each combining all four
+    task sources (brand, social, in-app, UGC) - same sources the active
+    pipeline aggregates above, just filtered to a different status:
     - active: the full pipeline above.
-    - completed: brand ads with an approved submission from this user, most
-      recently reviewed first. Skips location/gender targeting - it's the
-      user's own history.
-    - expired: brand ads past their expiry_date, scoped with the same
-      location/country/gender targeting as the active feed, excluding ads
-      the user already completed.
+    - completed: items the user has finished. For brand/social/UGC that
+      means an approved submission; for in-app (StreakChallenge) tasks it
+      means a UserStreak.completed_at timestamp, since count_based in-app
+      tasks are repeatable and reset current_count/completed back to zero
+      right after each completion. Skips location/gender targeting - it's
+      the user's own history.
+    - expired: items past their expiry, scoped with the same
+      location/country/gender targeting as the active feed (where that
+      source supports it), excluding items the user already completed.
     """
 
     serializer_class = BrandTaskFeedSerializer
@@ -387,6 +392,77 @@ class BrandTaskFeedView(generics.ListAPIView):
 
         qs = self._apply_targeting(qs, user)
         return qs.distinct()
+
+    def get_completed_social_tasks(self, user):
+        """Social tasks with an approved submission from this user, most recently reviewed first."""
+        submissions = (
+            TaskSubmission.objects.filter(user=user, status="Approved")
+            .select_related("task")
+            .order_by("-reviewed_at")
+        )
+        return [s.task for s in submissions if s.task_id]
+
+    def get_expired_social_tasks(self, user):
+        """Expired social tasks, excluding ones the user already completed."""
+        completed_ids = TaskSubmission.objects.filter(
+            user=user, status="Approved"
+        ).values_list("task_id", flat=True)
+        return (
+            SocialTask.objects.filter(expires_at__lte=timezone.now())
+            .exclude(id__in=completed_ids)
+            .order_by("-expires_at")
+        )
+
+    def get_completed_inapp_tasks(self, user):
+        """
+        In-app (StreakChallenge) tasks this user has finished at least one
+        cycle of. These are repeatable and reset current_count/completed
+        back to zero right after each completion, so completed_at (not the
+        completed flag) is the marker of "has completed this before".
+        """
+        streaks = (
+            UserStreak.objects.filter(user=user, completed_at__isnull=False)
+            .select_related("challenge")
+            .order_by("-completed_at")
+        )
+        return [s.challenge for s in streaks if s.challenge_id]
+
+    def get_expired_inapp_tasks(self, user):
+        """Expired in-app tasks, excluding ones the user already completed."""
+        completed_ids = UserStreak.objects.filter(
+            user=user, completed_at__isnull=False
+        ).values_list("challenge_id", flat=True)
+        return (
+            StreakChallenge.objects.filter(
+                is_cancelled=False, end_date__lt=timezone.now()
+            )
+            .exclude(id__in=completed_ids)
+            .order_by("-end_date")
+        )
+
+    def get_completed_ugc_tasks(self, user):
+        """UGC tasks with an approved submission from this user, most recently reviewed first."""
+        submissions = (
+            UGCTaskSubmission.objects.filter(
+                user=user, status=UGCTaskSubmission.Status.APPROVED
+            )
+            .select_related("task")
+            .order_by("-reviewed_at")
+        )
+        return [s.task for s in submissions if s.task_id]
+
+    def get_expired_ugc_tasks(self, user):
+        """Expired UGC tasks, same gender/location targeting as the active feed, excluding completed ones."""
+        completed_ids = UGCTaskSubmission.objects.filter(
+            user=user, status=UGCTaskSubmission.Status.APPROVED
+        ).values_list("task_id", flat=True)
+        qs = (
+            UserGeneratedContent.objects.filter(expiry_date__lte=timezone.now())
+            .exclude(id__in=completed_ids)
+            .order_by("-expiry_date")
+        )
+        qs = filter_by_viewer_gender(qs, user, "gender")
+        return filter_ugc_by_viewer_location(qs, user)
 
     def list(self, request, *args, **kwargs):
         logger.info("BrandTaskFeedView accessed by user: %s", request.user.email)
@@ -620,14 +696,38 @@ class BrandTaskFeedView(generics.ListAPIView):
                     or t.get("type") == task_type_filter
                 ]
 
-        # Completed and expired brand tasks are nested alongside the active
-        # feed in the same response, rather than requiring separate calls.
-        completed_data = BrandTaskFeedSerializer(
-            self.get_completed_ads(user), many=True, context={"request": request}
-        ).data
-        expired_data = BrandTaskFeedSerializer(
-            self.get_expired_ads(user), many=True, context={"request": request}
-        ).data
+        # Completed and expired tasks - across all four sources (brand,
+        # social, in-app, UGC), same as the active feed above - are nested
+        # alongside it in the same response, rather than requiring separate
+        # calls per source or per status.
+        completed_data = (
+            BrandTaskFeedSerializer(
+                self.get_completed_ads(user), many=True, context={"request": request}
+            ).data
+            + SocialTaskFeedSerializer(
+                self.get_completed_social_tasks(user), many=True
+            ).data
+            + InAppTaskFeedSerializer(
+                self.get_completed_inapp_tasks(user),
+                many=True,
+                context={"request": request},
+            ).data
+            + UGCFeedSerializer(self.get_completed_ugc_tasks(user), many=True).data
+        )
+        expired_data = (
+            BrandTaskFeedSerializer(
+                self.get_expired_ads(user), many=True, context={"request": request}
+            ).data
+            + SocialTaskFeedSerializer(
+                self.get_expired_social_tasks(user), many=True
+            ).data
+            + InAppTaskFeedSerializer(
+                self.get_expired_inapp_tasks(user),
+                many=True,
+                context={"request": request},
+            ).data
+            + UGCFeedSerializer(self.get_expired_ugc_tasks(user), many=True).data
+        )
         if task_type_filter:
             completed_data = [
                 t

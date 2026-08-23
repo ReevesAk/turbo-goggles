@@ -7,10 +7,10 @@ Mirrors gamification.referrals._check_inapp_referral_tasks() — the existing
 convention for this same StreakChallenge/UserStreak mechanism, just a
 different mission_category: only challenges the user has already joined
 (has a UserStreak row for via JoinStreakChallengeView) are touched, joining
-being what opts a user into a specific challenge's reward. Diverges from
-that convention in one deliberate way: financial "transfer" tasks reset
-back to zero on completion rather than staying permanently completed, since
-they're meant to be repeatable, not one-and-done.
+being what opts a user into a specific challenge's reward. Completion
+behavior branches on challenge.is_recurring: recurring challenges reset
+current_count/completed back to zero so they can be earned again;
+non-recurring ones stay permanently completed, same as referral tasks.
 
 Entry point is record_financial_task_progress(), called from
 gamification.signals whenever a TxModel row tagged with is_task/task_id
@@ -112,13 +112,20 @@ def record_financial_task_progress(user, task_id, amount):
             )
             return
 
-        # Reset immediately so this repeatable financial task starts a fresh
-        # cycle - unlike referral in-app tasks, which stay permanently
-        # completed once reached.
         user_streak.completed_at = timezone.now()
-        user_streak.current_count = 0
-        user_streak.completed = False
-        user_streak.reward_issued = False
+        if challenge.is_recurring:
+            # Reset immediately so this repeatable financial task starts a
+            # fresh cycle - unlike referral in-app tasks, which stay
+            # permanently completed once reached.
+            user_streak.current_count = 0
+            user_streak.completed = False
+            user_streak.reward_issued = False
+        else:
+            # One-and-done, same convention as referral in-app tasks -
+            # current_count stays at its final value, completed=True keeps
+            # it out of the `completed=False` filter above for good.
+            user_streak.completed = True
+            user_streak.reward_issued = True
         user_streak.save(
             update_fields=[
                 "current_count",

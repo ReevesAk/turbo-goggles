@@ -4730,6 +4730,7 @@ class FinancialTaskTransferProgressTests(ThrottleDisabledAPITestCase):
             "action_type": "count_based",
             "required_count": 5,
             "min_amount_per_action": Decimal("100.00"),
+            "is_recurring": True,
             "duration_days": 30,
             "start_date": timezone.now() - timedelta(days=1),
             "end_date": timezone.now() + timedelta(days=29),
@@ -4805,6 +4806,28 @@ class FinancialTaskTransferProgressTests(ThrottleDisabledAPITestCase):
 
         self.user.refresh_from_db()
         self.assertEqual(self.user.total_points, 400)
+
+    def test_non_recurring_task_stays_completed_and_does_not_repeat(self):
+        challenge = self._create_transfer_challenge(
+            required_count=1, is_recurring=False
+        )
+        UserStreak.objects.create(user=self.user, challenge=challenge)
+
+        self._make_tx(challenge, "150.00")
+
+        user_streak = UserStreak.objects.get(user=self.user, challenge=challenge)
+        self.assertEqual(user_streak.current_count, 1)
+        self.assertTrue(user_streak.completed)
+        self.assertTrue(user_streak.reward_issued)
+        self.assertIsNotNone(user_streak.completed_at)
+
+        # A second qualifying transfer must not award points again - the
+        # UserStreak row no longer matches record_financial_task_progress's
+        # completed=False filter.
+        self._make_tx(challenge, "150.00")
+
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.total_points, 200)
 
     def test_does_not_double_count_on_repeated_save(self):
         challenge = self._create_transfer_challenge()
