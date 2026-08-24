@@ -349,11 +349,8 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                                 )
 
                                 # user is already set above
-                                already_awarded = WelcomeBonusAward.objects.filter(
-                                    user=user
-                                ).exists()
                                 if (
-                                    not already_awarded
+                                    not user.has_received_welcome_bonus
                                 ) and counter.awarded_count < 1000:
                                     WelcomeBonusAward.objects.create(
                                         user=user, amount=Decimal("500.00")
@@ -362,9 +359,19 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                                     counter.save()
 
                                     try:
-                                        user.welcome_bonus = 500
-                                        user.has_bonus = True
-                                        user.save()
+                                        individual_wallet = WalletModel.objects.get(
+                                            user=user, walletType="INDIVIDUAL"
+                                        )
+                                        individual_wallet.cashback_balance += Decimal(
+                                            "500.00"
+                                        )
+                                        individual_wallet.save(
+                                            update_fields=["cashback_balance"]
+                                        )
+                                        user.has_received_welcome_bonus = True
+                                        user.save(
+                                            update_fields=["has_received_welcome_bonus"]
+                                        )
                                     except Exception:
                                         logger.exception(
                                             "Failed to set user flags after welcome award"
@@ -373,18 +380,18 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                                     UserNotification.objects.create(
                                         user=user,
                                         title="Welcome Bonus",
-                                        message="You have been credited with a ₦500 welcome bonus. Use it for purchases.",
+                                        message="You have been credited with a ₦500 cashback welcome bonus. Use it for purchases.",
                                     )
                                     send_push_to_user(
                                         user=user,
                                         title="Welcome Bonus! 🎁",
-                                        body="You've been credited with a ₦500 welcome bonus. Start shopping!",
+                                        body="You've been credited with a ₦500 cashback welcome bonus. Start shopping!",
                                         data={"type": "welcome_bonus", "amount": "500"},
                                     )
                                     ActivityModel.objects.create(
                                         user=user,
                                         title="Welcome Bonus",
-                                        description=f"{user.first_name} {user.last_name} was awarded a ₦500 welcome bonus.",
+                                        description=f"{user.first_name} {user.last_name} was awarded a ₦500 cashback welcome bonus.",
                                     )
                         except Exception:
                             logger.exception(

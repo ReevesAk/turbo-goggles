@@ -12,7 +12,6 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
     use_biometrics = serializers.BooleanField(write_only=True, required=False)
     payment_option = serializers.CharField(max_length=255, write_only=True)
     card_reference = serializers.CharField(write_only=True, required=False)
-    use_bonus = serializers.BooleanField(write_only=True, required=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
     use_cashback = serializers.BooleanField(write_only=True, required=False)
 
@@ -27,7 +26,6 @@ class AirtimeTopupSerializer(serializers.ModelSerializer):
             "use_biometrics",
             "payment_option",
             "card_reference",
-            "use_bonus",
             "use_points",
             "use_cashback",
         ]
@@ -56,7 +54,6 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
     use_biometrics = serializers.BooleanField(write_only=True, required=False)
     payment_option = serializers.CharField(max_length=255, write_only=True)
     card_reference = serializers.CharField(write_only=True, required=False)
-    use_bonus = serializers.BooleanField(write_only=True, required=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
     use_cashback = serializers.BooleanField(write_only=True, required=False)
 
@@ -72,7 +69,6 @@ class DataSubscriptionSerializer(serializers.ModelSerializer):
             "use_biometrics",
             "payment_option",
             "card_reference",
-            "use_bonus",
             "use_points",
             "use_cashback",
         ]
@@ -100,7 +96,6 @@ class BillPaymentSerializer(serializers.ModelSerializer):
     use_biometrics = serializers.BooleanField(write_only=True, required=False)
     payment_option = serializers.CharField(max_length=255, write_only=True)
     card_reference = serializers.CharField(write_only=True, required=False)
-    use_bonus = serializers.BooleanField(write_only=True, required=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
     use_cashback = serializers.BooleanField(write_only=True, required=False)
     customerId = serializers.CharField(required=True)
@@ -128,7 +123,6 @@ class BillPaymentSerializer(serializers.ModelSerializer):
             "phone_number",
             "customerName",
             "otherField",
-            "use_bonus",
             "use_points",
             "use_cashback",
         ]

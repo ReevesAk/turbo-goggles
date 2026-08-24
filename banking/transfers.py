@@ -1503,21 +1503,24 @@ class FundWallet(generics.GenericAPIView):
                                 )
                             )
 
-                            already_awarded = WelcomeBonusAward.objects.filter(
-                                user=user
-                            ).exists()
-                            if (not already_awarded) and counter.awarded_count < 1000:
+                            if (
+                                not user.has_received_welcome_bonus
+                            ) and counter.awarded_count < 1000:
                                 WelcomeBonusAward.objects.create(
                                     user=user, amount=Decimal("500.00")
                                 )
                                 counter.awarded_count = counter.awarded_count + 1
                                 counter.save()
 
-                                # mark on user model for convenience
                                 try:
-                                    user.welcome_bonus = 500
-                                    user.has_bonus = True
-                                    user.save()
+                                    user_details.cashback_balance += Decimal("500.00")
+                                    user_details.save(
+                                        update_fields=["cashback_balance"]
+                                    )
+                                    user.has_received_welcome_bonus = True
+                                    user.save(
+                                        update_fields=["has_received_welcome_bonus"]
+                                    )
                                 except Exception:
                                     logger.exception(
                                         "Failed to set flags on user after awarding welcome bonus"
@@ -1526,12 +1529,12 @@ class FundWallet(generics.GenericAPIView):
                                 UserNotification.objects.create(
                                     user=user,
                                     title="Welcome Bonus",
-                                    message="You have been credited with a ₦500 welcome bonus. Use it for purchases.",
+                                    message="You have been credited with a ₦500 cashback welcome bonus. Use it for purchases.",
                                 )
                                 ActivityModel.objects.create(
                                     user=user,
                                     title="Welcome Bonus",
-                                    description=f"{user.first_name} {user.last_name} was awarded a ₦500 welcome bonus.",
+                                    description=f"{user.first_name} {user.last_name} was awarded a ₦500 cashback welcome bonus.",
                                 )
                     except Exception:
                         logger.exception(

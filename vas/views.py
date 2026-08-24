@@ -42,7 +42,7 @@ from .utility import (
 
 from decouple import config
 from .helpers import VAS
-from .models import ValueAddedServices
+from .models import ValueAddedServices, ELECTRICITY_SERVICE_ID_CHOICES
 from commons import Pay, Biometrics, Messaging
 from security import encrypt, decrypt
 
@@ -50,6 +50,17 @@ operational_account = config("CENTRAL_OPERATIONAL_ACCOUNT", default="")
 collection_account = config("CENTRAL_COLLECTION_ACCOUNT", default="")
 
 logger = logging.getLogger(__name__)
+
+ELECTRICITY_BILLER_IDS = {choice[0] for choice in ELECTRICITY_SERVICE_ID_CHOICES}
+
+
+def _bill_payment_category(billerId):
+    """Electricity Bill vs Cable TV, from the VTPass billerId the user
+    selected - see ELECTRICITY_SERVICE_ID_CHOICES/TV_SERVICE_ID_CHOICES
+    (vas/models.py). Used to label failed/pending BillPaymentView purchases,
+    where _handle_success's token-presence detection doesn't apply (no
+    provider response to inspect yet)."""
+    return "Electricity Bill" if billerId in ELECTRICITY_BILLER_IDS else "Cable TV"
 
 
 def _handle_pending_response(
@@ -86,20 +97,6 @@ def _handle_pending_response(
         ),
         status=status.HTTP_202_ACCEPTED,
     )
-
-
-def _deduct_welcome_bonus(user, amount):
-    """Deduct a bonus-funded purchase amount from the user's welcome bonus balance."""
-    user.welcome_bonus = float(user.welcome_bonus) - float(amount)
-    user.has_bonus = user.welcome_bonus > 0
-    user.save(update_fields=["welcome_bonus", "has_bonus"])
-
-
-def _refund_welcome_bonus(user, amount):
-    """Restore the welcome bonus balance after a failed bonus-funded purchase."""
-    user.welcome_bonus = float(user.welcome_bonus) + float(amount)
-    user.has_bonus = True
-    user.save(update_fields=["welcome_bonus", "has_bonus"])
 
 
 @extend_schema(
@@ -145,7 +142,6 @@ class AirTimeTopUp(generics.GenericAPIView):
         response_data = {
             "status": "success",
             "message": f"Airtime purchase of {amount} was successful.",
-            "bonus balance": getattr(user, "welcome_bonus", 0),
         }
 
         logger.info(
@@ -325,7 +321,6 @@ class AirTimeTopUp(generics.GenericAPIView):
         pin = user_data.get("pin")
         payment_option = user_data.get("payment_option")
         card_reference = user_data.get("card_reference")
-        use_bonus = user_data.get("use_bonus")
         use_points = user_data.get("use_points")
         phone = user_data.get("phone_number")
         amount = user_data.get("amount")
@@ -465,103 +460,10 @@ class AirTimeTopUp(generics.GenericAPIView):
             )
         # Lock released — VTPass call proceeds without holding the DB lock
 
-        # Use bonus flow
-        if use_bonus:
-            if user and user.welcome_bonus >= float(amount):
-                _deduct_welcome_bonus(user, amount)
-                token = VAS.authenticate()
-                if not token:
-                    _refund_welcome_bonus(user, amount)
-                    return self._handle_airtime_failure(
-                        tx_reference=tx_reference,
-                        user=user,
-                        phone=phone,
-                        amount=amount,
-                        reason="VAS authentication failed.",
-                    )
-                airtime_response = VAS.airtime_topup(
-                    network=network,
-                    bearer_token=token,
-                    amount=amount,
-                    debitAccount=collection_account,
-                    phone_number=phone,
-                    tx_ref=tx_reference,
-                )
-                if airtime_response is None:
-                    status_resp = VAS.confirm_status(
-                        tx_ref=tx_reference, bearer_token=token
-                    )
-                    if status_resp and VAS.is_success(status_resp):
-                        return self._handle_airtime_success(
-                            user=user,
-                            phone=phone,
-                            amount=amount,
-                            network=network,
-                            tx_reference=tx_reference,
-                            cashback=cashback_used,
-                            account_number=account_number,
-                        )
-                    _refund_welcome_bonus(user, amount)
-                    return self._handle_airtime_failure(
-                        tx_reference=tx_reference,
-                        user=user,
-                        phone=phone,
-                        amount=amount,
-                        reason="VAS service unavailable.",
-                    )
-                if VAS.is_success(airtime_response):
-                    return self._handle_airtime_success(
-                        user=user,
-                        phone=phone,
-                        amount=amount,
-                        network=network,
-                        tx_reference=tx_reference,
-                        cashback=cashback_used,
-                        account_number=account_number,
-                    )
-                status_resp, outcome = VAS.resolve_outcome(
-                    airtime_response, tx_reference, token
-                )
-                if outcome == "success":
-                    return self._handle_airtime_success(
-                        user=user,
-                        phone=phone,
-                        amount=amount,
-                        network=network,
-                        tx_reference=tx_reference,
-                        cashback=cashback_used,
-                        account_number=account_number,
-                    )
-                if outcome == "pending":
-                    return _handle_pending_response(
-                        user=user,
-                        tx_reference=tx_reference,
-                        tx_type="Airtime",
-                        amount=amount,
-                        description="Airtime purchase pending.",
-                    )
-                _refund_welcome_bonus(user, amount)
-                return self._handle_airtime_failure(
-                    tx_reference=tx_reference,
-                    user=user,
-                    phone=phone,
-                    amount=amount,
-                    airtime_response=status_resp,
-                    reason="Airtime top-up failed.",
-                )
-            else:
-                return self._handle_airtime_failure(
-                    tx_reference=tx_reference,
-                    user=user,
-                    phone=phone,
-                    amount=amount,
-                    reason="Insufficient bonus balance.",
-                )
-
         try:
             match payment_option:
                 case "WALLET":
-                    if not use_points and not use_cashback and not use_bonus:
+                    if not use_points and not use_cashback:
                         token = VAS.authenticate()
                         if not token:
                             return self._handle_airtime_failure(
@@ -966,7 +868,6 @@ class DataSubscriptionView(generics.GenericAPIView):
         response_data = {
             "status": "success",
             "message": f"Data purchase of {amount} was successful.",
-            "bonus balance": getattr(user, "welcome_bonus", 0),
         }
 
         title = "Data purchase"
@@ -1132,7 +1033,6 @@ class DataSubscriptionView(generics.GenericAPIView):
                 return _handle_pending_response()
 
         pin = user_data.get("pin")
-        use_bonus = user_data.get("use_bonus")
         amount = user_data.get("amount")
         phone = user_data.get("phone_number")
         use_points = user_data.get("use_points")
@@ -1217,87 +1117,6 @@ class DataSubscriptionView(generics.GenericAPIView):
 
         data_response = None
 
-        # Use bonus flow
-        if use_bonus:
-            if user and user.welcome_bonus >= float(amount):
-                _deduct_welcome_bonus(user, amount)
-                token = VAS.authenticate()
-                if not token:
-                    _refund_welcome_bonus(user, amount)
-                    return self._handle_data_failure(
-                        tx_reference=tx_reference,
-                        user=user,
-                        phone=phone,
-                        amount=amount,
-                        reason="VAS authentication failed.",
-                    )
-                data_response = VAS.data(
-                    network=network,
-                    bearer_token=token,
-                    amount=amount,
-                    productId=product_id,
-                    debitAccount=collection_account,
-                    phone_number=phone,
-                    tx_ref=tx_reference,
-                )
-                if data_response is None:
-                    _refund_welcome_bonus(user, amount)
-                    return self._handle_data_failure(
-                        tx_reference=tx_reference,
-                        user=user,
-                        phone=phone,
-                        amount=amount,
-                        reason="VAS service unavailable.",
-                    )
-                if VAS.is_success(data_response):
-                    return self._handle_data_success(
-                        user=user,
-                        guest_id=guest_id,
-                        phone=phone,
-                        amount=amount,
-                        network=network,
-                        tx_reference=tx_reference,
-                        cashback=cashback_used,
-                    )
-                status_resp, outcome = VAS.resolve_outcome(
-                    data_response, tx_reference, token
-                )
-                if outcome == "success":
-                    return self._handle_data_success(
-                        user=user,
-                        guest_id=guest_id,
-                        phone=phone,
-                        amount=amount,
-                        network=network,
-                        tx_reference=tx_reference,
-                        cashback=cashback_used,
-                    )
-                if outcome == "pending":
-                    return _handle_pending_response(
-                        user=user,
-                        tx_reference=tx_reference,
-                        tx_type="Data",
-                        amount=amount,
-                        description="Data purchase pending.",
-                    )
-                _refund_welcome_bonus(user, amount)
-                return self._handle_data_failure(
-                    tx_reference=tx_reference,
-                    user=user,
-                    phone=phone,
-                    amount=amount,
-                    data_response=status_resp,
-                    reason="Data subscription failed.",
-                )
-            else:
-                return self._handle_data_failure(
-                    tx_reference=tx_reference,
-                    user=user,
-                    phone=phone,
-                    amount=amount,
-                    reason="Insufficient bonus balance.",
-                )
-
         if (use_cashback or use_points) and payment_option == "WALLET" and user:
             avail_cashback = Decimal("0")
             if use_cashback:
@@ -1341,7 +1160,7 @@ class DataSubscriptionView(generics.GenericAPIView):
 
         match payment_option:
             case "WALLET":
-                if not use_points and not use_cashback and not use_bonus:
+                if not use_points and not use_cashback:
                     token = VAS.authenticate()
                     if not token:
                         return self._handle_data_failure(
@@ -1995,7 +1814,6 @@ class BillPaymentView(generics.GenericAPIView):
         response_data = {
             "status": "success",
             "message": f"Purchase of {amount} was successful.",
-            "bonus balance": getattr(user, "welcome_bonus", 0),
         }
 
         if is_electricity:
@@ -2004,7 +1822,7 @@ class BillPaymentView(generics.GenericAPIView):
 
         response_data["service_response"] = vas_data
 
-        title = "Bill Payment"
+        title = "Electricity Bill" if is_electricity else "Cable TV"
         message = (
             f"This is to inform you that you have made a payment of {amount} naira."
         )
@@ -2112,6 +1930,7 @@ class BillPaymentView(generics.GenericAPIView):
         vas_response=None,
         reason="",
         tx_reference=None,
+        billerId=None,
     ):
         """Central failure handler for both Electricity and Cable payment failures."""
         if vas_response is not None:
@@ -2125,7 +1944,7 @@ class BillPaymentView(generics.GenericAPIView):
         else:
             error_detail = {}
 
-        title = "Failed Bill Payment"
+        title = f"Failed {_bill_payment_category(billerId)}"
         message = f"Bill payment of {amount} on {phone_number} failed."
         description = (
             f"{user.first_name if user else 'Guest'} {user.last_name if user else ''} "
@@ -2351,6 +2170,7 @@ class BillPaymentView(generics.GenericAPIView):
                             purchase_amount if (use_points or use_cashback) else amount
                         ),
                         reason="VAS authentication failed.",
+                        billerId=billerId,
                     )
                 vas_response = VAS.bill_payment(
                     bearer_token=token,
@@ -2384,6 +2204,7 @@ class BillPaymentView(generics.GenericAPIView):
                             purchase_amount if (use_points or use_cashback) else amount
                         ),
                         reason="VAS service unavailable.",
+                        billerId=billerId,
                     )
                 if VAS.is_success(vas_response):
                     return self._handle_success(
@@ -2431,7 +2252,7 @@ class BillPaymentView(generics.GenericAPIView):
                         amount=(
                             purchase_amount if (use_points or use_cashback) else amount
                         ),
-                        description="Bill payment pending.",
+                        description=f"{_bill_payment_category(billerId)} pending.",
                     )
                 if cashback_used:
                     CashbackService.refund_cashback(
@@ -2447,6 +2268,7 @@ class BillPaymentView(generics.GenericAPIView):
                     amount=purchase_amount if (use_points or use_cashback) else amount,
                     vas_response=status_resp,
                     reason="Bill payment failed.",
+                    billerId=billerId,
                 )
 
             # case "TREASURY": disabled — treasury VAS payments on hold
@@ -2466,6 +2288,7 @@ class BillPaymentView(generics.GenericAPIView):
                         phone_number=phone_number,
                         amount=amount,
                         reason="VAS authentication failed.",
+                        billerId=billerId,
                     )
                 vas_response = VAS.bill_payment(
                     bearer_token=token,
@@ -2486,6 +2309,7 @@ class BillPaymentView(generics.GenericAPIView):
                         phone_number=phone_number,
                         amount=amount,
                         reason="VAS service unavailable.",
+                        billerId=billerId,
                     )
                 if VAS.is_success(vas_response):
                     return self._handle_success(
@@ -2526,7 +2350,7 @@ class BillPaymentView(generics.GenericAPIView):
                         tx_reference=tx_reference,
                         tx_type="Bill Payment",
                         amount=amount,
-                        description="Bill payment pending.",
+                        description=f"{_bill_payment_category(billerId)} pending.",
                     )
                 return self._handle_failure(
                     tx_reference=tx_reference,
@@ -2536,6 +2360,7 @@ class BillPaymentView(generics.GenericAPIView):
                     amount=amount,
                     vas_response=status_resp,
                     reason="Bill payment failed.",
+                    billerId=billerId,
                 )
 
             case _:
