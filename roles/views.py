@@ -86,6 +86,7 @@ from .analytics import (
     get_duplicate_transaction_count,
     get_all_transactions,
     get_picapoints_overview_snapshot,
+    get_points_source_breakdown,
     get_task_insight_snapshot,
     get_demographic_breakdown_snapshot,
     get_reconciliation_differences_count,
@@ -99,6 +100,7 @@ from .analytics import (
     SERVICES_TAB_CHOICES,
     SERVICE_TYPE_CHOICES_BY_CATEGORY,
     get_daily_income_expenditure_series,
+    get_vas_income_expenditure_breakdown,
     get_transaction_overview_snapshot,
     get_customer_insight_extended,
     get_ads_insight_snapshot,
@@ -117,7 +119,7 @@ from commons import Messaging
 
 from tasks.models import SocialTask, TaskSubmission, BrandTaskSubmission
 from adverts.models import CreateAd
-from gamification.models import StreakChallenge
+from gamification.models import StreakChallenge, TRANSACTION_SOURCE_CHOICES
 from permissions import IsTaskAdminOrSuperAdmin
 from modules.response_mixings import StandardResponseMixin, Pagination
 
@@ -4104,9 +4106,10 @@ class GamificationDashboardView(APIView):
     summary="Income Activity dashboard data",
     tags=["Admin"],
     description=(
-        "Returns cash inflow/outflow, card deposits, VAS bill payments, and "
-        "self-service + partner-service revenue for a selected period, each "
-        "with a period-over-period trend badge (value/change_pct/direction, "
+        "Returns cash inflow/outflow, card deposits, VAS bill payments, "
+        "self-service + partner-service revenue, and gamification (points "
+        "redeemed to wallet) for a selected period, each with a "
+        "period-over-period trend badge (value/change_pct/direction, "
         "or label='New' when there's no prior-period baseline to compare "
         "against). Pass `granularity` (daily/weekly/monthly/quarterly/yearly, "
         "default weekly) or an explicit `start_date`/`end_date` range - the "
@@ -4364,6 +4367,115 @@ class CashInVsCashOutChartView(APIView):
                         "category": category,
                         "service_type": service_type,
                         "series": series,
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="VAS Income vs Expenditure breakdown",
+    tags=["Admin"],
+    description=(
+        "Row-per-VAS-sub-service variant of the Income vs Expenditure table "
+        "for the Services dashboard's VAS tab - Airtime, Data, Electricity "
+        "Bill, Cable TV, each with a Credit (successful amount) and Debit "
+        "(failed amount) trend badge vs the immediately preceding period of "
+        "equal length. Separate from CashInVsCashOutChartView, which stays "
+        "day-bucketed for the Cash Flow graph. Electricity Bill/Cable TV are "
+        "split from TxModel.description, so periods with purchases made "
+        "before this split existed will undercount both rows. Pass "
+        "`granularity` (daily/weekly/monthly/quarterly/yearly, default "
+        "weekly) or an explicit `start_date`/`end_date` range."
+    ),
+    parameters=[
+        OpenApiParameter(
+            "granularity",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            required=False,
+            description=f"One of {GRANULARITY_CHOICES}. Ignored if start_date/end_date are passed.",
+        ),
+        OpenApiParameter(
+            "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "VasIncomeExpenditureBreakdownResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        400: inline_serializer(
+            "VasIncomeExpenditureBreakdownError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class VasIncomeExpenditureBreakdownView(APIView):
+    """Services dashboard, VAS tab: the Income vs Expenditure tile there
+    shows one row per sub-service instead of CashInVsCashOutChartView's
+    per-day rows - see get_vas_income_expenditure_breakdown."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        granularity = request.query_params.get("granularity", "weekly")
+        raw_start = request.query_params.get("start_date")
+        raw_end = request.query_params.get("end_date")
+
+        try:
+            if raw_start and raw_end:
+                start_date = datetime.strptime(raw_start, "%Y-%m-%d").date()
+                end_date = datetime.strptime(raw_end, "%Y-%m-%d").date()
+                current_start, current_end, prior_start, prior_end = resolve_period(
+                    start_date=start_date, end_date=end_date
+                )
+                resolved_granularity = "custom"
+            elif granularity in GRANULARITY_CHOICES:
+                current_start, current_end, prior_start, prior_end = resolve_period(
+                    granularity=granularity
+                )
+                resolved_granularity = granularity
+            else:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": f"Invalid granularity. Use one of {GRANULARITY_CHOICES}, or pass start_date/end_date.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except ValueError:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        rows = get_vas_income_expenditure_breakdown(
+            current_start, current_end, prior_start, prior_end
+        )
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "granularity": resolved_granularity,
+                        "date_range": {
+                            "start": current_start.date().isoformat(),
+                            "end": current_end.date().isoformat(),
+                        },
+                        "rows": rows,
                     },
                 }
             ),
@@ -5174,12 +5286,19 @@ class AllTransactionsView(APIView):
         "wallet) for the selected period, each with a trend badge, plus "
         "average points in circulation - a current snapshot (average "
         "Points.balance across all users), not period-scoped, so no trend "
-        "badge. auto_boost_points is returned as null: it exists as a "
-        "config field on UGC task creation but nothing in the codebase ever "
-        "reads it to actually award points, so there's no real figure to "
-        "report yet. Pass `granularity` (daily/weekly/monthly/quarterly/"
-        "yearly, default weekly) or an explicit `start_date`/`end_date` "
-        "range."
+        "badge. created_naira/distributed_naira are the naira equivalent of "
+        "Created/Distributed - distributed_naira is exact (the real amount "
+        "credited to wallets by RedeemPointsToWallet); created_naira is an "
+        "estimate, since points are a virtual reward until redeemed and "
+        "PointTransaction doesn't snapshot the tier rate at award time - "
+        "each user's points created are valued at their CURRENT tier rate, "
+        "not whatever tier they were on when the points were actually "
+        "earned - see get_picapoints_overview_snapshot. auto_boost_points "
+        "is returned as null: it exists as a config field on UGC task "
+        "creation but nothing in the codebase ever reads it to actually "
+        "award points, so there's no real figure to report yet. Pass "
+        "`granularity` (daily/weekly/monthly/quarterly/yearly, default "
+        "weekly) or an explicit `start_date`/`end_date` range."
     ),
     parameters=[
         OpenApiParameter(
@@ -5259,8 +5378,15 @@ class GamificationPicapointsOverviewView(APIView):
             "created": compute_trend(
                 current_snapshot["created"], prior_snapshot["created"]
             ),
+            "created_naira": compute_trend(
+                current_snapshot["created_naira"], prior_snapshot["created_naira"]
+            ),
             "distributed": compute_trend(
                 current_snapshot["distributed"], prior_snapshot["distributed"]
+            ),
+            "distributed_naira": compute_trend(
+                current_snapshot["distributed_naira"],
+                prior_snapshot["distributed_naira"],
             ),
             "auto_boost_points": None,
             # Snapshot, not period-scoped - no trend badge (see docstring).
@@ -5280,6 +5406,130 @@ class GamificationPicapointsOverviewView(APIView):
                             "end": current_end.date().isoformat(),
                         },
                         **data,
+                    },
+                }
+            ),
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(
+    summary="Picapoints Source Breakdown",
+    tags=["Admin"],
+    description=(
+        "PicaPoints Created for the selected period, broken down by "
+        "PointTransaction.source (e.g. task_completion, referral, "
+        "daily_login, inapp_task, service_purchase, admin_adjustment) - "
+        "each with a trend badge vs the immediately preceding period of "
+        "equal length and its % share of the period's total points "
+        "created. Sources are whatever actually appears in the ledger for "
+        "the period, not a fixed list - see get_points_source_breakdown. "
+        "Airtime/Data purchases do not appear here: they earn cashback, "
+        "not points. Pass `granularity` (daily/weekly/monthly/quarterly/"
+        "yearly, default weekly) or an explicit `start_date`/`end_date` "
+        "range."
+    ),
+    parameters=[
+        OpenApiParameter(
+            "granularity",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            required=False,
+            description=f"One of {GRANULARITY_CHOICES}. Ignored if start_date/end_date are passed.",
+        ),
+        OpenApiParameter(
+            "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+        OpenApiParameter(
+            "end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+        ),
+    ],
+    responses={
+        200: inline_serializer(
+            "PicapointsSourceBreakdownResponse",
+            fields={"status": s.CharField(), "data": s.DictField()},
+        ),
+        400: inline_serializer(
+            "PicapointsSourceBreakdownError",
+            fields={"status": s.CharField(), "message": s.CharField()},
+        ),
+    },
+)
+class PicapointsSourceBreakdownView(APIView):
+    """Gamification dashboard: where PicaPoints Created are coming from -
+    see get_points_source_breakdown. Separate from
+    GamificationPicapointsOverviewView, same convention as
+    ServicesBreakdownView being separate from IncomeActivityDashboardView."""
+
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        granularity = request.query_params.get("granularity", "weekly")
+        raw_start = request.query_params.get("start_date")
+        raw_end = request.query_params.get("end_date")
+
+        try:
+            if raw_start and raw_end:
+                start_date = datetime.strptime(raw_start, "%Y-%m-%d").date()
+                end_date = datetime.strptime(raw_end, "%Y-%m-%d").date()
+                current_start, current_end, prior_start, prior_end = resolve_period(
+                    start_date=start_date, end_date=end_date
+                )
+                resolved_granularity = "custom"
+            elif granularity in GRANULARITY_CHOICES:
+                current_start, current_end, prior_start, prior_end = resolve_period(
+                    granularity=granularity
+                )
+                resolved_granularity = granularity
+            else:
+                return Response(
+                    data=encrypt(
+                        {
+                            "status": "fail",
+                            "message": f"Invalid granularity. Use one of {GRANULARITY_CHOICES}, or pass start_date/end_date.",
+                        }
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except ValueError:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        current_breakdown = get_points_source_breakdown(current_start, current_end)
+        prior_breakdown = get_points_source_breakdown(prior_start, prior_end)
+
+        total = sum(current_breakdown.values())
+        source_labels = dict(TRANSACTION_SOURCE_CHOICES)
+
+        sources = []
+        for key in sorted(set(current_breakdown) | set(prior_breakdown)):
+            current_value = current_breakdown.get(key, 0)
+            trend = compute_trend(current_value, prior_breakdown.get(key, 0))
+            trend["source"] = key
+            trend["source_display"] = source_labels.get(key, key)
+            trend["percentage"] = round(current_value / total * 100, 2) if total else 0
+            sources.append(trend)
+        sources.sort(key=lambda row: row["value"], reverse=True)
+
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "data": {
+                        "granularity": resolved_granularity,
+                        "date_range": {
+                            "start": current_start.date().isoformat(),
+                            "end": current_end.date().isoformat(),
+                        },
+                        "total_created": total,
+                        "sources": sources,
                     },
                 }
             ),

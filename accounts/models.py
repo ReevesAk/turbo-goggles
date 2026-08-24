@@ -107,6 +107,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     level = models.CharField(max_length=20, default="Starter", null=True)
     welcome_bonus = models.FloatField(default=Decimal("0.00"))
     has_bonus = models.BooleanField(default=False)
+    has_received_welcome_bonus = models.BooleanField(default=False)
     has_created_pin = models.BooleanField(default=False)
     has_card = models.BooleanField(default=False)
     admin_pin = models.CharField(max_length=128, null=True, blank=True)
