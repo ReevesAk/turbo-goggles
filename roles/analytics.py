@@ -14,6 +14,7 @@ Spec (agreed with product):
 """
 
 from datetime import datetime, time, timedelta
+from decimal import Decimal
 
 from django.db.models import Avg, Count, Q, Sum, F, Window
 from django.db.models.functions import ExtractHour, TruncDate, Lag
@@ -22,6 +23,7 @@ from django.utils import timezone
 from accounts.models import TxModel, User
 from adverts.models import CreateAd, TASK_TYPE_CHOICES
 from banking.models import TransferModel, FundWithCard, Cashback, WalletModel
+from banking.helpers import CREDIT_TX_TYPES
 from vas.models import ValueAddedServices
 from fmcg.models import FmcgOrder
 from self_service.models import (
@@ -34,6 +36,7 @@ from self_service.models import (
     Hotels,
 )
 from gamification.models import PointTransaction, Points, UserStreak
+from gamification.points import Points as PointsEngine, TIER_VALUES
 from tasks.models import BrandTaskSubmission, TaskSubmission
 from support.models import Ticket
 from user_profile.models import MemberSurvey
@@ -75,16 +78,16 @@ BRAND_ADS_TX_TYPES = ["Brand Promotion", "UGC Task Funding"]
 VAS_CASHBACK_SERVICE_TYPES = ["airtime", "data", "electricity", "cable"]
 
 # VAS sub-category -> TxModel.tx_type, for the Services dashboard's VAS tab
-# dropdown (Airtime Recharge / Data Top-Up / Bill Payments / Betting &
-# Lottery). Bill Payments covers both electricity and cable - BillPaymentView
-# (vas/views.py) writes both under the single tx_type "Bill Payment". Betting
-# & Lottery has no purchase flow built yet, so it's always 0 - see
+# dropdown (Airtime Recharge / Data Top-Up / Bill Payments / Gift Cards).
+# Bill Payments covers both electricity and cable - BillPaymentView
+# (vas/views.py) writes both under the single tx_type "Bill Payment". Gift
+# Cards has no purchase flow built yet, so it's always 0 - see
 # get_vas_snapshot.
 VAS_CATEGORY_TX_TYPES = {
     "airtime": "Airtime",
     "data": "Data",
     "bill_payments": "Bill Payment",
-    "betting": None,
+    "gift_cards": None,
 }
 
 # VAS sub-category -> Cashback.service_type values that fund it.
@@ -96,7 +99,7 @@ VAS_CATEGORY_CASHBACK_TYPES = {
     "airtime": ["airtime"],
     "data": ["data"],
     "bill_payments": ["electricity", "cable"],
-    "betting": [],
+    "gift_cards": [],
 }
 
 # All tx_types that represent a real VAS purchase. TxModel is the actual
@@ -202,23 +205,59 @@ def get_self_service_and_partner_sum(start, end):
     )
 
 
+def get_gamification_redemption_sum(start, end):
+    """
+    Real naira paid out for [start, end) when members redeem points to
+    wallet (gamification/views.py's RedeemPointsToWallet). TxModel.amount is
+    already net of REDEEM_CHARGE - RedeemPointsToWallet credits the wallet
+    via 9PSB for (naira_value - REDEEM_CHARGE) and stores the charge itself
+    in transfer_fee, so summing amount here is the actual cash the platform
+    disburses, not the gross points value.
+    """
+    return float(
+        TxModel.objects.filter(
+            date__gte=start,
+            date__lt=end,
+            status="SUCCESS",
+            tx_type="Points Redemption to Wallet",
+        )
+        .aggregate(total=Sum("amount"))
+        .get("total")
+        or 0
+    )
+
+
 def get_cashflow_snapshot(start, end):
     """Cash inflow/outflow/self-service+partner revenue for [start, end)."""
     inbound = get_inbound_credit_sum(start, end)
     outbound = get_transfer_sum(start, end, direction="outbound")
     card_deposit = get_card_deposit_sum(start, end)
-    bill_payments = get_bill_payment_sum(start, end)
+    airtime = get_vas_snapshot(start, end, "airtime")["revenue"]
+    data = get_vas_snapshot(start, end, "data")["revenue"]
+    bill_payments = get_vas_snapshot(start, end, "bill_payments")["revenue"]
     self_service_and_partner = get_self_service_and_partner_sum(start, end)
+    gamification = get_gamification_redemption_sum(start, end)
     return {
         "inbound": inbound,
         "outbound": outbound,
         "card_deposit": card_deposit,
+        "airtime": airtime,
+        "data": data,
         "bill_payments": bill_payments,
         "self_service_and_partner_revenue": self_service_and_partner,
+        "gamification": gamification,
         # self-service/partner revenue isn't folded in here - "net cashflow"
         # and "revenue" aren't the same concept, and "Total Revenue" isn't
-        # pinned down yet (see dashboard build notes).
-        "net": inbound + card_deposit - outbound - bill_payments,
+        # pinned down yet. gamification (points redeemed to wallet) is a
+        # real payout though, so it's subtracted like airtime/data/
+        # bill_payments.
+        "net": inbound
+        + card_deposit
+        - outbound
+        - airtime
+        - data
+        - bill_payments
+        - gamification,
     }
 
 
@@ -342,9 +381,9 @@ def get_vas_snapshot(start, end, service_type=None):
     ValueAddedServices).
 
     service_type: one of VAS_CATEGORY_TX_TYPES's keys ("airtime", "data",
-    "bill_payments", "betting") to scope to a single VAS sub-category, for
+    "bill_payments", "gift_cards") to scope to a single VAS sub-category, for
     the Services dashboard's VAS tab dropdown. None (default) sums all VAS
-    sub-categories combined. "betting" has no purchase flow built yet, so
+    sub-categories combined. "gift_cards" has no purchase flow built yet, so
     it always contributes 0.
     """
     if service_type is not None:
@@ -383,6 +422,70 @@ def get_vas_snapshot(start, end, service_type=None):
         )
 
     return {"revenue": revenue, "cashback": cashback}
+
+
+# VAS sub-category label -> TxModel filter, for the Services dashboard's VAS
+# tab Income vs Expenditure table (row-per-service, not day-per-row - see
+# get_vas_income_expenditure_breakdown). Electricity Bill/Cable TV aren't a
+# first-class TxModel field - BillPaymentView writes both under
+# tx_type="Bill Payment" (see VAS_CATEGORY_TX_TYPES) - so they're split on
+# TxModel.description instead, which BillPaymentView sets to "Electricity
+# Bill"/"Cable TV" (or a "Failed "/" pending." variant) per purchase.
+VAS_INCOME_EXPENDITURE_ROWS = [
+    ("Airtime", Q(tx_type="Airtime")),
+    ("Data", Q(tx_type="Data")),
+    (
+        "Electricity Bill",
+        Q(tx_type="Bill Payment", description__icontains="Electricity"),
+    ),
+    ("Cable TV", Q(tx_type="Bill Payment", description__icontains="Cable")),
+]
+
+
+def _tx_sum_for_row(start, end, row_filter, statuses):
+    return float(
+        TxModel.objects.filter(
+            row_filter, date__gte=start, date__lt=end, status__in=statuses
+        )
+        .aggregate(total=Sum("amount"))
+        .get("total")
+        or 0
+    )
+
+
+def get_vas_income_expenditure_breakdown(
+    current_start, current_end, prior_start, prior_end
+):
+    """
+    Row-per-VAS-sub-service Income vs Expenditure table (Airtime, Data,
+    Electricity Bill, Cable TV), each with a Credit (successful amount) and
+    Debit (failed amount) trend badge - the VAS tab's variant of the
+    Services dashboard's Income vs Expenditure tile, which needs per-service
+    rows instead of get_daily_income_expenditure_series's day rows.
+
+    TxModel rows written before BillPaymentView started splitting
+    description into "Electricity Bill"/"Cable TV" only carry the old
+    generic "Bill Payment" description and won't match either filter below -
+    periods that include them will undercount both rows.
+    """
+    rows = []
+    for label, row_filter in VAS_INCOME_EXPENDITURE_ROWS:
+        current_credit = _tx_sum_for_row(
+            current_start, current_end, row_filter, ["SUCCESS"]
+        )
+        prior_credit = _tx_sum_for_row(prior_start, prior_end, row_filter, ["SUCCESS"])
+        current_debit = _tx_sum_for_row(
+            current_start, current_end, row_filter, ["FAILED"]
+        )
+        prior_debit = _tx_sum_for_row(prior_start, prior_end, row_filter, ["FAILED"])
+        rows.append(
+            {
+                "category": label,
+                "credit": compute_trend(current_credit, prior_credit),
+                "debit": compute_trend(current_debit, prior_debit),
+            }
+        )
+    return rows
 
 
 def get_self_service_and_partner_split(start, end):
@@ -464,6 +567,8 @@ SERVICES_TAB_CHOICES = ("all", "vas", "self_services", "brand_ads")
 # + Hotel - the Figma dropdown doesn't split them out separately. The
 # dropdown/table mockup also showed an "Embassies" row that matches nothing
 # in the schema - dropped as Figma placeholder noise, not a real category.
+# Events has no booking flow built yet, so it always contributes 0 - same
+# placeholder treatment as VAS's gift_cards.
 SELF_SERVICE_CATEGORY_TX_TYPES = {
     "travels_and_leisure": ["Travel", "Hotel"],
     "food_and_drinks": ["Food"],
@@ -471,6 +576,7 @@ SELF_SERVICE_CATEGORY_TX_TYPES = {
     "consumables_services": ["Consumables"],
     "gym": ["Gym"],
     "cinema": ["Cinema"],
+    "events": [],
 }
 
 # category -> valid service_type keys, for query-param validation in views.py.
@@ -1028,10 +1134,6 @@ def get_duplicate_transaction_count(start, end, tx_types=None):
     return len(get_duplicate_transaction_pairs(start, end, tx_types=tx_types))
 
 
-# tx_type -> which side of the wallet it moves money on. Everything not
-# listed defaults to Debit (a spend) - Credit is the exception, not the rule.
-CREDIT_TX_TYPES = {"Points Redemption to Wallet", "Transfer to Picadailys Account"}
-
 WALLET_CATEGORY_TX_TYPES = {
     "Points Redemption to Wallet",
     "Transfer to Picadailys Account",
@@ -1273,17 +1375,44 @@ def get_picapoints_overview_snapshot(start, end):
     avg_points_in_circulation is a current-moment snapshot (average
     Points.balance across all users), not period-scoped - same treatment as
     Customer Insight's active/dormant counts.
+
+    created_naira/distributed_naira are the naira equivalent of the two
+    above. distributed_naira is exact - RedeemPointsToWallet
+    (gamification/views.py) writes the actual wallet-credited amount to
+    TxModel as tx_type="Points Redemption to Wallet", so this sums real
+    money paid out, not an estimate. created_naira has no equivalent stored
+    value - points are a virtual reward until redeemed, and
+    PointTransaction doesn't snapshot the tier rate at award time - so each
+    user's points created in the period are valued at their CURRENT tier
+    rate (TIER_VALUES, the same table Points.calculate_redeemable uses for
+    real redemptions), not whatever tier they were actually on when each
+    point was earned. A user who has since ranked up will inflate this
+    figure relative to what they'd have gotten by redeeming at the time.
     """
-    created = (
+    created_by_user = dict(
         PointTransaction.objects.filter(
             created_at__gte=start,
             created_at__lt=end,
             transaction_type=PointTransaction.AWARD,
         )
-        .aggregate(total=Sum("amount"))
-        .get("total")
-        or 0
+        .values("user_id")
+        .annotate(total=Sum("amount"))
+        .values_list("user_id", "total")
     )
+    created = sum(created_by_user.values())
+
+    created_naira = Decimal("0")
+    if created_by_user:
+        lifetime_points_by_user = dict(
+            User.objects.filter(id__in=created_by_user).values_list(
+                "id", "total_points"
+            )
+        )
+        for user_id, points in created_by_user.items():
+            tier = PointsEngine.get_user_tier(lifetime_points_by_user.get(user_id) or 0)
+            rate = TIER_VALUES.get(tier, Decimal("0"))
+            created_naira += Decimal(points) * rate
+
     distributed = (
         PointTransaction.objects.filter(
             created_at__gte=start,
@@ -1295,15 +1424,57 @@ def get_picapoints_overview_snapshot(start, end):
         .get("total")
         or 0
     )
+    distributed_naira = float(
+        TxModel.objects.filter(
+            date__gte=start,
+            date__lt=end,
+            status="SUCCESS",
+            tx_type="Points Redemption to Wallet",
+        )
+        .aggregate(total=Sum("amount"))
+        .get("total")
+        or 0
+    )
     avg_points_in_circulation = (
         Points.objects.aggregate(avg=Avg("balance")).get("avg") or 0
     )
     return {
         "created": created,
+        "created_naira": round(float(created_naira), 2),
         "distributed": distributed,
+        "distributed_naira": round(distributed_naira, 2),
         "auto_boost_points": None,
         "avg_points_in_circulation": round(avg_points_in_circulation, 2),
     }
+
+
+def get_points_source_breakdown(start, end):
+    """
+    PicaPoints Created (PointTransaction.AWARD) for [start, end), grouped by
+    source - the Gamification dashboard's "where are points coming from"
+    breakdown.
+
+    Grouped dynamically from whatever source values actually appear in the
+    ledger, not from TRANSACTION_SOURCE_CHOICES (gamification/models.py) -
+    several declared choices (airtime_purchase, data_purchase, bills_payment,
+    marketplace_usage, financial_task, and the brand-campaign task types)
+    are never actually passed to Points.award() by any call site, while
+    several values that ARE written (inapp_task, ugc_task_completion,
+    handle_change_fee) aren't in that choices tuple at all - a pre-existing
+    drift between the declared enum and what's actually recorded. Airtime/
+    Data purchases specifically earn cashback, not points (see
+    banking/tasks.py's post_vas_update), so they're correctly absent here.
+    """
+    rows = (
+        PointTransaction.objects.filter(
+            transaction_type=PointTransaction.AWARD,
+            created_at__gte=start,
+            created_at__lt=end,
+        )
+        .values("source")
+        .annotate(total=Sum("amount"))
+    )
+    return {row["source"]: row["total"] or 0 for row in rows}
 
 
 def get_partner_ecosystem_revenue(start, end):
