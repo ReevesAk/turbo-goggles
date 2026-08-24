@@ -34,6 +34,7 @@ from .views import (
     AdminDashboardDataView,
     IncomeActivityDashboardView,
     CashInVsCashOutChartView,
+    VasIncomeExpenditureBreakdownView,
     ServicesBreakdownView,
     CustomerInsightView,
     TransactionOverviewView,
@@ -41,6 +42,7 @@ from .views import (
     AlertAndRiskView,
     AllTransactionsView,
     GamificationPicapointsOverviewView,
+    PicapointsSourceBreakdownView,
     TaskInsightView,
     DemographicBreakdownView,
     PendingSettlementListView,
@@ -474,6 +476,11 @@ urlpatterns = [
         name="cash_in_vs_cash_out_chart",
     ),
     path(
+        "vas-income-expenditure-breakdown",
+        VasIncomeExpenditureBreakdownView.as_view(),
+        name="vas_income_expenditure_breakdown",
+    ),
+    path(
         "services-breakdown",
         ServicesBreakdownView.as_view(),
         name="services_breakdown",
@@ -507,6 +514,11 @@ urlpatterns = [
         "picapoints-overview",
         GamificationPicapointsOverviewView.as_view(),
         name="picapoints_overview",
+    ),
+    path(
+        "picapoints-source-breakdown",
+        PicapointsSourceBreakdownView.as_view(),
+        name="picapoints_source_breakdown",
     ),
     path(
         "task-insight",

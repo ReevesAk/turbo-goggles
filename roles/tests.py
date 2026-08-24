@@ -16,6 +16,7 @@ from rest_framework.test import APITestCase
 
 from accounts.models import AccountType, DeviceId, OTP, TxModel, User, UserNotification
 from banking.models import WalletModel, TransferModel
+from gamification.models import PointTransaction
 from partners.models import PartnerServices, PartnerPurchase
 from support.models import Ticket
 from security import decrypt, encrypt
@@ -36,6 +37,9 @@ from .analytics import (
     get_all_transactions,
     get_cashflow_snapshot,
     get_inbound_credit_sum,
+    get_vas_income_expenditure_breakdown,
+    get_points_source_breakdown,
+    get_picapoints_overview_snapshot,
     RECONCILIATION_GRACE_PERIOD_HOURS,
     DUPLICATE_TRANSACTION_WINDOW_MINUTES,
 )
@@ -162,7 +166,7 @@ class LoginAdminEndpointTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         body = decrypt(response.data)
-        self.assertEqual(body["error"], "Invalid credentials")
+        self.assertEqual(body["message"], "Invalid credentials")
 
     def test_login_admin_unverified_user_returns_401(self):
         user = _create_user(
@@ -200,7 +204,7 @@ class LoginAdminEndpointTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         body = decrypt(response.data)
-        self.assertIn("more than two devices", body["error"])
+        self.assertIn("more than two devices", body["message"])
 
     def test_login_admin_success_returns_tokens_and_roles(self):
         user = _create_user(
@@ -461,7 +465,6 @@ class StaffPasswordFlowEndpointTests(APITestCase):
         from accounts.otp import otp_manager
 
         otp = otp_manager.create_otp(user_id=str(self.staff.id))
-        _expire_otp(otp)
 
         response = self.client.post(
             self.verify_url,
@@ -560,7 +563,6 @@ class AdminPinFlowEndpointTests(APITestCase):
         from accounts.otp import otp_manager
 
         otp = otp_manager.create_otp(user_id=str(self.admin.id))
-        _expire_otp(otp)
 
         response = self.client.post(
             self.verify_url,
@@ -1309,7 +1311,7 @@ class KnowledgeBasePermissionsTest(TestCase):
             caption="Test article",
         )
         self.detail_url = reverse(
-            "knowledge-base-detail", kwargs={"id": self.article.id}
+            "roles:knowledge-base-detail", kwargs={"id": self.article.id}
         )
 
     def test_public_access_to_list(self):
@@ -1753,6 +1755,25 @@ class AlertAndRiskAnalyticsTests(TestCase):
         self.assertEqual(row["wallet_name"], "Bola Buyer")
         self.assertEqual(row["wallet_number"], "1000000001")
 
+    def test_all_transactions_type_matches_banking_credit_tx_types(self):
+        """Regression: All Transactions previously had its own local
+        CREDIT_TX_TYPES that had drifted from banking.helpers.CREDIT_TX_TYPES
+        (the canonical set used for real wallet statements) - it was missing
+        "Wallet Credit"/"Card Funding", so genuine inbound money showed up
+        mislabeled as Debit. Now imports the same constant directly."""
+        self._make_tx(tx_type="Wallet Credit", status="SUCCESS")
+        self._make_tx(tx_type="Card Funding", status="SUCCESS")
+        self._make_tx(tx_type="Gym", status="SUCCESS")
+
+        rows = get_all_transactions(
+            timezone.now() - timedelta(days=1), timezone.now() + timedelta(days=1)
+        )
+
+        type_by_service = {row["service"]: row["type"] for row in rows}
+        self.assertEqual(type_by_service["Wallet Credit"], "Credit")
+        self.assertEqual(type_by_service["Card Funding"], "Credit")
+        self.assertEqual(type_by_service["Gym"], "Debit")
+
 
 class AlertAndRiskViewTests(APITestCase):
     """HTTP-level tests for the Alert and Risk drill-down endpoints and the
@@ -1942,20 +1963,14 @@ class AlertAndRiskViewTests(APITestCase):
         self._make_tx(status="PENDING", tx_reference="TX-MSG-1")
         self.client.force_authenticate(user=self.superadmin)
 
-        # Plain JSON, not encrypted - MessageThirdPartyView reads
-        # request.data directly (same convention as
-        # roles.partners.SetPartnerServiceCommission): only responses are
-        # encrypted on these admin write endpoints, not request bodies.
         response = self.client.post(
             reverse("roles:message_third_party"),
-            data=_json.dumps(
-                {
-                    "transaction_id": "TX-MSG-1",
-                    "title": "Pending Settlement",
-                    "issues_description": (
-                        "This transaction has not dropped in the customer's wallet."
-                    ),
-                }
+            data=_make_payload(
+                transaction_id="TX-MSG-1",
+                title="Pending Settlement",
+                issues_description=(
+                    "This transaction has not dropped in the customer's wallet."
+                ),
             ),
             content_type="application/json",
         )
@@ -2032,6 +2047,213 @@ class AlertAndRiskViewTests(APITestCase):
         body = decrypt(response.data)
         self.assertIsNotNone(body["data"]["reconciliation_differences"]["value"])
         self.assertEqual(body["data"]["fraud_alerts"]["value"], 0)
+
+
+class GetVasIncomeExpenditureBreakdownTests(TestCase):
+    """get_vas_income_expenditure_breakdown - the VAS tab's row-per-service
+    Income vs Expenditure table (Airtime, Data, Electricity Bill, Cable
+    TV), split from BillPaymentView's TxModel.description since Electricity
+    Bill/Cable TV both share tx_type="Bill Payment"."""
+
+    def setUp(self):
+        self.user = _create_user()
+        self.current_start = timezone.now() - timedelta(days=1)
+        self.current_end = timezone.now() + timedelta(days=1)
+        self.prior_start = self.current_start - timedelta(days=2)
+        self.prior_end = self.current_start
+
+    def _tx(self, tx_type, amount, status="SUCCESS", description=""):
+        return TxModel.objects.create(
+            user=self.user,
+            tx_type=tx_type,
+            amount=amount,
+            status=status,
+            description=description,
+        )
+
+    def _rows_by_category(self, current_start=None, current_end=None):
+        rows = get_vas_income_expenditure_breakdown(
+            current_start or self.current_start,
+            current_end or self.current_end,
+            self.prior_start,
+            self.prior_end,
+        )
+        return {row["category"]: row for row in rows}
+
+    def test_splits_electricity_and_cable_from_shared_tx_type(self):
+        self._tx("Bill Payment", 4000, description="Electricity Bill")
+        self._tx("Bill Payment", 2500, description="Cable TV")
+
+        rows = self._rows_by_category()
+
+        self.assertEqual(rows["Electricity Bill"]["credit"]["value"], 4000.0)
+        self.assertEqual(rows["Cable TV"]["credit"]["value"], 2500.0)
+
+    def test_failed_bill_payment_counts_as_debit_for_its_own_row_only(self):
+        self._tx(
+            "Bill Payment", 1500, status="FAILED", description="Failed Electricity Bill"
+        )
+
+        rows = self._rows_by_category()
+
+        self.assertEqual(rows["Electricity Bill"]["debit"]["value"], 1500.0)
+        self.assertEqual(rows["Cable TV"]["debit"]["value"], 0)
+
+    def test_airtime_and_data_rows_use_tx_type_directly(self):
+        self._tx("Airtime", 1000, description="Airtime")
+        self._tx("Data", 2000, description="Data")
+
+        rows = self._rows_by_category()
+
+        self.assertEqual(rows["Airtime"]["credit"]["value"], 1000.0)
+        self.assertEqual(rows["Data"]["credit"]["value"], 2000.0)
+
+    def test_legacy_generic_bill_payment_description_matches_neither_row(self):
+        """Rows written before the Electricity/Cable description split
+        existed only carry the old generic "Bill Payment" description -
+        documented gap, not a bug: nothing to derive the sub-type from."""
+        self._tx("Bill Payment", 3000, description="Bill Payment")
+
+        rows = self._rows_by_category()
+
+        self.assertEqual(rows["Electricity Bill"]["credit"]["value"], 0)
+        self.assertEqual(rows["Cable TV"]["credit"]["value"], 0)
+
+    def test_all_four_rows_always_present(self):
+        rows = self._rows_by_category()
+
+        self.assertEqual(
+            set(rows.keys()), {"Airtime", "Data", "Electricity Bill", "Cable TV"}
+        )
+
+
+class GetPointsSourceBreakdownTests(TestCase):
+    """get_points_source_breakdown - the Gamification dashboard's "where are
+    PicaPoints coming from" breakdown, grouped by PointTransaction.source."""
+
+    def setUp(self):
+        self.user = _create_user()
+        self.start = timezone.now() - timedelta(days=1)
+        self.end = timezone.now() + timedelta(days=1)
+
+    def _award(self, source, amount, transaction_type=PointTransaction.AWARD):
+        return PointTransaction.objects.create(
+            user=self.user,
+            transaction_type=transaction_type,
+            amount=amount,
+            reason="test",
+            source=source,
+            balance_after=amount,
+        )
+
+    def test_groups_awards_by_source(self):
+        self._award("referral", 100)
+        self._award("referral", 50)
+        self._award("daily_login", 20)
+
+        breakdown = get_points_source_breakdown(self.start, self.end)
+
+        self.assertEqual(breakdown["referral"], 150)
+        self.assertEqual(breakdown["daily_login"], 20)
+
+    def test_excludes_deductions(self):
+        self._award("points_redemption", 300, transaction_type=PointTransaction.DEDUCT)
+        self._award("referral", 100)
+
+        breakdown = get_points_source_breakdown(self.start, self.end)
+
+        self.assertNotIn("points_redemption", breakdown)
+        self.assertEqual(breakdown["referral"], 100)
+
+    def test_source_not_in_declared_choices_still_appears(self):
+        """inapp_task (gamification/financial_tasks.py) and
+        ugc_task_completion (gamification/models.py) are real values written
+        by Points.award() but aren't in TRANSACTION_SOURCE_CHOICES - the
+        breakdown must still surface them since it groups by what's actually
+        in the ledger, not the declared enum."""
+        self._award("inapp_task", 75)
+
+        breakdown = get_points_source_breakdown(self.start, self.end)
+
+        self.assertEqual(breakdown["inapp_task"], 75)
+
+    def test_no_awards_in_period_returns_empty(self):
+        self.assertEqual(get_points_source_breakdown(self.start, self.end), {})
+
+
+class GetPicapointsOverviewNairaValueTests(TestCase):
+    """get_picapoints_overview_snapshot's created_naira/distributed_naira -
+    the naira equivalent of Picapoints Created/Distributed."""
+
+    def setUp(self):
+        self.start = timezone.now() - timedelta(days=1)
+        self.end = timezone.now() + timedelta(days=1)
+
+    def test_created_naira_uses_each_users_current_tier_rate(self):
+        # Explorer tier (>=700 lifetime points): rate 0.40/point.
+        explorer = _create_user(
+            email="explorer@example.com",
+            phone_number="2348030000001",
+            total_points=700,
+        )
+        # Champion tier (>=6000 lifetime points): rate 1.30/point.
+        champion = _create_user(
+            email="champion@example.com",
+            phone_number="2348030000002",
+            total_points=6000,
+        )
+        PointTransaction.objects.create(
+            user=explorer,
+            transaction_type=PointTransaction.AWARD,
+            amount=100,
+            reason="test",
+            source="referral",
+            balance_after=100,
+        )
+        PointTransaction.objects.create(
+            user=champion,
+            transaction_type=PointTransaction.AWARD,
+            amount=100,
+            reason="test",
+            source="referral",
+            balance_after=100,
+        )
+
+        snapshot = get_picapoints_overview_snapshot(self.start, self.end)
+
+        self.assertEqual(snapshot["created"], 200)
+        # 100 * 0.40 (Explorer) + 100 * 1.30 (Champion) = 40 + 130 = 170
+        self.assertEqual(snapshot["created_naira"], 170.0)
+
+    def test_distributed_naira_matches_actual_wallet_credit_not_points_times_rate(self):
+        user = _create_user(email="redeemer@example.com", phone_number="2348030000003")
+        PointTransaction.objects.create(
+            user=user,
+            transaction_type=PointTransaction.DEDUCT,
+            amount=1000,
+            reason="Redeemed 1000 points for ₦380.00 wallet credit",
+            source="points_redemption",
+            balance_after=0,
+        )
+        # The real credited amount (post redemption-charge) - what
+        # RedeemPointsToWallet actually writes to TxModel.
+        TxModel.objects.create(
+            user=user,
+            tx_type="Points Redemption to Wallet",
+            amount=380.0,
+            status="SUCCESS",
+        )
+
+        snapshot = get_picapoints_overview_snapshot(self.start, self.end)
+
+        self.assertEqual(snapshot["distributed"], 1000)
+        self.assertEqual(snapshot["distributed_naira"], 380.0)
+
+    def test_no_activity_in_period_returns_zero_naira(self):
+        snapshot = get_picapoints_overview_snapshot(self.start, self.end)
+
+        self.assertEqual(snapshot["created_naira"], 0)
+        self.assertEqual(snapshot["distributed_naira"], 0)
 
 
 class GetInboundCreditSumTests(TestCase):
