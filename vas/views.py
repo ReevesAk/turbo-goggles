@@ -1642,6 +1642,7 @@ class VerifyBillerAccountView(generics.GenericAPIView):
     """
 
     serializer_class = VerifyBillerSerializer
+    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
@@ -1650,8 +1651,13 @@ class VerifyBillerAccountView(generics.GenericAPIView):
             for key, value in decrypted_payload.items()
         }
 
+        if request.user.is_authenticated:
+            requester = f"{request.user.first_name} {request.user.last_name}"
+        else:
+            requester = f"guest {request.headers.get('X-Guest-ID')}"
+
         logger.info(
-            f"User {request.user.first_name} {request.user.last_name} is attempting to verify biller account with data: {user_data}"
+            f"User {requester} is attempting to verify biller account with data: {user_data}"
         )
 
         # billerId maps to VTPass serviceID (e.g. ikeja-electric, dstv)
@@ -1704,13 +1710,13 @@ class VerifyBillerAccountView(generics.GenericAPIView):
             if VAS.is_success(verify_resp):
                 response_data = {"status": "success", "data": verify_resp.json()}
                 logger.info(
-                    f"Biller verification successful for {request.user.first_name} {request.user.last_name}: {response_data}"
+                    f"Biller verification successful for {requester}: {response_data}"
                 )
                 return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
             else:
                 biller_response = verify_resp.json()
                 logger.warning(
-                    f"Biller verification failed for {request.user.first_name} {request.user.last_name}: {biller_response}"
+                    f"Biller verification failed for {requester}: {biller_response}"
                 )
                 return Response(
                     data=encrypt(
@@ -1725,7 +1731,7 @@ class VerifyBillerAccountView(generics.GenericAPIView):
 
         except requests.exceptions.RequestException as e:
             logger.error(
-                f"RequestException for {request.user.first_name} {request.user.last_name}: {str(e)}",
+                f"RequestException for {requester}: {str(e)}",
                 exc_info=True,
             )
             return Response(

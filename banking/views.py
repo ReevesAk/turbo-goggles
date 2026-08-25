@@ -1819,7 +1819,14 @@ class GetCashbackBalance(APIView):
     def get(self, request):
         user = request.user
 
-        wallet = WalletModel.objects.get(user=user, walletType="INDIVIDUAL")
+        try:
+            wallet = WalletModel.objects.get(user=user, walletType="INDIVIDUAL")
+        except WalletModel.DoesNotExist:
+            resp = {
+                "status": "fail",
+                "message": "User does not have an account.",
+            }
+            return Response(data=encrypt(resp), status=status.HTTP_404_NOT_FOUND)
 
         response = {
             "status": "success",
