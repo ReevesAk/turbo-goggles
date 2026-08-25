@@ -1642,7 +1642,6 @@ class VerifyBillerAccountView(generics.GenericAPIView):
     """
 
     serializer_class = VerifyBillerSerializer
-    permission_classes = [IsAuthenticatedOrGuestWithValidId]
 
     def post(self, request):
         decrypted_payload = decrypt(request.data)
