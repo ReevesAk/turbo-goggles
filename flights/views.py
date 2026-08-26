@@ -294,7 +294,7 @@ class FlightBookingView(BrandChargeMixin, generics.GenericAPIView):
             card_reference=data.get("card_reference"),
             amount=amount,
             tx_reference=tx_reference,
-            tx_type="Travel",
+            tx_type="Flight",
             tx_description=f"Flight booking - {data['customer_email']}",
             notification_title="Flight Booking",
             notification_phrase="your flight booking",
@@ -351,7 +351,7 @@ class FlightBookingView(BrandChargeMixin, generics.GenericAPIView):
         self, data, user, guest_id, tx_reference, amount, currency, client, ip_address
     ):
         existing = TxModel.objects.filter(
-            tx_reference=tx_reference, tx_type="Travel"
+            tx_reference=tx_reference, tx_type="Flight"
         ).first()
         if existing is not None:
             if existing.status == "SUCCESS":
@@ -415,7 +415,7 @@ class FlightBookingView(BrandChargeMixin, generics.GenericAPIView):
                     tx = TxModel.objects.create(
                         user=user,
                         tx_reference=tx_reference,
-                        tx_type="Travel",
+                        tx_type="Flight",
                         amount=float(amount),
                         description=f"Flight booking - {data['customer_email']}",
                         status="PENDING",

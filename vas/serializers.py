@@ -98,6 +98,7 @@ class BillPaymentSerializer(serializers.ModelSerializer):
     card_reference = serializers.CharField(write_only=True, required=False)
     use_points = serializers.BooleanField(write_only=True, required=False)
     use_cashback = serializers.BooleanField(write_only=True, required=False)
+    token = serializers.CharField(read_only=True)
     customerId = serializers.CharField(required=True)
     billerId = serializers.CharField(required=True)
     itemId = serializers.CharField(required=True)
@@ -123,6 +124,7 @@ class BillPaymentSerializer(serializers.ModelSerializer):
             "phone_number",
             "customerName",
             "otherField",
+            "token",
             "use_points",
             "use_cashback",
         ]

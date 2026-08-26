@@ -2,6 +2,7 @@ import logging
 from datetime import timedelta
 
 from celery import shared_task
+from decouple import config as conf
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
@@ -19,6 +20,11 @@ from .models import (
 from .verification import verify_submission, verify_brand_submission, VerificationError
 
 logger = logging.getLogger(__name__)
+
+# Kill switch: when False, the AI still analyzes every submission (so admins
+# get its verdict/reasoning as a hint), but nothing is ever auto-approved or
+# auto-rejected — everything is routed to manual admin review instead.
+AI_AUTO_DECISION_ENABLED = conf("AI_AUTO_DECISION_ENABLED", default=True, cast=bool)
 
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
@@ -67,9 +73,14 @@ def run_verification(self, submission_id: str):
         verdict = result["verdict"]
         confidence = result["confidence_score"]
 
-        if verdict == "Pass" and trust.can_auto_approve and confidence >= 70:
+        if (
+            AI_AUTO_DECISION_ENABLED
+            and verdict == "Pass"
+            and trust.can_auto_approve
+            and confidence >= 70
+        ):
             _approve_submission(submission, trust)
-        elif verdict == "Fail" and confidence >= 80:
+        elif AI_AUTO_DECISION_ENABLED and verdict == "Fail" and confidence >= 80:
             _reject_submission(submission, trust, reason="AI verification failed")
         else:
             submission.status = "Pending"
@@ -392,9 +403,15 @@ def run_brand_verification(self, submission_id: str):
         },
     )
 
-    if verdict == "Pass" and confidence >= 85 and action_confirmed and target_matched:
+    if (
+        AI_AUTO_DECISION_ENABLED
+        and verdict == "Pass"
+        and confidence >= 85
+        and action_confirmed
+        and target_matched
+    ):
         approve_brand_submission_now(submission_id, None)
-    elif (
+    elif AI_AUTO_DECISION_ENABLED and (
         verdict == "Fail"
         or (verdict == "Pass" and not (action_confirmed and target_matched))
         or confidence < 60

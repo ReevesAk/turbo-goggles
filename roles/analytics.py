@@ -78,15 +78,25 @@ BRAND_ADS_TX_TYPES = ["Brand Promotion", "UGC Task Funding"]
 VAS_CASHBACK_SERVICE_TYPES = ["airtime", "data", "electricity", "cable"]
 
 # VAS sub-category -> TxModel.tx_type, for the Services dashboard's VAS tab
-# dropdown (Airtime Recharge / Data Top-Up / Bill Payments / Gift Cards).
-# Bill Payments covers both electricity and cable - BillPaymentView
+# dropdown (Airtime Recharge / Data Top-Up / Bill Payments / Flight / Gift
+# Cards). Bill Payments covers both electricity and cable - BillPaymentView
 # (vas/views.py) writes both under the single tx_type "Bill Payment". Gift
 # Cards has no purchase flow built yet, so it's always 0 - see
 # get_vas_snapshot.
+#
+# Flight bookings (flights/views.py) used to share tx_type="Travel" with
+# land-travel bookings (self_service/views.py), which meant flight revenue
+# was silently counted under Self Services with no way to isolate it. They
+# now write their own "Flight" tx_type going forward, so flights count once,
+# under VAS - but any FlightBooking TxModel rows written before this change
+# still carry tx_type="Travel" and will remain counted under Self Services
+# for those historical periods (same undercount caveat as the Electricity
+# Bill/Cable TV description split below).
 VAS_CATEGORY_TX_TYPES = {
     "airtime": "Airtime",
     "data": "Data",
     "bill_payments": "Bill Payment",
+    "flight": "Flight",
     "gift_cards": None,
 }
 
@@ -94,11 +104,15 @@ VAS_CATEGORY_TX_TYPES = {
 # banking/cashback_service.py is only ever called with service="airtime"/
 # "data" (vas/views.py) - electricity/cable purchases don't reward cashback
 # at all today, so bill_payments nets to 0 in practice; kept explicit here
-# for when that changes.
+# for when that changes. Flights only ever spend cashback (flights/views.py
+# uses CashbackService.apply_cashback_payment as a payment method), never
+# earn it, so flight also nets to 0 - same placeholder treatment as
+# gift_cards.
 VAS_CATEGORY_CASHBACK_TYPES = {
     "airtime": ["airtime"],
     "data": ["data"],
     "bill_payments": ["electricity", "cable"],
+    "flight": [],
     "gift_cards": [],
 }
 
@@ -235,6 +249,15 @@ def get_cashflow_snapshot(start, end):
     airtime = get_vas_snapshot(start, end, "airtime")["revenue"]
     data = get_vas_snapshot(start, end, "data")["revenue"]
     bill_payments = get_vas_snapshot(start, end, "bill_payments")["revenue"]
+    # bill_payments above stays as the combined Electricity+Cable figure for
+    # backward compatibility - these two are the same total split out by
+    # description, reusing VAS_INCOME_EXPENDITURE_ROWS's filters (the VAS
+    # tab's existing split) rather than duplicating them.
+    vas_row_filters = dict(VAS_INCOME_EXPENDITURE_ROWS)
+    electricity_bill = _tx_sum_for_row(
+        start, end, vas_row_filters["Electricity Bill"], ["SUCCESS"]
+    )
+    cable_tv = _tx_sum_for_row(start, end, vas_row_filters["Cable TV"], ["SUCCESS"])
     self_service_and_partner = get_self_service_and_partner_sum(start, end)
     gamification = get_gamification_redemption_sum(start, end)
     return {
@@ -244,6 +267,8 @@ def get_cashflow_snapshot(start, end):
         "airtime": airtime,
         "data": data,
         "bill_payments": bill_payments,
+        "electricity_bill": electricity_bill,
+        "cable_tv": cable_tv,
         "self_service_and_partner_revenue": self_service_and_partner,
         "gamification": gamification,
         # self-service/partner revenue isn't folded in here - "net cashflow"
@@ -439,6 +464,7 @@ VAS_INCOME_EXPENDITURE_ROWS = [
         Q(tx_type="Bill Payment", description__icontains="Electricity"),
     ),
     ("Cable TV", Q(tx_type="Bill Payment", description__icontains="Cable")),
+    ("Flight", Q(tx_type="Flight")),
 ]
 
 
@@ -684,6 +710,68 @@ def get_daily_income_expenditure_series(start, end, category="all", service_type
         )
         day += timedelta(days=1)
     return series
+
+
+def _bucket_start_and_label(day, granularity):
+    """Returns (bucket_start_date, display_label) for the granularity unit
+    `day` falls into - a calendar day/Monday-start week/calendar
+    month/calendar quarter/calendar year for daily/weekly/monthly/quarterly/
+    yearly respectively."""
+    if granularity == "daily":
+        return day, day.strftime("%A")
+    if granularity == "weekly":
+        week_start = day - timedelta(days=day.weekday())
+        return week_start, f"Week of {week_start.strftime('%b %d')}"
+    if granularity == "monthly":
+        month_start = day.replace(day=1)
+        return month_start, month_start.strftime("%B %Y")
+    if granularity == "quarterly":
+        quarter = (day.month - 1) // 3 + 1
+        quarter_start = day.replace(month=(quarter - 1) * 3 + 1, day=1)
+        return quarter_start, f"Q{quarter} {day.year}"
+    if granularity == "yearly":
+        return day.replace(month=1, day=1), str(day.year)
+
+    raise ValueError(
+        f"Unknown granularity '{granularity}'. Expected one of {GRANULARITY_CHOICES}."
+    )
+
+
+def bucket_income_expenditure_series(series, granularity):
+    """
+    Rolls a day-bucketed series (as returned by
+    get_daily_income_expenditure_series) up into one row per granularity
+    unit, so the chart returns days for "daily", weeks for "weekly", months
+    for "monthly", quarters for "quarterly", and years for "yearly" instead
+    of always returning one row per calendar day regardless of the
+    requested granularity.
+
+    cash_in/cash_out/cashback are summed within each bucket. "date" is kept
+    as the bucket's start date and "day" as its display label - both field
+    names are unchanged from get_daily_income_expenditure_series so this is
+    a drop-in replacement for existing consumers of that series.
+    """
+    buckets = {}
+    order = []
+    for row in series:
+        day = datetime.strptime(row["date"], "%Y-%m-%d").date()
+        bucket_start, label = _bucket_start_and_label(day, granularity)
+        key = bucket_start.isoformat()
+        if key not in buckets:
+            buckets[key] = {
+                "date": key,
+                "day": label,
+                "cash_in": 0,
+                "cash_out": 0,
+                "cashback": 0,
+            }
+            order.append(key)
+        bucket = buckets[key]
+        bucket["cash_in"] += row["cash_in"]
+        bucket["cash_out"] += row["cash_out"]
+        bucket["cashback"] += row["cashback"]
+
+    return [buckets[key] for key in order]
 
 
 def get_transaction_overview_snapshot(start, end, category="all", service_type=None):

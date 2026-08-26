@@ -3,6 +3,7 @@ import logging
 # Third party imports.
 from cloudinary import uploader as cloud
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 from drf_spectacular.utils import extend_schema_field
 
 # In project imports.
@@ -121,6 +122,18 @@ class AddAdminContdSerializer(serializers.ModelSerializer):
     """Serializer for other admin roles' first-time registration."""
 
     password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    phone_number = serializers.CharField(
+        validators=[
+            UniqueValidator(
+                queryset=User.objects.all(),
+                message=(
+                    "This phone number is already linked to another account "
+                    "on Picadailys. Please use a different phone number for "
+                    "your admin account."
+                ),
+            )
+        ]
+    )
 
     class Meta:
         model = User

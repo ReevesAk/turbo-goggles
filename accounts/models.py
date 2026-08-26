@@ -43,6 +43,7 @@ TRANSACTION_TYPE = (
     ("Bill Payment", "Bill Payment"),
     ("Hotel", "Hotel"),
     ("Travel", "Travel"),
+    ("Flight", "Flight"),
     ("Education", "Education"),
     ("Leisure", "Leisure"),
     ("Consumables", "Consumables"),

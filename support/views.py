@@ -3154,6 +3154,22 @@ class LoginAgent(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
+        if not user_obj.is_verified or not user_obj.has_usable_password():
+            logger.warning(
+                f"Login attempt for unverified/incomplete account: {email}."
+            )
+            return Response(
+                data={
+                    "status": "fail",
+                    "message": (
+                        "Your account hasn't been activated yet. Please check "
+                        "your email for the signup link to complete your "
+                        "registration and set a password."
+                    ),
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
         # Authenticate using the phone number and password
         user = authenticate(phone_number=user_obj.phone_number, password=password)
 
