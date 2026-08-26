@@ -2,6 +2,7 @@ import logging
 
 # Third party imports.
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 
 # In project imports.
 from accounts.models import User
@@ -337,6 +338,18 @@ class AddAgentContdSerializer(serializers.ModelSerializer):
     """Serializer for other support agents first-time registration."""
 
     password2 = serializers.CharField(max_length=68, min_length=6, write_only=True)
+    phone_number = serializers.CharField(
+        validators=[
+            UniqueValidator(
+                queryset=User.objects.all(),
+                message=(
+                    "This phone number is already linked to another account "
+                    "on Picadailys. Please use a different phone number for "
+                    "your staff account."
+                ),
+            )
+        ]
+    )
 
     class Meta:
         model = User

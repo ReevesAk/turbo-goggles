@@ -63,4 +63,5 @@ class ValueAddedServices(ItemPurchaseBaseModel):
     billerId = models.CharField(max_length=100, null=True)
     category_name = models.CharField(max_length=100, null=True)
     otherField = models.CharField(max_length=255, null=True, blank=True)
+    token = models.CharField(max_length=255, null=True, blank=True)
     status = models.CharField(max_length=50, default="pending", null=True)

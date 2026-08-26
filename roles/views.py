@@ -100,6 +100,7 @@ from .analytics import (
     SERVICES_TAB_CHOICES,
     SERVICE_TYPE_CHOICES_BY_CATEGORY,
     get_daily_income_expenditure_series,
+    bucket_income_expenditure_series,
     get_vas_income_expenditure_breakdown,
     get_transaction_overview_snapshot,
     get_customer_insight_extended,
@@ -4353,6 +4354,8 @@ class CashInVsCashOutChartView(APIView):
         series = get_daily_income_expenditure_series(
             current_start, current_end, category=category, service_type=service_type
         )
+        if resolved_granularity in GRANULARITY_CHOICES:
+            series = bucket_income_expenditure_series(series, resolved_granularity)
 
         return Response(
             data=encrypt(

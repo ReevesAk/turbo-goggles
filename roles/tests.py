@@ -2119,11 +2119,12 @@ class GetVasIncomeExpenditureBreakdownTests(TestCase):
         self.assertEqual(rows["Electricity Bill"]["credit"]["value"], 0)
         self.assertEqual(rows["Cable TV"]["credit"]["value"], 0)
 
-    def test_all_four_rows_always_present(self):
+    def test_all_five_rows_always_present(self):
         rows = self._rows_by_category()
 
         self.assertEqual(
-            set(rows.keys()), {"Airtime", "Data", "Electricity Bill", "Cable TV"}
+            set(rows.keys()),
+            {"Airtime", "Data", "Electricity Bill", "Cable TV", "Flight"},
         )
 
 

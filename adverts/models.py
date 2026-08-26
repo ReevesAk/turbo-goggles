@@ -12,6 +12,7 @@ from gamification.models import UserGeneratedContent
 from .pricing import TARGETING_TYPE_CHOICES, compute_cost_per_engagement
 
 DEMOGRAPHY = (
+    ("18+", "18+"),
     ("18 - 25", "18 - 25"),
     ("26 - 35", "26 - 35"),
     ("36 - 45", "36 - 45"),

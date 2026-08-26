@@ -1812,9 +1812,12 @@ class BillPaymentView(generics.GenericAPIView):
         else:
             vas_data = vas_json.get("data", {}) if isinstance(vas_json, dict) else {}
 
-        # Determine if electricity by presence of token
+        # Determine if electricity from billerId - the response shape isn't
+        # reliable here: when settlement lags and we fall back to the shared
+        # topup status endpoint (VAS.resolve_outcome -> VAS.status), that
+        # response has no "token" field regardless of service type.
         token = vas_data.get("token") if isinstance(vas_data, dict) else None
-        is_electricity = bool(token)
+        is_electricity = billerId in ELECTRICITY_BILLER_IDS
 
         response_data = {
             "status": "success",
@@ -1867,6 +1870,7 @@ class BillPaymentView(generics.GenericAPIView):
                         phone_number=phone_number,
                         customerName=customerName,
                         otherField=otherField,
+                        token=token,
                     )
             except Exception as e:
                 logger.error(f"ValueAddedServices creation error: {str(e)}")

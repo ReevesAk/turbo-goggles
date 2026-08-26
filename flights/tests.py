@@ -616,7 +616,7 @@ class FlightBookingViewTests(APITestCase):
         booking = FlightBooking.objects.get(user=self.user)
         self.assertEqual(booking.status, "PENDING")
         self.assertEqual(booking.total_price, Decimal("1000.00"))
-        tx = TxModel.objects.get(user=self.user, tx_type="Travel")
+        tx = TxModel.objects.get(user=self.user, tx_type="Flight")
         self.assertEqual(tx.status, "SUCCESS")
         mock_delay.assert_called_once_with(str(booking.tx_reference))
 
@@ -654,7 +654,7 @@ class FlightBookingViewTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(FlightBooking.objects.filter(user=self.user).count(), 1)
-        tx = TxModel.objects.get(user=self.user, tx_type="Travel")
+        tx = TxModel.objects.get(user=self.user, tx_type="Flight")
         self.assertEqual(tx.status, "SUCCESS")
 
     def test_provider_booking_failure_refunds_wallet_debit(self):
@@ -675,7 +675,7 @@ class FlightBookingViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
         self.assertEqual(FlightBooking.objects.count(), 0)
         mock_credit.assert_called_once()
-        tx = TxModel.objects.get(user=self.user, tx_type="Travel")
+        tx = TxModel.objects.get(user=self.user, tx_type="Flight")
         self.assertEqual(tx.status, "FAILED")
 
 
@@ -726,7 +726,7 @@ class FlightBookingWithPointsAndRewardsTests(APITestCase):
         expected_points_deducted = math.ceil(remaining_after_cashback / self.tier_rate)
         self.assertEqual(self.points.balance, 1000 - expected_points_deducted)
 
-        tx = TxModel.objects.get(user=self.user, tx_type="Travel")
+        tx = TxModel.objects.get(user=self.user, tx_type="Flight")
         self.assertEqual(tx.status, "SUCCESS")
         self.assertEqual(FlightBooking.objects.filter(user=self.user).count(), 1)
 
@@ -768,7 +768,7 @@ class FlightBookingWithPointsAndRewardsTests(APITestCase):
         self.assertEqual(self.wallet.cashback_balance, Decimal("300.00"))
         self.assertEqual(self.points.balance, 1000)
 
-        tx = TxModel.objects.get(user=self.user, tx_type="Travel")
+        tx = TxModel.objects.get(user=self.user, tx_type="Flight")
         self.assertEqual(tx.status, "FAILED")
         self.assertEqual(FlightBooking.objects.count(), 0)
 
