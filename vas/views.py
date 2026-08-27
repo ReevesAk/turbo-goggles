@@ -1863,6 +1863,7 @@ class BillPaymentView(generics.GenericAPIView):
                     ValueAddedServices.objects.create(
                         user=user if user else None,
                         guest_id=guest_id if not user else None,
+                        tx_reference=tx_reference,
                         customerId=customerId,
                         billerId=billerId,
                         itemId=itemId,

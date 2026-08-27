@@ -51,13 +51,24 @@ class RetrieveTransaction(generics.GenericAPIView):
         try:
             tx = TxModel.objects.filter(user=user, tx_reference=tx_reference).first()
             if tx:
-                serializer = TxModelSerializer(tx)
+                data = TxModelSerializer(tx).data
+                # TxModel has no token field - a bill payment's electricity
+                # token only lives on its matching ValueAddedServices row
+                # (see ValueAddedServices.tx_reference/BillPaymentView).
+                # Without this, this branch always wins (a TxModel row
+                # exists for every bill payment) and the token below would
+                # never be reached.
+                if tx.tx_type == "Bill Payment":
+                    vas = ValueAddedServices.objects.filter(
+                        user=user, tx_reference=tx_reference
+                    ).first()
+                    data["token"] = vas.token if vas else None
                 return Response(
                     data=encrypt(
                         {
                             "status": "success",
                             "message": f"Transaction for {tx_reference} found!",
-                            "data": serializer.data,
+                            "data": data,
                         }
                     ),
                     status=status.HTTP_200_OK,
