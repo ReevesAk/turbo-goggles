@@ -55,11 +55,18 @@ ELECTRICITY_BILLER_IDS = {choice[0] for choice in ELECTRICITY_SERVICE_ID_CHOICES
 
 
 def _bill_payment_category(billerId):
-    """Electricity Bill vs Cable TV, from the VTPass billerId the user
-    selected - see ELECTRICITY_SERVICE_ID_CHOICES/TV_SERVICE_ID_CHOICES
-    (vas/models.py). Used to label failed/pending BillPaymentView purchases,
-    where _handle_success's token-presence detection doesn't apply (no
-    provider response to inspect yet)."""
+    """Best-effort Electricity Bill vs Cable TV label for failed/pending
+    BillPaymentView purchases, where there's no provider response yet to
+    read "isToken" off of (see _handle_success). Falls back to billerId
+    against ELECTRICITY_SERVICE_ID_CHOICES/TV_SERVICE_ID_CHOICES (vas/
+    models.py) - but those are a VTPass-style naming guess (e.g.
+    "portharcourt-electric"), while this middleware's real billerIds are
+    its own short codes (e.g. "BP-PH" for Port Harcourt, confirmed from
+    production logs), so this mislabels every real electricity billerId as
+    Cable TV today. Low priority to fix properly (pending/failed bill
+    payments are rare) vs. _handle_success's isToken fix, but be aware
+    failed/pending Electricity purchases will show "Failed Cable TV" etc.
+    until ELECTRICITY_BILLER_IDS is replaced with the real biller codes."""
     return "Electricity Bill" if billerId in ELECTRICITY_BILLER_IDS else "Cable TV"
 
 
@@ -1812,12 +1819,44 @@ class BillPaymentView(generics.GenericAPIView):
         else:
             vas_data = vas_json.get("data", {}) if isinstance(vas_json, dict) else {}
 
-        # Determine if electricity from billerId - the response shape isn't
-        # reliable here: when settlement lags and we fall back to the shared
-        # topup status endpoint (VAS.resolve_outcome -> VAS.status), that
-        # response has no "token" field regardless of service type.
+        # Determine if electricity. Prefer the provider's own "isToken" flag
+        # (present on a direct pay response, e.g.
+        # {"otherField": "Units: 4.2", "isToken": True, "token": "Token: ..."})
+        # - this is authoritative and doesn't depend on billerId naming.
+        # billerId is NOT a reliable fallback here: ELECTRICITY_BILLER_IDS
+        # (vas/models.py) is a VTPass-style naming guess (e.g.
+        # "portharcourt-electric"), but this middleware actually sends its
+        # own short codes (e.g. "BP-PH" for Port Harcourt, confirmed from
+        # production VAS logs) - so that membership check was always false
+        # for real production billerIds, silently mislabeling every
+        # electricity purchase as Cable TV. Only fall back to it when
+        # "isToken" is genuinely absent - e.g. the shared topup status
+        # endpoint (VAS.resolve_outcome -> VAS.status) used when settlement
+        # lags, which carries neither "isToken" nor "token" regardless of
+        # service type.
         token = vas_data.get("token") if isinstance(vas_data, dict) else None
-        is_electricity = billerId in ELECTRICITY_BILLER_IDS
+        if isinstance(vas_data, dict) and "isToken" in vas_data:
+            is_electricity = bool(vas_data.get("isToken"))
+        else:
+            is_electricity = billerId in ELECTRICITY_BILLER_IDS
+
+        # The provider embeds a literal "Token: " prefix inside the token
+        # string itself (see the log above) - strip it so
+        # response/SMS/email don't double up ("token is: Token: 1234...").
+        if token and isinstance(token, str) and token.startswith("Token:"):
+            token = token.split(":", 1)[1].strip()
+
+        # Units bought come back under "otherField" (e.g. "Units: 4.2"), not
+        # a "units" key - vas_data.get("units", "") was reading a key this
+        # provider never sends, so units_bought (and the email below) were
+        # always blank. Fall back to "units" too in case another provider
+        # shape does use that key.
+        units = vas_data.get("units") if isinstance(vas_data, dict) else None
+        if not units and isinstance(vas_data, dict):
+            other_field = vas_data.get("otherField") or ""
+            if isinstance(other_field, str) and other_field.lower().startswith("units:"):
+                units = other_field.split(":", 1)[1].strip()
+        units = units or ""
 
         response_data = {
             "status": "success",
@@ -1826,7 +1865,7 @@ class BillPaymentView(generics.GenericAPIView):
 
         if is_electricity:
             response_data["token_details"] = token
-            response_data["units_bought"] = vas_data.get("units", "")
+            response_data["units_bought"] = units
 
         response_data["service_response"] = vas_data
 
@@ -1894,7 +1933,6 @@ class BillPaymentView(generics.GenericAPIView):
 
         if user and is_electricity and token:
             alert_type = getattr(user, "alert_type_choice", "Both")
-            units = vas_data.get("units", "") if isinstance(vas_data, dict) else ""
             sms_msg = f"Your electricity token is: {token}"
             if units:
                 sms_msg += f" | Units: {units}"
