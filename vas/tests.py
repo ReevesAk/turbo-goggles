@@ -111,6 +111,59 @@ class VasHelpersBehaviorTests(TestCase):
         self.assertEqual(payload["debitAccount"], "1002003004")
 
 
+class VasIsSuccessTests(TestCase):
+    """VAS.is_success - the envelope alone isn't trustworthy. Production
+    saw a 200 response whose envelope said {"status": "success", ...}
+    while the nested transaction record said {"transactionStatus":
+    "failed", "description": "Transaction with reference '...' not
+    found"} - the wallet was still debited, but the app told the customer
+    the purchase succeeded because only the envelope was checked."""
+
+    def test_envelope_success_with_no_nested_status_is_success(self):
+        response = MagicMock(
+            status_code=200, json=lambda: {"status": "success", "message": "ok"}
+        )
+        self.assertTrue(VAS.is_success(response))
+
+    def test_envelope_success_but_nested_transaction_failed_is_not_success(self):
+        response = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "status": "success",
+                "message": "ok",
+                "data": {
+                    "transactionStatus": "failed",
+                    "description": (
+                        "Transaction with reference "
+                        "'PID-PICA-5137131252928875' not found"
+                    ),
+                },
+            },
+        )
+        self.assertFalse(VAS.is_success(response))
+
+    def test_envelope_success_with_nested_transaction_success_is_success(self):
+        response = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "status": "success",
+                "message": "ok",
+                "data": {"transactionStatus": "success", "token": "1234"},
+            },
+        )
+        self.assertTrue(VAS.is_success(response))
+
+    def test_envelope_failure_is_never_success_regardless_of_nested_status(self):
+        response = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "status": "fail",
+                "data": {"transactionStatus": "success"},
+            },
+        )
+        self.assertFalse(VAS.is_success(response))
+
+
 class BillPaymentCategoryTests(TestCase):
     """_bill_payment_category - classifies a BillPaymentView purchase as
     Electricity Bill vs Cable TV from its billerId, for failed/pending

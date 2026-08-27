@@ -49,7 +49,7 @@ from .serializers import (
 )
 from accounts.models import UserNotification, TxModel, User
 from roles.models import ActivityModel
-from .tasks import create_notification, create_activity
+from .tasks import create_notification, create_activity, send_alert_notification
 from .models import WalletModel, UserKYC, AddressVerificationModel
 from .controllers import KYC, Wallet, Paystack, Corporate, CorporateKYC
 from .helpers import (
@@ -1291,40 +1291,40 @@ class SetWalletPin(generics.CreateAPIView):
             authenticated_user.has_created_pin = True
             authenticated_user.save()
 
-            UserNotification.objects.create(
-                user=authenticated_user,
+            create_notification.delay(
+                user_id=authenticated_user.id,
                 title="Wallet Pin",
                 message="Wallet pin created successfully.",
             )
-
-            ActivityModel.objects.create(
-                user=authenticated_user,
+            create_activity.delay(
+                user_id=authenticated_user.id,
                 title="Wallet",
                 description=f"{authenticated_user.first_name} {authenticated_user.last_name} set their wallet pin successfully.",
             )
 
-            if authenticated_user.alert_type_choice in ("SMS", "Both"):
-                Messaging.send_sms(
-                    phone_number=request.user.phone_number[1:],
-                    msg="This is to inform you that your Wallet pin was created successfully.",
-                )
-            if authenticated_user.alert_type_choice in ("Email", "Both"):
-                text_content = render_to_string(
-                    template_name="empty_email.html",
-                    context={
-                        "custom_text": "This is to inform you that your Wallet pin was created successfully.",
-                        "support_email": "support@picadailys.com",
-                        "picadailys_phone": "02012271894  02012271895",
-                    },
-                )
-
-                Messaging.send_email(
-                    sender_email="notifications@picadailys.com",
-                    body="Your Wallet pin was created successfully.",
-                    email=authenticated_user.email,
-                    html_content=text_content,
-                    subject="Wallet Pin",
-                )
+            # Backgrounded - see send_alert_notification's docstring
+            # (banking/tasks.py). This used to send SMS/email inline here
+            # before responding, with no timeout on the outbound HTTP
+            # call, so a slow notification gateway could hang the whole
+            # "Create PIN" request even though the PIN itself was already
+            # saved above.
+            text_content = render_to_string(
+                template_name="empty_email.html",
+                context={
+                    "custom_text": "This is to inform you that your Wallet pin was created successfully.",
+                    "support_email": "support@picadailys.com",
+                    "picadailys_phone": "02012271894  02012271895",
+                },
+            )
+            send_alert_notification.delay(
+                phone_number=request.user.phone_number[1:],
+                email=authenticated_user.email,
+                alert_type=authenticated_user.alert_type_choice,
+                sms_msg="This is to inform you that your Wallet pin was created successfully.",
+                email_subject="Wallet Pin",
+                email_body="Your Wallet pin was created successfully.",
+                html_content=text_content,
+            )
 
             response = {
                 "status": "success",
@@ -1362,44 +1362,49 @@ class ForgotWalletPin(generics.GenericAPIView):
             otp=otp
         )
 
-        response_msg = ""
+        # Backgrounded - see send_alert_notification's docstring
+        # (banking/tasks.py): sending SMS/email inline here had no
+        # timeout on the outbound HTTP call, so a slow gateway could hang
+        # this request. The response/return used to live nested inside
+        # the "Email" branch below, so a user on alert_type_choice="SMS"
+        # (not "Both"/"Email") never got a response at all - the OTP sent
+        # fine, but the request just returned None and errored out.
+        text_content = render_to_string(
+            template_name="empty_email.html",
+            context={
+                "custom_text": msg,
+                "support_email": "support@picadailys.com",
+                "picadailys_phone": "02012271894  02012271895",
+            },
+        )
+        send_alert_notification.delay(
+            phone_number=phone_no,
+            email=user.email,
+            alert_type=user.alert_type_choice,
+            sms_msg=msg,
+            email_subject="Forgot Wallet Pin",
+            email_body=msg,
+            html_content=text_content,
+        )
 
-        if user.alert_type_choice in ("SMS", "Both"):
-            Messaging.send_sms(phone_number=phone_no, msg=msg)
-            response_msg = "An OTP has been sent to your phone number."
-
-        if user.alert_type_choice in ("Email", "Both"):
-            text_content = render_to_string(
-                template_name="empty_email.html",
-                context={
-                    "custom_text": msg,
-                    "support_email": "support@picadailys.com",
-                    "picadailys_phone": "02012271894  02012271895",
-                },
-            )
-
-            Messaging.send_email(
-                sender_email="notifications@picadailys.com",
-                body=msg,
-                email=user.email,
-                html_content=text_content,
-                subject="Forgot Wallet Pin",
-            )
-
+        if user.alert_type_choice == "Email":
             response_msg = "An OTP has been sent to your email address."
+        elif user.alert_type_choice == "SMS":
+            response_msg = "An OTP has been sent to your phone number."
+        else:
+            response_msg = "An OTP has been sent to your phone number and email address."
 
-            resp = {
-                "status": "success",
-                "message": response_msg,
-            }
+        create_activity.delay(
+            user_id=user.id,
+            title="Forgot Wallet Pin",
+            description=f"{user.first_name} {user.last_name} forgot their wallet pin and sent a request to reset it.",
+        )
 
-            ActivityModel.objects.create(
-                user=user,
-                title="Forgot Wallet Pin",
-                description=f"{user.first_name} {user.last_name} forgot their wallet pin and sent a request to reset it.",
-            )
-
-            return Response(data=encrypt(resp), status=status.HTTP_201_CREATED)
+        resp = {
+            "status": "success",
+            "message": response_msg,
+        }
+        return Response(data=encrypt(resp), status=status.HTTP_201_CREATED)
 
 
 @extend_schema(
@@ -1432,38 +1437,43 @@ class PinResendOTP(generics.GenericAPIView):
             otp=otp
         )
 
-        status_msg = ""
-        if user.alert_type_choice in ("SMS", "Both"):
-            Messaging.send_otp_whatsapp_fallback(
-                phone_number=phone_number, otp=otp, msg=msg
-            )
+        # Backgrounded - see send_alert_notification's docstring
+        # (banking/tasks.py). The response used to be built and returned
+        # only inside the "Email" branch below, so a user on
+        # alert_type_choice="SMS" (not "Both"/"Email") never got a
+        # response at all - the OTP resent fine, but the request just
+        # returned None and errored out.
+        text_content = render_to_string(
+            template_name="empty_email.html",
+            context={
+                "custom_text": msg,
+                "support_email": "support@picadailys.com",
+                "picadailys_phone": "02012271894  02012271895",
+            },
+        )
+        send_alert_notification.delay(
+            phone_number=phone_number,
+            email=user.email,
+            alert_type=user.alert_type_choice,
+            sms_msg=msg,
+            email_subject="Forgot Wallet Pin",
+            email_body=msg,
+            html_content=text_content,
+            otp=otp,
+        )
+
+        if user.alert_type_choice == "Email":
+            status_msg = "Otp resent Successfully. Check your email address for validation"
+        elif user.alert_type_choice == "SMS":
             status_msg = "Otp resent Successfully. Check your phone for validation"
-        if user.alert_type_choice in ("Email", "Both"):
-            text_content = render_to_string(
-                template_name="empty_email.html",
-                context={
-                    "custom_text": msg,
-                    "support_email": "support@picadailys.com",
-                    "picadailys_phone": "02012271894  02012271895",
-                },
-            )
+        else:
+            status_msg = "Otp resent Successfully. Check your phone and email address for validation"
 
-            Messaging.send_email(
-                sender_email="notifications@picadailys.com",
-                body=msg,
-                email=user.email,
-                html_content=text_content,
-                subject="Forgot Wallet Pin",
-            )
-            status_msg = (
-                "Otp resent Successfully. Check your email address for validation"
-            )
-
-            resp = {
-                "status": "success",
-                "message": status_msg,
-            }
-            return Response(data=encrypt(resp), status=status.HTTP_200_OK)
+        resp = {
+            "status": "success",
+            "message": status_msg,
+        }
+        return Response(data=encrypt(resp), status=status.HTTP_200_OK)
 
 
 @extend_schema(

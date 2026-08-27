@@ -169,8 +169,21 @@ class GetAccountDetailsTests(APITestCase):
         self.assertTrue(body["data"]["live_enquiry_failed"])
 
 
+@patch("banking.views.create_activity.delay")
+@patch("banking.views.create_notification.delay")
+@patch("banking.views.send_alert_notification.delay")
 @patch("banking.views.Messaging")
 class WalletPinFlowTests(APITestCase):
+    """
+    send_alert_notification/create_notification/create_activity .delay
+    are mocked since they're real Celery tasks (SetWalletPin/
+    ForgotWalletPin/PinResendOTP background their SMS/email/notification/
+    activity-log writes now instead of doing them inline - see
+    send_alert_notification's docstring in banking/tasks.py) - letting
+    them actually enqueue would hit the broker, which isn't available in
+    tests.
+    """
+
     set_pin_url = "/v1/banking/set-wallet-pin"
     forgot_pin_url = "/v1/banking/forgot-wallet-pin"
     resend_otp_url = "/v1/banking/resend-otp"
@@ -184,7 +197,7 @@ class WalletPinFlowTests(APITestCase):
         self.wallet = _create_wallet(self.user)
         self.client.force_authenticate(user=self.user)
 
-    def test_set_wallet_pin_requires_wallet(self, mock_msg):
+    def test_set_wallet_pin_requires_wallet(self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity):
         self.wallet.delete()
 
         response = self.client.post(
@@ -197,7 +210,7 @@ class WalletPinFlowTests(APITestCase):
         body = decrypt(response.data)
         self.assertIn("Wallet not found", body["error"])
 
-    def test_set_wallet_pin_rejects_mismatch(self, mock_msg):
+    def test_set_wallet_pin_rejects_mismatch(self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity):
         response = self.client.post(
             self.set_pin_url,
             data=_make_payload(pin="1234", pin2="4321"),
@@ -208,7 +221,7 @@ class WalletPinFlowTests(APITestCase):
         body = decrypt(response.data)
         self.assertIn("Pins do not match", body["error"])
 
-    def test_set_wallet_pin_success_hashes_pin(self, mock_msg):
+    def test_set_wallet_pin_success_hashes_pin(self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity):
         response = self.client.post(
             self.set_pin_url,
             data=_make_payload(pin="1234", pin2="1234"),
@@ -223,7 +236,7 @@ class WalletPinFlowTests(APITestCase):
         self.assertTrue(check_password("1234", self.wallet.pin))
         self.assertTrue(self.user.has_created_pin)
 
-    def test_forgot_wallet_pin_creates_otp(self, mock_msg):
+    def test_forgot_wallet_pin_creates_otp(self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity):
         response = self.client.post(self.forgot_pin_url)
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -231,7 +244,7 @@ class WalletPinFlowTests(APITestCase):
         self.assertEqual(body["status"], "success")
         self.assertTrue(OTP.objects.filter(user_id=self.user.id).exists())
 
-    def test_resend_wallet_pin_otp_creates_new_otp(self, mock_msg):
+    def test_resend_wallet_pin_otp_creates_new_otp(self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity):
         response = self.client.post(self.resend_otp_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -239,7 +252,7 @@ class WalletPinFlowTests(APITestCase):
         self.assertEqual(body["status"], "success")
         self.assertTrue(OTP.objects.filter(user_id=self.user.id).exists())
 
-    def test_verify_wallet_pin_otp_rejects_invalid_otp(self, mock_msg):
+    def test_verify_wallet_pin_otp_rejects_invalid_otp(self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity):
         response = self.client.post(
             self.verify_otp_url,
             data=_make_payload(otp="9999"),
@@ -250,7 +263,7 @@ class WalletPinFlowTests(APITestCase):
         body = decrypt(response.data)
         self.assertIn("Invalid or expired OTP", body["error"])
 
-    def test_verify_wallet_pin_otp_success(self, mock_msg):
+    def test_verify_wallet_pin_otp_success(self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity):
         from accounts.otp import otp_manager
 
         otp = otp_manager.create_otp(user_id=str(self.user.id))
@@ -266,7 +279,7 @@ class WalletPinFlowTests(APITestCase):
         body = decrypt(response.data)
         self.assertEqual(body["status"], "success")
 
-    def test_reset_wallet_pin_requires_valid_otp(self, mock_msg):
+    def test_reset_wallet_pin_requires_valid_otp(self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity):
         response = self.client.post(
             self.reset_pin_url,
             data=_make_payload(otp="9999", pin="1234", pin2="1234"),
@@ -277,7 +290,7 @@ class WalletPinFlowTests(APITestCase):
         body = decrypt(response.data)
         self.assertIn("Invalid or expired OTP", body["error"])
 
-    def test_reset_wallet_pin_rejects_pin_mismatch(self, mock_msg):
+    def test_reset_wallet_pin_rejects_pin_mismatch(self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity):
         from accounts.otp import otp_manager
 
         otp = otp_manager.create_otp(user_id=str(self.user.id))
