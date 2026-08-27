@@ -64,6 +64,59 @@ def send_transfer_notifications(
         )
 
 
+@shared_task
+def send_alert_notification(
+    phone_number=None,
+    email=None,
+    alert_type="Both",
+    sms_msg=None,
+    email_subject=None,
+    email_body=None,
+    html_content=None,
+    otp=None,
+):
+    """
+    Best-effort SMS/email delivery, run off the request/response path.
+
+    commons.Messaging.send_sms/send_email hit a third-party gateway with
+    requests.post and (until recently) no timeout - a slow/unresponsive
+    gateway would hang the calling HTTP request indefinitely (e.g.
+    SetWalletPin/ForgotWalletPin/PinResendOTP in banking/views.py used to
+    call these inline before returning a response, so a hung gateway call
+    meant the client's screen just sat there with no feedback). Since this
+    now runs as a background task, that's no longer on the request path.
+
+    Each channel is wrapped separately so one failing (or timing out)
+    doesn't block or skip the other - same reasoning as
+    _handle_success's token SMS/email in vas/views.py.
+
+    otp: when set, the SMS channel goes through
+    Messaging.send_otp_whatsapp_fallback (SMS first, WhatsApp fallback)
+    instead of a plain SMS - used for OTP resend.
+    """
+    if alert_type in ("SMS", "Both") and phone_number and sms_msg:
+        try:
+            if otp:
+                Messaging.send_otp_whatsapp_fallback(
+                    phone_number=phone_number, otp=otp, msg=sms_msg
+                )
+            else:
+                Messaging.send_sms(phone_number, sms_msg)
+        except Exception as e:
+            logging.warning(f"send_alert_notification: SMS failed: {e}")
+    if alert_type in ("Email", "Both") and email and email_body:
+        try:
+            Messaging.send_email(
+                email=email,
+                html_content=html_content or email_body,
+                sender_email=default_from_email,
+                subject=email_subject or "Picadailys Notification",
+                body=email_body,
+            )
+        except Exception as e:
+            logging.warning(f"send_alert_notification: email failed: {e}")
+
+
 @shared_task(autoretry_for=(Exception,), max_retries=3, default_retry_delay=10)
 def post_transfer_update(
     user_id,

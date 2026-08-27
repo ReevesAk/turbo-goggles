@@ -28,7 +28,7 @@ from .serializers import (
 from accounts.models import TxModel
 from banking.models import WalletModel
 from banking.cashback_service import CashbackService
-from banking.tasks import post_vas_update
+from banking.tasks import post_vas_update, send_alert_notification
 from permissions import IsAuthenticatedOrGuestWithValidId
 from banking.helpers import Pin, verify_wallet_auth, verify_card_payment
 from gamification.models import Points as PointsModel
@@ -43,7 +43,7 @@ from .utility import (
 from decouple import config
 from .helpers import VAS
 from .models import ValueAddedServices, ELECTRICITY_SERVICE_ID_CHOICES
-from commons import Pay, Biometrics, Messaging
+from commons import Pay, Biometrics
 from security import encrypt, decrypt
 
 operational_account = config("CENTRAL_OPERATIONAL_ACCOUNT", default="")
@@ -1938,34 +1938,38 @@ class BillPaymentView(generics.GenericAPIView):
                 sms_msg += f" | Units: {units}"
             sms_msg += f" | Ref: {tx_reference}"
 
-            if alert_type in ("SMS", "Both") and getattr(user, "phone_number", None):
-                Messaging.send_sms(phone_number=user.phone_number[1:], msg=sms_msg)
+            from django.template.loader import render_to_string
 
-            if alert_type in ("Email", "Both") and getattr(user, "email", None):
-                from django.template.loader import render_to_string
-
-                email_body = render_to_string(
-                    "picadailys_email.html",
-                    {
-                        "title": "Electricity Token",
-                        "rows": [
-                            {"label": "Token", "value": token},
-                            {"label": "Units", "value": units or "N/A"},
-                            {"label": "Amount", "value": f"₦{float(amount):,.2f}"},
-                            {"label": "Meter Number", "value": customerId or ""},
-                            {"label": "Reference", "value": tx_reference},
-                        ],
-                        "support_email": "notifications@picadailys.com",
-                        "picadailys_phone": "02012271894 02012271895",
-                    },
-                )
-                Messaging.send_email(
-                    email=user.email,
-                    subject="Your Electricity Token",
-                    html_content=email_body,
-                    sender_email="notifications@picadailys.com",
-                    body=sms_msg,
-                )
+            email_body = render_to_string(
+                "picadailys_email.html",
+                {
+                    "title": "Electricity Token",
+                    "rows": [
+                        {"label": "Token", "value": token},
+                        {"label": "Units", "value": units or "N/A"},
+                        {"label": "Amount", "value": f"₦{float(amount):,.2f}"},
+                        {"label": "Meter Number", "value": customerId or ""},
+                        {"label": "Reference", "value": tx_reference},
+                    ],
+                    "support_email": "notifications@picadailys.com",
+                    "picadailys_phone": "02012271894 02012271895",
+                },
+            )
+            # Backgrounded - see send_alert_notification's docstring
+            # (banking/tasks.py). This used to send the token SMS/email
+            # inline here before responding, with no timeout on the
+            # outbound HTTP call - a slow notification gateway could hang
+            # the purchase response even though the token was already
+            # resolved above.
+            send_alert_notification.delay(
+                phone_number=getattr(user, "phone_number", None),
+                email=getattr(user, "email", None),
+                alert_type=alert_type,
+                sms_msg=sms_msg,
+                email_subject="Your Electricity Token",
+                email_body=sms_msg,
+                html_content=email_body,
+            )
 
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 

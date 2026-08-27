@@ -39,15 +39,39 @@ def _log_response(label, response):
 class VAS:
     @staticmethod
     def is_success(response):
+        """
+        True only when the envelope claims success AND, if the payload
+        carries its own nested transaction status, that status doesn't
+        contradict it. Seen in production: a 200 response whose envelope
+        says {"status": "success", ...} while the nested transaction
+        record says {"transactionStatus": "failed", "description":
+        "Transaction with reference '...' not found"} - the wallet was
+        still debited, but treating the envelope alone as success told the
+        customer the purchase succeeded when it hadn't. Don't trust the
+        envelope alone if the payload explicitly disagrees.
+        """
         if not response or response.status_code != 200:
             return False
         try:
             body = response.json()
-            msg = (body.get("message") or "").lower()
-            status = body.get("status") or ""
-            return "success" in msg or status in ("00", "SUCCESS", "success")
         except Exception:
             return False
+        msg = (body.get("message") or "").lower()
+        status = body.get("status") or ""
+        envelope_success = "success" in msg or status in ("00", "SUCCESS", "success")
+        if not envelope_success:
+            return False
+
+        data = body.get("data") if isinstance(body.get("data"), dict) else None
+        if data is None and isinstance(body.get("content"), dict):
+            content = body["content"]
+            data = content.get("transactions", content)
+        if isinstance(data, dict):
+            nested_status = str(data.get("transactionStatus", "")).lower()
+            if nested_status and nested_status not in ("success", "successful", "00"):
+                return False
+
+        return True
 
     @staticmethod
     def is_pending(response):

@@ -99,7 +99,7 @@ class Messaging:
             ],
             "channel": "email",
         }
-        response = requests.post(url, headers=headers, json=payload)
+        response = requests.post(url, headers=headers, json=payload, timeout=15)
         return response.json()
 
     def send_email_with_attachment(
@@ -129,7 +129,7 @@ class Messaging:
                 media_id
             ]
         }
-        response = requests.post(url, headers=headers, json=payload)
+        response = requests.post(url, headers=headers, json=payload, timeout=15)
         return response.json()
 
     @staticmethod
@@ -161,7 +161,7 @@ class Messaging:
             ],
             "channel": "sms",
         }
-        response = requests.post(url, headers=headers, json=payload)
+        response = requests.post(url, headers=headers, json=payload, timeout=15)
         return response.json()
     
     @staticmethod
@@ -219,7 +219,7 @@ class Messaging:
         ]
         }
     }
-        response = requests.post(url, headers=headers, json=payload)
+        response = requests.post(url, headers=headers, json=payload, timeout=15)
         return response.json()
 
     @staticmethod
