@@ -1,5 +1,4 @@
 from django.db import models
-import uuid
 
 from basemodel import ItemPurchaseBaseModel
 from accounts.models import User
@@ -52,7 +51,14 @@ class ValueAddedServices(ItemPurchaseBaseModel):
     phone_number = models.CharField(max_length=150, null=True, blank=True)
     debit_account = models.CharField(max_length=20, null=True)
     network = models.CharField(choices=NETWORK_CHOICES, max_length=150, null=True)
-    tx_reference = models.UUIDField(default=uuid.uuid4, editable=False)
+    # Was a UUIDField with a random default - but the real transaction
+    # reference used everywhere else (TxModel.tx_reference, the one
+    # returned to the client and used in SMS/email) is a "PICA-xxxx"
+    # string from VAS.generate_unique_code(), not a UUID. That mismatch
+    # meant this field could never actually be set to the real reference,
+    # so a bill payment's token could never be looked up by tx_reference -
+    # see BillPaymentView._handle_success and banking.tx.RetrieveTransaction.
+    tx_reference = models.CharField(max_length=100, null=True, blank=True)
     amount = models.CharField(max_length=150, null=True)
     product_id = models.CharField(max_length=150, null=True)
     categoryId = models.CharField(max_length=5, null=True)
