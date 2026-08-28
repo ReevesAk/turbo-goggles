@@ -8,6 +8,7 @@ from rest_framework.pagination import PageNumberPagination
 # In-projects imports.
 from accounts.models import TxModel
 from vas.models import ValueAddedServices
+from vas.token_cache import get_electricity_token, get_electricity_tokens
 
 from banking.serializers import TxModelSerializer
 from vas.serializers import BillPaymentSerializer
@@ -29,16 +30,31 @@ class AllTransactions(generics.ListAPIView):
         )
         return transactions
 
+    def _inject_tokens(self, rows, serialized):
+        """Add the cached electricity token onto each 'Bill Payment' row of
+        an already-serialized page. One Redis get_many for the whole page;
+        rows the cache has dropped (or non-bill-payments) get token=None.
+        Purely additive - every other field is left exactly as serialized."""
+        refs = [r.tx_reference for r in rows if r.tx_type == "Bill Payment"]
+        token_map = get_electricity_tokens(refs) if refs else {}
+        for row, item in zip(rows, serialized):
+            if row.tx_type == "Bill Payment":
+                item["token"] = token_map.get(row.tx_reference)
+        return serialized
+
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset().order_by("-date")
 
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.serializer_class(page, many=True)
-            return self.get_paginated_response(encrypt(serializer.data))
+            data = self._inject_tokens(page, serializer.data)
+            return self.get_paginated_response(encrypt(data))
 
-        serializer = self.serializer_class(queryset, many=True)
-        return Response(data=encrypt(serializer.data), status=status.HTTP_200_OK)
+        rows = list(queryset)
+        serializer = self.serializer_class(rows, many=True)
+        data = self._inject_tokens(rows, serializer.data)
+        return Response(data=encrypt(data), status=status.HTTP_200_OK)
 
 
 class RetrieveTransaction(generics.GenericAPIView):
@@ -52,17 +68,13 @@ class RetrieveTransaction(generics.GenericAPIView):
             tx = TxModel.objects.filter(user=user, tx_reference=tx_reference).first()
             if tx:
                 data = TxModelSerializer(tx).data
-                # TxModel has no token field - a bill payment's electricity
-                # token only lives on its matching ValueAddedServices row
-                # (see ValueAddedServices.tx_reference/BillPaymentView).
-                # Without this, this branch always wins (a TxModel row
-                # exists for every bill payment) and the token below would
-                # never be reached.
+                # TxModel has no token field, and the electricity token is
+                # no longer persisted on ValueAddedServices - it lives in a
+                # TTL cache keyed by tx_reference (see vas/token_cache.py).
+                # Returns None once that entry has expired; the SMS/email
+                # the customer got at purchase time is the source of truth.
                 if tx.tx_type == "Bill Payment":
-                    vas = ValueAddedServices.objects.filter(
-                        user=user, tx_reference=tx_reference
-                    ).first()
-                    data["token"] = vas.token if vas else None
+                    data["token"] = get_electricity_token(tx_reference)[0]
                 return Response(
                     data=encrypt(
                         {
@@ -78,13 +90,16 @@ class RetrieveTransaction(generics.GenericAPIView):
                 user=user, tx_reference=tx_reference
             ).first()
             if vas:
-                serializer = BillPaymentSerializer(vas)
+                data = dict(BillPaymentSerializer(vas).data)
+                # token is no longer a stored column - pull it from the TTL
+                # cache, same as the TxModel branch above.
+                data["token"] = get_electricity_token(tx_reference)[0]
                 return Response(
                     data=encrypt(
                         {
                             "status": "success",
                             "message": f"Transaction for {tx_reference} found!",
-                            "data": serializer.data,
+                            "data": data,
                         }
                     ),
                     status=status.HTTP_200_OK,
