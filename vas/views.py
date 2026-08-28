@@ -43,6 +43,7 @@ from .utility import (
 from decouple import config
 from .helpers import VAS
 from .models import ValueAddedServices, ELECTRICITY_SERVICE_ID_CHOICES
+from .token_cache import cache_electricity_token
 from commons import Pay, Biometrics
 from security import encrypt, decrypt
 
@@ -1910,12 +1911,17 @@ class BillPaymentView(generics.GenericAPIView):
                         phone_number=phone_number,
                         customerName=customerName,
                         otherField=otherField,
-                        token=token,
                     )
             except Exception as e:
                 logger.error(f"ValueAddedServices creation error: {str(e)}")
         else:
             create_activity(guest_id=guest_id, title=title, description=description)
+
+        # Non-permanent token store: cached against tx_reference (TTL, no DB
+        # column) so RetrieveTransaction can re-surface it for a while after
+        # the SMS/email. Runs for guests too. See vas/token_cache.py.
+        if is_electricity and token:
+            cache_electricity_token(tx_reference, token, units)
 
         if user:
             post_vas_update.delay(
