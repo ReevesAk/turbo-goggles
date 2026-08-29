@@ -1,56 +1,116 @@
 """
-ticket/urls.py
+event/urls.py
 
-URL configuration for the ticket/event module.
+URL configuration for the event/ticketing module.
 
 URL Structure:
-- / - Public event endpoints (member-facing)
-- /tickets/ - Ticket purchase and management endpoints
-- /partner/ - Partner-facing endpoints
-- /admin/ - Admin-facing endpoints
+- /v1/events/ - Public event endpoints (member-facing)
+- /v1/events/tickets/ - Ticket purchase and management endpoints
+- /v1/events/partner/ - Partner-facing endpoints
+- /v1/events/admin/ - Admin-facing endpoints
 """
 
 from django.urls import path
 
 from . import views
 
-app_name = "ticket"
+app_name = "events"
+
 
 urlpatterns = [
     # ==================
-    # MEMBER ENDPOINTS
+    # PARTNER ENDPOINTS
     # ==================
-    # Event browsing
-    path("", views.EventPublicListView.as_view(), name="events_list"),
-    # Ticket purchase and management
+    path("partner/", views.PartnerEventListView.as_view(), name="partner_list"),
     path(
-        "tickets/purchase/",
-        views.TicketPurchaseView.as_view(),
-        name="ticket_purchase",
+        "partner/<uuid:id>/",
+        views.PartnerEventDetailView.as_view(),
+        name="partner_detail",
     ),
     path(
-        "tickets/purchases/",
-        views.MemberPurchaseListView.as_view(),
-        name="member_purchases",
+        "partner/<uuid:id>/check-ins/",
+        views.PartnerEventCheckInStatsView.as_view(),
+        name="partner_check_ins",
     ),
-    # Cart-based purchase
+    path(
+        "partner/<uuid:event_id>/tickets/",
+        views.PartnerEventTicketsView.as_view(),
+        name="partner_tickets",
+    ),
+    path(
+        "partner/tickets/<uuid:id>/",
+        views.PartnerTicketDetailView.as_view(),
+        name="partner_ticket_detail",
+    ),
+    path(
+        "partner/tickets/verify/",
+        views.TicketVerifyView.as_view(),
+        name="ticket_verify",
+    ),
+    path(
+        "partner/tickets/verify/<uuid:event_id>/",
+        views.TicketVerifyView.as_view(),
+        name="ticket_verify_event",
+    ),
+    path(
+        "partner/sales/", views.PartnerSalesLedgerView.as_view(), name="partner_sales"
+    ),
+    path(
+        "partner/<uuid:id>/detailed-stats/",
+        views.EventDetailedStatsView.as_view(),
+        name="partner_detailed_stats",
+    ),
+    # ==================
+    # ADMIN ENDPOINTS
+    # ==================
+    path("admin/", views.AdminEventListView.as_view(), name="admin_list"),
+    path(
+        "admin/<uuid:id>/review/",
+        views.AdminEventReviewView.as_view(),
+        name="admin_review",
+    ),
+    path(
+        "admin/<uuid:id>/detailed-stats/",
+        views.EventDetailedStatsView.as_view(),
+        name="admin_detailed_stats",
+    ),
+    path(
+        "admin/tickets/stats/", views.AdminTicketStatsView.as_view(), name="admin_stats"
+    ),
+    path(
+        "admin/purchases/<uuid:id>/refund/",
+        views.AdminRefundPurchaseView.as_view(),
+        name="admin_refund",
+    ),
+    path(
+        "admin/sale-windows/",
+        views.AdminSaleWindowListView.as_view(),
+        name="admin_sale_windows",
+    ),
+    path(
+        "admin/sale-windows/create/",
+        views.AdminPartnerSaleWindowView.as_view(),
+        name="admin_create_sale_window",
+    ),
+    path(
+        "admin/ticket-config/",
+        views.AdminTicketConfigurationView.as_view(),
+        name="admin_ticket_config",
+    ),
+    # ==================
+    # TICKET ENDPOINTS
+    # ==================
+    path("tickets/purchase/", views.TicketPurchaseView.as_view(), name="purchase"),
     path(
         "tickets/cart-purchase/",
         views.TicketCartPurchaseView.as_view(),
-        name="ticket_cart_purchase",
-    ),
-    # Member orders
-    path(
-        "tickets/orders/",
-        views.MemberOrderListView.as_view(),
-        name="member_orders",
+        name="cart_purchase",
     ),
     path(
-        "tickets/my-codes/",
-        views.MemberTicketCodesView.as_view(),
-        name="member_ticket_codes",
+        "tickets/purchases/", views.MemberPurchaseListView.as_view(), name="purchases"
     ),
-    # Ticket transfers
+    path("tickets/orders/", views.MemberOrderListView.as_view(), name="orders"),
+    path("tickets/my-codes/", views.MemberTicketCodesView.as_view(), name="my_codes"),
     path(
         "tickets/transfer/request/",
         views.TicketTransferRequestView.as_view(),
@@ -72,108 +132,9 @@ urlpatterns = [
         name="transfer_cancel",
     ),
     # ==================
-    # PARTNER ENDPOINTS
+    # PUBLIC ENDPOINTS
     # ==================
-    # Event management
-    path(
-        "partner/",
-        views.PartnerEventListView.as_view(),
-        name="partner_event_list",
-    ),
-    path(
-        "partner/<uuid:id>/",
-        views.PartnerEventDetailView.as_view(),
-        name="partner_event_detail",
-    ),
-    path(
-        "partner/<uuid:id>/check-ins/",
-        views.PartnerEventCheckInStatsView.as_view(),
-        name="partner_event_check_ins",
-    ),
-    path(
-        "partner/<uuid:event_id>/tickets/",
-        views.PartnerEventTicketsView.as_view(),
-        name="partner_event_tickets",
-    ),
-    # Ticket verification and management
-    path(
-        "partner/tickets/verify/",
-        views.TicketVerifyView.as_view(),
-        name="ticket_verify",
-    ),
-    path(
-        "partner/tickets/verify/<uuid:event_id>/",
-        views.TicketVerifyView.as_view(),
-        name="ticket_verify_event",
-    ),
-    # Ticket management
-    path(
-        "partner/tickets/<uuid:id>/",
-        views.PartnerTicketDetailView.as_view(),
-        name="partner_ticket_detail",
-    ),
-    # Sales
-    path(
-        "partner/sales/",
-        views.PartnerSalesLedgerView.as_view(),
-        name="partner_sales",
-    ),
-    path(
-        "partner/<uuid:id>/detailed-stats/",
-        views.EventDetailedStatsView.as_view(),
-        name="partner_event_detailed_stats",
-    ),
-    # =================
-    # ADMIN ENDPOINTS
-    # =================
-    # Event management
-    path(
-        "admin/<uuid:id>/detailed-stats/",
-        views.EventDetailedStatsView.as_view(),
-        name="admin_event_detailed_stats",
-    ),
-    path(
-        "admin/",
-        views.AdminEventListView.as_view(),
-        name="admin_events",
-    ),
-    path(
-        "admin/<uuid:id>/review/",
-        views.AdminEventReviewView.as_view(),
-        name="admin_event_review",
-    ),
-    path(
-        "admin/tickets/stats/",
-        views.AdminTicketStatsView.as_view(),
-        name="admin_ticket_stats",
-    ),
-    # Purchase management
-    path(
-        "admin/purchases/<uuid:id>/refund/",
-        views.AdminRefundPurchaseView.as_view(),
-        name="admin_refund_purchase",
-    ),
-    # Sale windows
-    path(
-        "admin/sale-windows/",
-        views.AdminSaleWindowListView.as_view(),
-        name="admin_sale_windows",
-    ),
-    path(
-        "admin/sale-windows/create/",
-        views.AdminPartnerSaleWindowView.as_view(),
-        name="admin_create_sale_window",
-    ),
-    # Configuration
-    path(
-        "admin/ticket-config/",
-        views.AdminTicketConfigurationView.as_view(),
-        name="admin_ticket_config",
-    ),
-    path("<str:slug>/", views.EventPublicDetailView.as_view(), name="event_detail"),
-    path(
-        "<str:slug>/tickets/",
-        views.EventTicketsListView.as_view(),
-        name="event_tickets",
-    ),
+    path("", views.EventPublicListView.as_view(), name="list"),
+    path("<str:slug>/", views.EventPublicDetailView.as_view(), name="detail"),
+    path("<str:slug>/tickets/", views.EventTicketsListView.as_view(), name="tickets"),
 ]

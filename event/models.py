@@ -1,21 +1,6 @@
 """
-event/models.py
-
-Data model for the ticket module.
-
-Roles involved:
-    - Member  : the User who purchases a Ticket to attend an Event, and
-                who may transfer a purchased slot to another member
-                within the platform's configured transfer window.
-    - Partner : the User who creates an Event and lists Tickets for
-                sale against it; may be granted a time-boxed window by
-                admin to increase slot capacity on an already
-                approved/on-sale ticket. Partners also verify/check-in
-                members at the event door using QR code scanning.
-    - Admin   : reviews/approves Events, configures the transfer window,
-                grants partner sale windows, and oversees payout
-                settlement. Admins have system-wide oversight but do not
-                perform door check-ins.
+Event ticketing models: Event, Ticket, Purchase, Order, Codes, Transfers,
+and partner settlement records.
 """
 
 import uuid
@@ -32,31 +17,28 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import F, Q
 from django.utils import timezone
+from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 from django.contrib.gis.db import models as gis_models
+from django.contrib.gis.geos import Point
+from celery import shared_task
 
 from accounts.models import User
+from partners.models import PartnerCommissionRule, BUSINESS_CATEGORY
 
 logger = logging.getLogger(__name__)
 
 
 class Event(models.Model):
-    """
-    Model for storing Event details.
-    """
+    """Event details, lifecycle, and location."""
 
     class Status(models.TextChoices):
-        """
-        Review/lifecycle status for an event, set by the partner and
-        moved forward by admin review.
-        """
-
         DRAFT = "draft", _("Draft")
         IN_REVIEW = "in_review", _("In Review")
         REJECTED = "rejected", _("Rejected")
         ON_SALE = "on_sale", _("On Sale")
         EXPIRED = "expired", _("Expired")
-        CANCELLED = "cancelled", _("Cancelled")  # Added missing status
+        CANCELLED = "cancelled", _("Cancelled")
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
@@ -67,44 +49,43 @@ class Event(models.Model):
         related_name="create_event",
         help_text="The partner who created and owns this event",
     )
-    event_host = models.CharField(max_length=255, null=True, blank=True)
-    business_name = models.CharField(max_length=255)
-    business_type = models.CharField(max_length=255)
     event_name = models.CharField(max_length=255)
     slug = models.SlugField(max_length=280, unique=True, blank=True)
-    description = models.TextField()  # Changed from CharField(255) to TextField
-    category = models.CharField(max_length=255, null=True, blank=True)
+    description = models.TextField()
+    category = models.CharField(
+        max_length=255,
+        choices=BUSINESS_CATEGORY,
+        help_text="Must match partner's verified business category",
+    )
     tags = models.JSONField(default=list, null=True, blank=True)
 
     # Location
-    mode = models.CharField(
-        max_length=255,
-        default="Physical",
-        help_text="Event Mode Eg: Physical, Online or Hybrid",
-    )
-    link = models.CharField(
-        max_length=255,
-        null=True,
-        blank=True,
-        help_text="Link, if event is Online or Hybrid Eg: https://meet.google.com/asda-xed-ase",
-    )
-    address = models.TextField(
-        null=True, blank=True, help_text="Location, if Event is Physical"
-    )
-    latitude = models.FloatField(null=True, blank=True)
-    longitude = models.FloatField(null=True, blank=True)
     location = gis_models.PointField(
         geography=True,
         null=True,
         blank=True,
         spatial_index=True,
-        help_text="Derived automatically from latitude/longitude on save.",
+        help_text="Event location as a geographic point",
+    )
+    address = models.TextField(
+        null=True, blank=True, help_text="Location, if Event is Physical"
+    )
+    mode = models.CharField(
+        max_length=255,
+        default="Physical",
+        help_text="Event Mode: Physical, Online, or Hybrid",
+    )
+    link = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Link, if event is Online or Hybrid",
     )
 
     # Views
     view_count = models.PositiveIntegerField(default=0)
 
-    # media (Images/Videos)
+    # Media (Images/Videos)
     media = models.JSONField(default=list, null=True, blank=True)
 
     # Status, Date, and Timestamps
@@ -128,7 +109,7 @@ class Event(models.Model):
     start_date = models.DateTimeField()
     end_date = models.DateTimeField()
     approved_at = models.DateTimeField(null=True, blank=True)
-    cancelled_at = models.DateTimeField(null=True, blank=True)  # Added
+    cancelled_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -136,31 +117,33 @@ class Event(models.Model):
         ordering = ["-approved_at", "-created_at"]
         indexes = [
             models.Index(fields=["status", "approved_at"]),
-            models.Index(fields=["user", "status"]),  # Added for partner queries
-            models.Index(fields=["slug"]),  # Added for slug lookups
+            models.Index(fields=["user", "status"]),
+            models.Index(fields=["slug"]),
         ]
 
     def __str__(self) -> str:
         return self.event_name
 
     def save(self, *args, **kwargs) -> None:
-        # Auto-generate slug if not provided
         if not self.slug:
-            from django.utils.text import slugify
-
+            # Use retry loop with random suffix to avoid race conditions
             base_slug = slugify(self.event_name)
-            unique_slug = base_slug
-            counter = 1
-            while Event.objects.filter(slug=unique_slug).exists():
-                unique_slug = f"{base_slug}-{counter}"
-                counter += 1
-            self.slug = unique_slug
+            if not base_slug:
+                base_slug = "event"
 
-        # Set location point from lat/lng
-        if self.latitude and self.longitude:
-            from django.contrib.gis.geos import Point
+            # Try up to 5 times with random suffixes
+            for attempt in range(5):
+                if attempt == 0:
+                    candidate = base_slug
+                else:
+                    random_suffix = secrets.token_hex(3)
+                    candidate = f"{base_slug}-{random_suffix}"
 
-            self.location = Point(self.longitude, self.latitude, srid=4326)
+                if not Event.objects.filter(slug=candidate).exists():
+                    self.slug = candidate
+                    break
+            else:
+                self.slug = f"{base_slug}-{uuid.uuid4().hex[:8]}"
 
         if self.status == self.Status.ON_SALE and self.approved_at is None:
             self.approved_at = timezone.now()
@@ -170,30 +153,43 @@ class Event(models.Model):
 
         super().save(*args, **kwargs)
 
+    @property
+    def latitude(self):
+        """Derive latitude from location."""
+        if self.location:
+            return self.location.y
+        return None
+
+    @property
+    def longitude(self):
+        """Derive longitude from location."""
+        if self.location:
+            return self.location.x
+        return None
+
+    def set_location(self, latitude, longitude):
+        """Set location from lat/lng."""
+        if latitude is not None and longitude is not None:
+            self.location = Point(longitude, latitude, srid=4326)
+
     def update_view_count(self) -> None:
-        """Atomically increment view count."""
         Event.objects.filter(pk=self.pk).update(view_count=F("view_count") + 1)
 
     @property
     def is_on_sale(self) -> bool:
-        """Check if event is currently on sale."""
         return self.status == self.Status.ON_SALE
 
     @property
     def is_upcoming(self) -> bool:
-        """Check if event is upcoming."""
         return self.start_date > timezone.now()
 
     @property
     def is_past(self) -> bool:
-        """Check if event has ended."""
         return self.end_date < timezone.now()
 
 
 class Ticket(models.Model):
-    """
-    Model for storing ticket type and price attached to it for events.
-    """
+    """Ticket type with pricing and capacity for an event."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
@@ -201,10 +197,10 @@ class Ticket(models.Model):
         to=Event, on_delete=models.CASCADE, related_name="create_ticket"
     )
     name = models.CharField(max_length=255, help_text="Ticket Name Eg: Regular")
-    description = models.TextField(blank=True, default="")  # Changed to TextField
+    description = models.TextField(blank=True, default="")
     price = models.DecimalField(max_digits=14, decimal_places=2)
     slot_cap = models.PositiveIntegerField(
-        default=0, help_text="Maximum number of slots available for this task"
+        default=0, help_text="Maximum number of slots available for this ticket"
     )
     slots_filled = models.PositiveIntegerField(
         default=0, help_text="Number of slots already filled"
@@ -217,8 +213,8 @@ class Ticket(models.Model):
     is_active = models.BooleanField(
         default=True, help_text="Whether this ticket type is currently purchasable"
     )
-    min_purchase = models.PositiveIntegerField(default=1)  # Added
-    max_purchase = models.PositiveIntegerField(default=10)  # Added
+    min_purchase = models.PositiveIntegerField(default=1)
+    max_purchase = models.PositiveIntegerField(default=10)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -233,48 +229,28 @@ class Ticket(models.Model):
         return f"{self.name} - {self.event.event_name}"
 
     def clean(self):
-        """Validate ticket constraints."""
-        # Skip validation if slots_filled is a CombinedExpression (from F() update)
-        from django.db.models.expressions import CombinedExpression
-
-        if isinstance(self.slots_filled, CombinedExpression):
-            # Skip slot_cap validation during F() expression updates
-            pass
-        else:
-            if self.slot_cap and self.slots_filled > self.slot_cap:
-                raise ValidationError("Slots filled cannot exceed slot cap")
-
+        if self.slot_cap and self.slots_filled > self.slot_cap:
+            raise ValidationError("Slots filled cannot exceed slot cap")
         if self.min_purchase > self.max_purchase:
             raise ValidationError("Minimum purchase cannot exceed maximum")
         if self.sales_start_date and self.sales_end_date:
             if self.sales_end_date <= self.sales_start_date:
                 raise ValidationError("Sales end date must be after start date")
 
-    def save(self, *args, **kwargs):
-        # Only call clean if not using F() expressions
-        if not kwargs.get("update_fields") or "slots_filled" not in kwargs.get(
-            "update_fields", []
-        ):
-            self.clean()
-        super().save(*args, **kwargs)
-
     @property
     def available_slots(self) -> int | None:
-        """Return available slots or None for unlimited."""
         if self.unlimited_slots:
             return None
         return max(0, (self.slot_cap or 0) - (self.slots_filled or 0))
 
     @property
     def is_sold_out(self) -> bool:
-        """Check if ticket type is sold out."""
         if self.unlimited_slots:
             return False
         return (self.slots_filled or 0) >= (self.slot_cap or 0)
 
     @property
     def is_on_sale(self) -> bool:
-        """Check if ticket is currently on sale."""
         if not self.is_active or self.is_sold_out or not self.event.is_on_sale:
             return False
         now = timezone.now()
@@ -287,26 +263,31 @@ class Ticket(models.Model):
     @transaction.atomic
     def reserve_slots(self, quantity: int) -> bool:
         """
-        Atomically reserve slots to prevent race conditions.
+        Atomically reserve slots using queryset update.
         Returns True if successful, False if insufficient slots.
         """
         if self.unlimited_slots:
             return True
 
+        # Use select_for_update to lock the row
         locked_ticket = Ticket.objects.select_for_update().get(pk=self.pk)
-        if locked_ticket.available_slots < quantity:
+
+        if locked_ticket.slots_filled + quantity > locked_ticket.slot_cap:
             return False
 
-        locked_ticket.slots_filled = F("slots_filled") + quantity
-        locked_ticket.save(update_fields=["slots_filled", "updated_at"])
-        return True
+        # Update using queryset, not mutating the instance
+        updated = Ticket.objects.filter(
+            pk=self.pk, slots_filled__lte=self.slot_cap - quantity
+        ).update(slots_filled=F("slots_filled") + quantity, updated_at=timezone.now())
+
+        # Refresh the instance to reflect the updated state
+        self.refresh_from_db()
+
+        return updated == 1
 
 
 class TicketPurchase(models.Model):
-    """
-    Records a member's purchase of one or more slots of a given Ticket.
-    Acts as a line item within a TicketOrder (cart).
-    """
+    """Line item for a ticket purchase within an order."""
 
     class Status(models.TextChoices):
         PENDING = "pending", _("Pending")
@@ -383,7 +364,6 @@ class TicketPurchase(models.Model):
 
     @property
     def is_within_transfer_window(self) -> bool:
-        """Check if ticket is within transfer window."""
         if not self.is_paid:
             return False
         config = TicketConfiguration.get_solo()
@@ -393,6 +373,9 @@ class TicketPurchase(models.Model):
         return timezone.now() <= window_end
 
     def mark_as_paid(self, tx_reference: str) -> None:
+        """
+        Mark purchase as paid and trigger QR code generation asynchronously.
+        """
         with transaction.atomic():
             purchase = TicketPurchase.objects.select_for_update().get(pk=self.pk)
 
@@ -410,29 +393,28 @@ class TicketPurchase(models.Model):
             purchase.payment_reference = tx_reference
             purchase.save(update_fields=["status", "payment_reference", "updated_at"])
 
-            # Generate codes with proper code values BEFORE bulk_create
+            # Create ticket codes and trigger async QR generation
             codes = []
             for number in range(purchase.quantity):
-                code_obj = TicketCode(
+                code = TicketCode(
                     purchase=purchase,
                     current_owner=purchase.member,
                 )
-                # Generate code explicitly
-                code_obj.code = code_obj._generate_unique_code()
-                codes.append(code_obj)
+                code.code = code._generate_unique_code()
+                codes.append(code)
 
             TicketCode.objects.bulk_create(codes)
-            for code in codes:
-                code.generate_and_upload_qr_code()
 
+            # Trigger QR generation asynchronously
+            for code in codes:
+                generate_ticket_qr_async.delay(str(code.id))
+
+            # Create partner sale record
             PartnerTicketSale.create_from_purchases([purchase])
 
 
 class TicketOrder(models.Model):
-    """
-    Represents a single checkout/payment transaction that may contain
-    multiple ticket types (cart system).
-    """
+    """Cart/checkout grouping multiple ticket purchases."""
 
     class Status(models.TextChoices):
         PENDING = "pending", _("Pending")
@@ -508,14 +490,11 @@ class TicketOrder(models.Model):
     def mark_as_paid(self, tx_reference: str) -> None:
         """
         Mark this order as paid and finalize all ticket purchases.
+        QR generation happens asynchronously.
         """
-        from django.db import transaction
-
         with transaction.atomic():
-            # Lock the order for update
             order = TicketOrder.objects.select_for_update().get(pk=self.pk)
 
-            # Get all pending purchases for this order
             purchases = TicketPurchase.objects.select_for_update().filter(
                 order=order, status=TicketPurchase.Status.PENDING
             )
@@ -526,19 +505,15 @@ class TicketOrder(models.Model):
                     order.save(update_fields=["status"])
                 raise ValueError("No pending purchases found for this order")
 
-            # Process each purchase
             failed_purchases = []
             for purchase in purchases:
-                # Reserve slots on the ticket
                 if not purchase.ticket.reserve_slots(purchase.quantity):
                     failed_purchases.append(purchase)
 
             if failed_purchases:
-                # Mark order as failed
                 order.status = TicketOrder.Status.FAILED
                 order.save(update_fields=["status", "updated_at"])
 
-                # Mark affected purchases as failed
                 for purchase in failed_purchases:
                     purchase.status = TicketPurchase.Status.FAILED
                     purchase.save(update_fields=["status", "updated_at"])
@@ -548,6 +523,7 @@ class TicketOrder(models.Model):
                 )
 
             # Update all purchases
+            all_codes = []
             for purchase in purchases:
                 purchase.status = TicketPurchase.Status.PAID
                 purchase.payment_reference = tx_reference
@@ -555,23 +531,26 @@ class TicketOrder(models.Model):
                     update_fields=["status", "payment_reference", "updated_at"]
                 )
 
-                # Generate ticket codes with proper code values BEFORE bulk_create
                 codes = []
                 for number in range(purchase.quantity):
-                    code_obj = TicketCode(
+                    code = TicketCode(
                         purchase=purchase,
                         current_owner=order.member,
                     )
-                    # Generate code explicitly
-                    code_obj.code = code_obj._generate_unique_code()
-                    codes.append(code_obj)
+                    code.code = code._generate_unique_code()
+                    codes.append(code)
 
                 TicketCode.objects.bulk_create(codes)
+                all_codes.extend(codes)
 
             # Update order status
             order.status = TicketOrder.Status.PAID
             order.payment_reference = tx_reference
             order.save(update_fields=["status", "payment_reference", "updated_at"])
+
+            # Trigger async QR generation for all codes
+            for code in all_codes:
+                generate_ticket_qr_async.delay(str(code.id))
 
             # Create partner sale records
             PartnerTicketSale.create_from_purchases(purchases)
@@ -580,10 +559,23 @@ class TicketOrder(models.Model):
 # ── QR Code Helpers ─────────────────────────────────────────────────────────
 
 
+@shared_task
+def generate_ticket_qr_async(ticket_code_id: str) -> None:
+    """Async task to generate and upload QR code for a ticket."""
+    try:
+        ticket_code = TicketCode.objects.get(id=ticket_code_id)
+        qr_url = generate_ticket_qr_image_and_upload(str(ticket_code.token))
+        if qr_url:
+            TicketCode.objects.filter(id=ticket_code_id).update(qr_image_url=qr_url)
+            logger.info("QR code uploaded for ticket %s", ticket_code_id)
+        else:
+            logger.warning("QR code upload failed for ticket %s", ticket_code_id)
+    except TicketCode.DoesNotExist:
+        logger.error("TicketCode %s not found for QR generation", ticket_code_id)
+
+
 def _make_ticket_code_prefix(purchase_id: str) -> str:
-    """Generate a short code prefix for ticket codes, e.g. 'TKT-A3X9K2'."""
     alphabet = string.ascii_uppercase + string.digits
-    # Remove confusing characters
     alphabet = (
         alphabet.replace("O", "").replace("0", "").replace("I", "").replace("1", "")
     )
@@ -592,7 +584,6 @@ def _make_ticket_code_prefix(purchase_id: str) -> str:
 
 
 def _make_unique_ticket_code() -> str:
-    """Generate a guaranteed-unique ticket code."""
     import secrets
     import string
 
@@ -609,10 +600,7 @@ def _make_unique_ticket_code() -> str:
 
 
 def generate_ticket_qr_image_and_upload(token: str) -> str:
-    """
-    Generate a QR code PNG for the given token, upload to Cloudinary,
-    and return the secure URL.
-    """
+    """Generate QR code image and upload to Cloudinary."""
     qr_content = f"picadailys://ticket?token={token}"
     qr = qrcode.QRCode(
         version=1,
@@ -645,9 +633,7 @@ def generate_ticket_qr_image_and_upload(token: str) -> str:
 
 
 class TicketCode(models.Model):
-    """
-    An individual, scannable ticket instance issued against a purchase.
-    """
+    """Individual scannable ticket instance with QR code."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
@@ -715,26 +701,21 @@ class TicketCode(models.Model):
             self.current_owner_id = self.purchase.member_id
 
         if is_new and not self.code:
-            # Generate unique code without relying on self.id
             self.code = self._generate_unique_code()
 
         super().save(*args, **kwargs)
 
-        if is_new and not self.qr_image_url:
-            self.generate_and_upload_qr_code()
+        # QR generation is now handled by the async task, not here
 
     def _generate_unique_code(self) -> str:
-        """Generate a guaranteed unique ticket code."""
         import secrets
         import string
 
         alphabet = string.ascii_uppercase + string.digits
-        # Remove confusing characters
         alphabet = (
             alphabet.replace("O", "").replace("0", "").replace("I", "").replace("1", "")
         )
 
-        # Use a combination of purchase ID (if available) and random suffix
         purchase_prefix = str(self.purchase_id)[:4] if self.purchase_id else "TKT"
 
         for number in range(10):
@@ -743,29 +724,15 @@ class TicketCode(models.Model):
             if not TicketCode.objects.filter(code=candidate).exists():
                 return candidate
 
-        # Fallback: use UUID
         return f"TKT-{uuid.uuid4().hex[:8].upper()}"
-
-    def generate_and_upload_qr_code(self) -> None:
-        """Generate QR code and upload to Cloudinary."""
-        qr_url = generate_ticket_qr_image_and_upload(str(self.token))
-        if qr_url:
-            self.qr_image_url = qr_url
-            self.save(update_fields=["qr_image_url"])
-            logger.info("QR code uploaded to Cloudinary for ticket %s", self.id)
 
     @classmethod
     def verify(
         cls, scanned_value: str, event_id: uuid.UUID | None = None
     ) -> "TicketCode | None":
-        """
-        Resolve a scanned/entered value to a TicketCode.
-        Optionally validate against a specific event.
-        """
         if not scanned_value:
             return None
 
-        # Try UUID token first
         try:
             token_uuid = uuid.UUID(str(scanned_value))
             query = cls.objects.filter(token=token_uuid)
@@ -777,7 +744,6 @@ class TicketCode(models.Model):
         except (ValueError, ValidationError):
             pass
 
-        # Try fallback code
         query = cls.objects.filter(code__iexact=scanned_value)
         if event_id:
             query = query.filter(purchase__event_id=event_id)
@@ -786,7 +752,6 @@ class TicketCode(models.Model):
         ).first()
 
     def check_in(self, by: User) -> None:
-        """Mark this ticket as used at the venue."""
         if self.is_checked_in:
             raise ValidationError("Ticket already checked in")
         if not self.purchase.is_paid:
@@ -801,9 +766,7 @@ class TicketCode(models.Model):
 
 
 class TicketTransfer(models.Model):
-    """
-    Records a request to move ownership of a single TicketCode.
-    """
+    """Ownership transfer request for a single TicketCode."""
 
     class Status(models.TextChoices):
         PENDING = "pending", _("Pending")
@@ -856,7 +819,6 @@ class TicketTransfer(models.Model):
 
     @transaction.atomic
     def accept(self) -> None:
-        """Accept transfer and reassign ownership atomically."""
         if self.status != self.Status.PENDING:
             raise ValidationError("Transfer is no longer pending")
         if self.is_invite_expired:
@@ -868,12 +830,10 @@ class TicketTransfer(models.Model):
         self.responded_at = timezone.now()
         self.save(update_fields=["status", "responded_at"])
 
-        # Update ticket owner
         TicketCode.objects.filter(pk=self.ticket_code_id).update(
             current_owner=self.to_user
         )
 
-        # Cancel other pending transfers for this ticket
         TicketTransfer.objects.filter(
             ticket_code_id=self.ticket_code_id, status=self.Status.PENDING
         ).exclude(pk=self.pk).update(
@@ -881,7 +841,6 @@ class TicketTransfer(models.Model):
         )
 
     def decline(self) -> None:
-        """Decline transfer."""
         if self.status != self.Status.PENDING:
             raise ValidationError("Transfer is no longer pending")
         self.status = self.Status.DECLINED
@@ -889,7 +848,6 @@ class TicketTransfer(models.Model):
         self.save(update_fields=["status", "responded_at"])
 
     def cancel(self) -> None:
-        """Cancel transfer by sender."""
         if self.status != self.Status.PENDING:
             raise ValidationError("Transfer is no longer pending")
         self.status = self.Status.CANCELLED
@@ -898,9 +856,6 @@ class TicketTransfer(models.Model):
 
 
 class TicketConfiguration(models.Model):
-    """
-    Singleton, admin-editable settings for the ticketing module.
-    """
 
     transfer_window = models.DurationField(
         default=timedelta(hours=48),
@@ -909,10 +864,6 @@ class TicketConfiguration(models.Model):
     transfer_invite_ttl = models.DurationField(
         default=timedelta(hours=24),
         help_text="How long a transfer invite stays open for the recipient to accept/decline",
-    )
-    max_tickets_per_purchase = models.PositiveIntegerField(default=10)
-    platform_fee_percentage = models.DecimalField(
-        max_digits=5, decimal_places=2, default=Decimal("5.00")
     )
     updated_by = models.ForeignKey(
         to=User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
@@ -938,12 +889,18 @@ class TicketConfiguration(models.Model):
         obj, _created = cls.objects.get_or_create(pk=1)
         return obj
 
+    @classmethod
+    def get_platform_fee(cls, category: str) -> Decimal:
+        """Get platform fee percentage from PartnerCommissionRule."""
+        try:
+            rule = PartnerCommissionRule.objects.get(business=category, is_active=True)
+            return rule.commission_rate
+        except PartnerCommissionRule.DoesNotExist:
+            return Decimal("5.00")
+
 
 class PartnerSaleWindow(models.Model):
-    """
-    Admin-granted window during which a partner may increase ticket
-    slot capacity beyond what was originally approved.
-    """
+    """Admin-granted window for partners to increase ticket capacity."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
@@ -998,7 +955,6 @@ class PartnerSaleWindow(models.Model):
 
     @classmethod
     def partner_can_increase_slots(cls, partner, event) -> bool:
-        """Check if partner has active window to increase slots."""
         now = timezone.now()
         return (
             cls.objects.filter(partner=partner, starts_at__lte=now, ends_at__gte=now)
@@ -1009,8 +965,8 @@ class PartnerSaleWindow(models.Model):
 
 class PartnerTicketSale(models.Model):
     """
-    Ledger entry recording a partner's earnings from a single ticket
-    purchase, net of the platform fee, and tracking payout settlement.
+    Ledger entry for partner earnings from ticket sales.
+    Uses PartnerCommissionRule for fee configuration.
     """
 
     class SettlementStatus(models.TextChoices):
@@ -1018,7 +974,7 @@ class PartnerTicketSale(models.Model):
         SETTLED = "settled", _("Settled")
         ON_HOLD = "on_hold", _("On Hold")
         FAILED = "failed", _("Failed")
-        REFUNDED = "refunded", _("Refunded")  # Added
+        REFUNDED = "refunded", _("Refunded")
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
@@ -1044,7 +1000,7 @@ class PartnerTicketSale(models.Model):
         help_text="Total amount paid by the member (== purchase.total_amount)",
     )
     platform_fee_percentage = models.DecimalField(
-        max_digits=5, decimal_places=2, default=Decimal("5.00")
+        max_digits=5, decimal_places=2, help_text="Fee from PartnerCommissionRule"
     )
     platform_fee_amount = models.DecimalField(max_digits=14, decimal_places=2)
     net_amount = models.DecimalField(
@@ -1061,8 +1017,8 @@ class PartnerTicketSale(models.Model):
     )
     settled_at = models.DateTimeField(null=True, blank=True)
     payout_reference = models.CharField(max_length=255, blank=True, default="")
-    settlement_attempts = models.PositiveIntegerField(default=0)  # Added
-    last_settlement_error = models.TextField(blank=True, default="")  # Added
+    settlement_attempts = models.PositiveIntegerField(default=0)
+    last_settlement_error = models.TextField(blank=True, default="")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1080,12 +1036,15 @@ class PartnerTicketSale(models.Model):
     def save(self, *args, **kwargs) -> None:
         if not self.gross_amount and self.purchase_id:
             self.gross_amount = self.purchase.total_amount
-        if not self.platform_fee_amount:
-            config = TicketConfiguration.get_solo()
-            self.platform_fee_percentage = config.platform_fee_percentage
-            self.platform_fee_amount = (
-                self.gross_amount * self.platform_fee_percentage
-            ) / Decimal("100")
+
+        if not self.platform_fee_percentage:
+            # Get fee from PartnerCommissionRule using event category
+            fee_percentage = TicketConfiguration.get_platform_fee(self.event.category)
+            self.platform_fee_percentage = fee_percentage
+            self.platform_fee_amount = (self.gross_amount * fee_percentage) / Decimal(
+                "100"
+            )
+
         if not self.net_amount:
             self.net_amount = self.gross_amount - self.platform_fee_amount
         super().save(*args, **kwargs)
@@ -1093,22 +1052,43 @@ class PartnerTicketSale(models.Model):
     @classmethod
     def create_from_purchases(cls, purchases):
         """Create PartnerTicketSale records for a list of purchases."""
+        existing_purchase_ids = set(
+            cls.objects.filter(purchase_id__in=[p.id for p in purchases]).values_list(
+                "purchase_id", flat=True
+            )
+        )
+
+        to_create = []
         for purchase in purchases:
-            if not hasattr(purchase, "sale_record"):
-                cls.objects.create(
-                    purchase=purchase,
-                    partner=purchase.event.user,
-                    event=purchase.event,
-                    ticket=purchase.ticket,
-                    gross_amount=purchase.total_amount,
+            if str(purchase.id) not in existing_purchase_ids:
+                fee_percentage = TicketConfiguration.get_platform_fee(
+                    purchase.event.category
                 )
+                gross = purchase.total_amount
+                fee_amount = (gross * fee_percentage) / Decimal("100")
+                net = gross - fee_amount
+
+                to_create.append(
+                    cls(
+                        purchase=purchase,
+                        partner=purchase.event.user,
+                        event=purchase.event,
+                        ticket=purchase.ticket,
+                        gross_amount=gross,
+                        platform_fee_percentage=fee_percentage,
+                        platform_fee_amount=fee_amount,
+                        net_amount=net,
+                    )
+                )
+
+        if to_create:
+            cls.objects.bulk_create(to_create)
 
     @property
     def is_settled(self) -> bool:
         return self.settlement_status == self.SettlementStatus.SETTLED
 
     def mark_settled(self, payout_reference: str) -> None:
-        """Mark sale as settled."""
         self.settlement_status = self.SettlementStatus.SETTLED
         self.settled_at = timezone.now()
         self.payout_reference = payout_reference

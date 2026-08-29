@@ -6,7 +6,7 @@ Serializers for the event module, grouped by role.
 
 from django.utils import timezone
 from rest_framework import serializers
-from django.db.models import F, Q
+from django.db.models import F, Q, Sum
 
 from .models import (
     Event,
@@ -29,12 +29,15 @@ class EventPublicSerializer(serializers.ModelSerializer):
     """Read-only, member-facing view of an event."""
 
     tickets_available = serializers.SerializerMethodField()
+    business_name = serializers.SerializerMethodField()
+    business_type = serializers.SerializerMethodField()
 
     class Meta:
         model = Event
         fields = [
             "id",
             "business_name",
+            "business_type",
             "event_name",
             "slug",
             "description",
@@ -51,6 +54,12 @@ class EventPublicSerializer(serializers.ModelSerializer):
             "tickets_available",
         ]
         read_only_fields = fields
+
+    def get_business_name(self, obj):
+        return obj.user.business_name if hasattr(obj.user, "business_name") else ""
+
+    def get_business_type(self, obj):
+        return obj.user.business_type if hasattr(obj.user, "business_type") else ""
 
     def get_tickets_available(self, obj):
         """Return count of available ticket types."""
@@ -74,6 +83,8 @@ class EventPartnerSerializer(serializers.ModelSerializer):
 
     tickets_count = serializers.SerializerMethodField()
     total_sales = serializers.SerializerMethodField()
+    business_name = serializers.SerializerMethodField()
+    business_type = serializers.SerializerMethodField()
 
     class Meta:
         model = Event
@@ -105,16 +116,25 @@ class EventPartnerSerializer(serializers.ModelSerializer):
             "view_count",
             "tickets_count",
             "total_sales",
+            "business_name",
+            "business_type",
         ]
+
+    def get_business_name(self, obj):
+        return obj.user.business_name if hasattr(obj.user, "business_name") else ""
+
+    def get_business_type(self, obj):
+        return obj.user.business_type if hasattr(obj.user, "business_type") else ""
 
     def get_tickets_count(self, obj):
         return obj.create_ticket.count()
 
     def get_total_sales(self, obj):
-        from django.db.models import Sum
-
         total = obj.sales_records.filter(
-            settlement_status__in=["pending", "settled"]
+            settlement_status__in=[
+                PartnerTicketSale.SettlementStatus.PENDING,
+                PartnerTicketSale.SettlementStatus.SETTLED,
+            ]
         ).aggregate(total=Sum("gross_amount"))["total"]
         return str(total or "0")
 
@@ -262,10 +282,11 @@ class TicketPartnerSerializer(serializers.ModelSerializer):
         return obj.slots_filled
 
     def get_revenue(self, obj):
-        from django.db.models import Sum
-
         total = obj.sales_records.filter(
-            settlement_status__in=["pending", "settled"]
+            settlement_status__in=[
+                PartnerTicketSale.SettlementStatus.PENDING,
+                PartnerTicketSale.SettlementStatus.SETTLED,
+            ]
         ).aggregate(total=Sum("gross_amount"))["total"]
         return str(total or "0")
 
@@ -603,24 +624,10 @@ class TicketConfigurationSerializer(serializers.ModelSerializer):
         fields = [
             "transfer_window",
             "transfer_invite_ttl",
-            "max_tickets_per_purchase",
-            "platform_fee_percentage",
             "updated_by",
             "updated_at",
         ]
         read_only_fields = ["updated_by", "updated_at"]
-
-    def validate_max_tickets_per_purchase(self, value):
-        if value < 1:
-            raise serializers.ValidationError("Must be at least 1")
-        if value > 100:
-            raise serializers.ValidationError("Cannot exceed 100 tickets per purchase")
-        return value
-
-    def validate_platform_fee_percentage(self, value):
-        if value < 0 or value > 100:
-            raise serializers.ValidationError("Must be between 0 and 100")
-        return value
 
     def update(self, instance, validated_data):
         validated_data["updated_by"] = self.context["request"].user

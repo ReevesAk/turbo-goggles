@@ -3,13 +3,6 @@ event/views.py
 
 Views for the event/ticketing module, organized by role.
 
-This module implements:
-- Public event browsing for members
-- Event creation and management for partners
-- Ticket purchasing with secure payment processing (single and cart)
-- Ticket transfer between members
-- Admin review and check-in functionality
-- Detailed sales statistics
 """
 
 import logging
@@ -26,6 +19,7 @@ from rest_framework import status, generics
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError as DRFValidationError
+from rest_framework.pagination import PageNumberPagination
 
 from drf_spectacular.utils import (
     extend_schema,
@@ -34,10 +28,10 @@ from drf_spectacular.utils import (
 from drf_spectacular.types import OpenApiTypes
 
 
-from accounts.models import AccountType, UserNotification
+from accounts.models import UserNotification
 from banking.helpers import verify_wallet_auth
 from commons import generate_txId, first_validation_error
-from permissions import IsMember, IsPartner, IsSuperAdmin
+from permissions import IsMember, IsPartner, IsPartnerAdminOrSuperAdmin
 from security import encrypt, decrypt
 
 from modules.billing_mixings import BrandChargeMixin, _round_money
@@ -54,7 +48,6 @@ from .models import (
 )
 from .serializers import (
     EventAdminReviewSerializer,
-    # EventDetailedStatsSerializer,
     EventPartnerSerializer,
     EventPublicSerializer,
     PartnerSaleWindowSerializer,
@@ -73,6 +66,12 @@ from .serializers import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class EventTicketPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = "page_size"
+    max_page_size = 100
 
 
 # ===================
@@ -123,6 +122,17 @@ def _get_event_by_slug_or_id(value: str):
         return Event.objects.filter(slug=value).first()
 
 
+def _require_verified_partner(user):
+    """Check if user is a verified partner."""
+    if not hasattr(user, "business_verified") or not user.business_verified:
+        return _error_response(
+            "Only verified partners can create events. Please complete your "
+            "business verification first.",
+            status.HTTP_403_FORBIDDEN,
+        )
+    return None
+
+
 # ======================
 #  MEMBER-FACING VIEWS
 # ======================
@@ -158,7 +168,7 @@ def _get_event_by_slug_or_id(value: str):
             name="search",
             type=OpenApiTypes.STR,
             location=OpenApiParameter.QUERY,
-            description="Search by event name or business name",
+            description="Search by event name",
             required=False,
         ),
     ],
@@ -168,7 +178,7 @@ class EventPublicListView(generics.ListAPIView):
 
     serializer_class = EventPublicSerializer
     permission_classes = [IsAuthenticated]
-    pagination_class = None
+    pagination_class = EventTicketPagination
 
     def get_queryset(self):
         now = timezone.now()
@@ -193,7 +203,8 @@ class EventPublicListView(generics.ListAPIView):
         search = self.request.query_params.get("search")
         if search:
             qs = qs.filter(
-                Q(event_name__icontains=search) | Q(business_name__icontains=search)
+                Q(event_name__icontains=search)
+                | Q(user__business_name__icontains=search)
             )
 
         return qs.order_by("-approved_at", "-created_at")
@@ -876,6 +887,37 @@ class TicketTransferRespondView(generics.GenericAPIView):
         )
 
 
+@extend_schema(
+    summary="Cancel a pending transfer",
+    tags=["Tickets [Member]"],
+    description="Cancel a pending transfer request initiated by the authenticated member.",
+)
+class TicketTransferCancelView(generics.GenericAPIView):
+    """POST /tickets/transfer/<id>/cancel/ - Cancel transfer."""
+
+    permission_classes = [IsAuthenticated, IsMember]
+
+    def post(self, request, *args, **kwargs):
+        transfer_id = kwargs.get("id")
+
+        try:
+            transfer = TicketTransfer.objects.get(
+                id=transfer_id, from_user=request.user
+            )
+        except TicketTransfer.DoesNotExist:
+            return _error_response("Transfer not found.", status.HTTP_404_NOT_FOUND)
+
+        if transfer.status != TicketTransfer.Status.PENDING:
+            return _error_response(
+                "This transfer is no longer pending.",
+                status.HTTP_400_BAD_REQUEST,
+            )
+
+        transfer.cancel()
+
+        return _success_response("Transfer cancelled successfully.")
+
+
 # =======================
 #  PARTNER-FACING VIEWS
 # =======================
@@ -891,7 +933,7 @@ class PartnerEventListView(generics.ListCreateAPIView):
 
     serializer_class = EventPartnerSerializer
     permission_classes = [IsAuthenticated, IsPartner]
-    pagination_class = None
+    pagination_class = EventTicketPagination
 
     def get_queryset(self):
         qs = Event.objects.filter(user=self.request.user)
@@ -916,6 +958,11 @@ class PartnerEventListView(generics.ListCreateAPIView):
         )
 
     def create(self, request, *args, **kwargs):
+        # Require verified partner before event creation
+        error_response = _require_verified_partner(request.user)
+        if error_response:
+            return error_response
+
         decrypted_data = _decrypt_request_data(request)
         if decrypted_data is None:
             return _error_response(
@@ -928,14 +975,6 @@ class PartnerEventListView(generics.ListCreateAPIView):
             return error_response
 
         event = serializer.save()
-
-        # Ensure partner role
-        if not AccountType.objects.filter(
-            user=request.user, user_type="Partner"
-        ).exists():
-            AccountType.objects.create(user=request.user, user_type="Partner")
-            request.user.active_role = "Partner"
-            request.user.save(update_fields=["active_role"])
 
         return _success_response(
             "Event created successfully and submitted for review.",
@@ -1194,9 +1233,9 @@ class PartnerSalesLedgerView(generics.ListAPIView):
         total_fees = queryset.aggregate(Sum("platform_fee_amount"))[
             "platform_fee_amount__sum"
         ] or Decimal("0")
-        pending = queryset.filter(settlement_status="pending").aggregate(
-            Sum("net_amount")
-        )["net_amount__sum"] or Decimal("0")
+        pending = queryset.filter(
+            settlement_status=PartnerTicketSale.SettlementStatus.PENDING
+        ).aggregate(Sum("net_amount"))["net_amount__sum"] or Decimal("0")
 
         return _success_response(
             "Sales ledger retrieved successfully.",
@@ -1208,6 +1247,49 @@ class PartnerSalesLedgerView(generics.ListAPIView):
                     "total_fees": str(total_fees),
                     "pending_settlement": str(pending),
                 },
+            },
+        )
+
+
+@extend_schema(
+    summary="Get event check-in statistics",
+    tags=["Events [Partner]"],
+    description="Returns check-in statistics for a partner's event.",
+)
+class PartnerEventCheckInStatsView(generics.GenericAPIView):
+    """GET /partner/events/<id>/check-ins/ - Get check-in stats."""
+
+    permission_classes = [IsAuthenticated, IsPartner]
+
+    def get(self, request, *args, **kwargs):
+        event_id = kwargs.get("id")
+
+        try:
+            event = Event.objects.get(id=event_id, user=request.user)
+        except Event.DoesNotExist:
+            return _error_response("Event not found.", status.HTTP_404_NOT_FOUND)
+
+        total_tickets = TicketCode.objects.filter(
+            purchase__event=event,
+            purchase__status=TicketPurchase.Status.PAID,
+        ).count()
+
+        checked_in = TicketCode.objects.filter(
+            purchase__event=event,
+            purchase__status=TicketPurchase.Status.PAID,
+            is_checked_in=True,
+        ).count()
+
+        not_checked_in = total_tickets - checked_in
+        check_in_rate = (checked_in / total_tickets * 100) if total_tickets > 0 else 0
+
+        return _success_response(
+            "Check-in statistics retrieved successfully.",
+            {
+                "total_tickets": total_tickets,
+                "checked_in": checked_in,
+                "not_checked_in": not_checked_in,
+                "check_in_rate": f"{check_in_rate:.1f}%",
             },
         )
 
@@ -1226,8 +1308,8 @@ class AdminEventListView(generics.ListAPIView):
     """GET /admin/events/ - List all events."""
 
     serializer_class = EventPartnerSerializer
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
-    pagination_class = None
+    permission_classes = [IsAuthenticated, IsPartnerAdminOrSuperAdmin]
+    pagination_class = EventTicketPagination
 
     def get_queryset(self):
         qs = Event.objects.all()
@@ -1266,10 +1348,11 @@ class AdminEventReviewView(generics.GenericAPIView):
     POST /admin/events/<id>/review/ - Review event.
 
     Approves or rejects an event. Uses POST method as specified in the API docs.
+    PartnersAdmin and SuperAdmin can review events.
     """
 
     serializer_class = EventAdminReviewSerializer
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    permission_classes = [IsAuthenticated, IsPartnerAdminOrSuperAdmin]
     lookup_field = "id"
 
     def get_queryset(self):
@@ -1331,7 +1414,7 @@ class AdminEventReviewView(generics.GenericAPIView):
 
 @extend_schema(
     summary="Verify and check-in a ticket",
-    tags=["Tickets [Admin]"],
+    tags=["Tickets [Admin/Partner]"],
     description="Scan a ticket's QR code or enter the fallback code to check in an attendee.",
 )
 class TicketVerifyView(generics.GenericAPIView):
@@ -1385,7 +1468,7 @@ class AdminPartnerSaleWindowView(generics.CreateAPIView):
     """POST /admin/sale-windows/create/ - Grant sale window."""
 
     serializer_class = PartnerSaleWindowSerializer
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    permission_classes = [IsAuthenticated, IsPartnerAdminOrSuperAdmin]
 
     def create(self, request, *args, **kwargs):
         decrypted_data = _decrypt_request_data(request)
@@ -1432,7 +1515,7 @@ class AdminSaleWindowListView(generics.ListAPIView):
     """GET /admin/sale-windows/ - List sale windows."""
 
     serializer_class = PartnerSaleWindowSerializer
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    permission_classes = [IsAuthenticated, IsPartnerAdminOrSuperAdmin]
 
     def get_queryset(self):
         qs = PartnerSaleWindow.objects.all()
@@ -1467,7 +1550,7 @@ class AdminTicketConfigurationView(generics.RetrieveUpdateAPIView):
     """GET/PATCH /admin/ticket-config/ - Manage ticket configuration."""
 
     serializer_class = TicketConfigurationSerializer
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    permission_classes = [IsAuthenticated, IsPartnerAdminOrSuperAdmin]
 
     def get_object(self):
         return TicketConfiguration.get_solo()
@@ -1516,7 +1599,7 @@ class AdminTicketConfigurationView(generics.RetrieveUpdateAPIView):
 class AdminTicketStatsView(generics.GenericAPIView):
     """GET /admin/tickets/stats/ - Get ticket statistics."""
 
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    permission_classes = [IsAuthenticated, IsPartnerAdminOrSuperAdmin]
 
     def get(self, request, *args, **kwargs):
         today = timezone.now().date()
@@ -1562,7 +1645,7 @@ class AdminTicketStatsView(generics.GenericAPIView):
             status=TicketPurchase.Status.PENDING
         ).count()
         pending_settlements = PartnerTicketSale.objects.filter(
-            settlement_status="pending"
+            settlement_status=PartnerTicketSale.SettlementStatus.PENDING
         ).count()
 
         # Recent activity
@@ -1739,80 +1822,6 @@ class EventDetailedStatsView(generics.GenericAPIView):
 
 
 @extend_schema(
-    summary="Cancel a pending transfer",
-    tags=["Tickets [Member]"],
-    description="Cancel a pending transfer request initiated by the authenticated member.",
-)
-class TicketTransferCancelView(generics.GenericAPIView):
-    """POST /tickets/transfer/<id>/cancel/ - Cancel transfer."""
-
-    permission_classes = [IsAuthenticated, IsMember]
-
-    def post(self, request, *args, **kwargs):
-        transfer_id = kwargs.get("id")
-
-        try:
-            transfer = TicketTransfer.objects.get(
-                id=transfer_id, from_user=request.user
-            )
-        except TicketTransfer.DoesNotExist:
-            return _error_response("Transfer not found.", status.HTTP_404_NOT_FOUND)
-
-        if transfer.status != TicketTransfer.Status.PENDING:
-            return _error_response(
-                "This transfer is no longer pending.",
-                status.HTTP_400_BAD_REQUEST,
-            )
-
-        transfer.cancel()
-
-        return _success_response("Transfer cancelled successfully.")
-
-
-@extend_schema(
-    summary="Get event check-in statistics",
-    tags=["Events [Partner]"],
-    description="Returns check-in statistics for a partner's event.",
-)
-class PartnerEventCheckInStatsView(generics.GenericAPIView):
-    """GET /partner/events/<id>/check-ins/ - Get check-in stats."""
-
-    permission_classes = [IsAuthenticated, IsPartner]
-
-    def get(self, request, *args, **kwargs):
-        event_id = kwargs.get("id")
-
-        try:
-            event = Event.objects.get(id=event_id, user=request.user)
-        except Event.DoesNotExist:
-            return _error_response("Event not found.", status.HTTP_404_NOT_FOUND)
-
-        total_tickets = TicketCode.objects.filter(
-            purchase__event=event,
-            purchase__status=TicketPurchase.Status.PAID,
-        ).count()
-
-        checked_in = TicketCode.objects.filter(
-            purchase__event=event,
-            purchase__status=TicketPurchase.Status.PAID,
-            is_checked_in=True,
-        ).count()
-
-        not_checked_in = total_tickets - checked_in
-        check_in_rate = (checked_in / total_tickets * 100) if total_tickets > 0 else 0
-
-        return _success_response(
-            "Check-in statistics retrieved successfully.",
-            {
-                "total_tickets": total_tickets,
-                "checked_in": checked_in,
-                "not_checked_in": not_checked_in,
-                "check_in_rate": f"{check_in_rate:.1f}%",
-            },
-        )
-
-
-@extend_schema(
     summary="Refund a ticket purchase (admin)",
     tags=["Tickets [Admin]"],
     description="Refund a ticket purchase and cancel associated ticket codes.",
@@ -1820,7 +1829,7 @@ class PartnerEventCheckInStatsView(generics.GenericAPIView):
 class AdminRefundPurchaseView(generics.GenericAPIView):
     """POST /admin/purchases/<id>/refund/ - Refund purchase."""
 
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    permission_classes = [IsAuthenticated, IsPartnerAdminOrSuperAdmin]
 
     def post(self, request, *args, **kwargs):
         purchase_id = kwargs.get("id")
