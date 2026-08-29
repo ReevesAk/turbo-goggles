@@ -21,7 +21,7 @@ from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 from django.contrib.gis.db import models as gis_models
 from django.contrib.gis.geos import Point
-from celery import shared_task
+
 
 from accounts.models import User
 from partners.models import PartnerCommissionRule, BUSINESS_CATEGORY
@@ -275,9 +275,9 @@ class Ticket(models.Model):
         if locked_ticket.slots_filled + quantity > locked_ticket.slot_cap:
             return False
 
-        # Update using queryset, not mutating the instance
+        # Use locked_ticket.slot_cap in the filter
         updated = Ticket.objects.filter(
-            pk=self.pk, slots_filled__lte=self.slot_cap - quantity
+            pk=self.pk, slots_filled__lte=locked_ticket.slot_cap - quantity
         ).update(slots_filled=F("slots_filled") + quantity, updated_at=timezone.now())
 
         # Refresh the instance to reflect the updated state
@@ -376,6 +376,8 @@ class TicketPurchase(models.Model):
         """
         Mark purchase as paid and trigger QR code generation asynchronously.
         """
+        from .tasks import generate_ticket_qr_async
+
         with transaction.atomic():
             purchase = TicketPurchase.objects.select_for_update().get(pk=self.pk)
 
@@ -407,7 +409,9 @@ class TicketPurchase(models.Model):
 
             # Trigger QR generation asynchronously
             for code in codes:
-                generate_ticket_qr_async.delay(str(code.id))
+                transaction.on_commit(
+                    lambda code_id=str(code.id): generate_ticket_qr_async.delay(code_id)
+                )
 
             # Create partner sale record
             PartnerTicketSale.create_from_purchases([purchase])
@@ -492,6 +496,8 @@ class TicketOrder(models.Model):
         Mark this order as paid and finalize all ticket purchases.
         QR generation happens asynchronously.
         """
+        from .tasks import generate_ticket_qr_async
+
         with transaction.atomic():
             order = TicketOrder.objects.select_for_update().get(pk=self.pk)
 
@@ -550,28 +556,15 @@ class TicketOrder(models.Model):
 
             # Trigger async QR generation for all codes
             for code in all_codes:
-                generate_ticket_qr_async.delay(str(code.id))
+                transaction.on_commit(
+                    lambda code_id=str(code.id): generate_ticket_qr_async.delay(code_id)
+                )
 
             # Create partner sale records
             PartnerTicketSale.create_from_purchases(purchases)
 
 
 # ── QR Code Helpers ─────────────────────────────────────────────────────────
-
-
-@shared_task
-def generate_ticket_qr_async(ticket_code_id: str) -> None:
-    """Async task to generate and upload QR code for a ticket."""
-    try:
-        ticket_code = TicketCode.objects.get(id=ticket_code_id)
-        qr_url = generate_ticket_qr_image_and_upload(str(ticket_code.token))
-        if qr_url:
-            TicketCode.objects.filter(id=ticket_code_id).update(qr_image_url=qr_url)
-            logger.info("QR code uploaded for ticket %s", ticket_code_id)
-        else:
-            logger.warning("QR code upload failed for ticket %s", ticket_code_id)
-    except TicketCode.DoesNotExist:
-        logger.error("TicketCode %s not found for QR generation", ticket_code_id)
 
 
 def _make_ticket_code_prefix(purchase_id: str) -> str:
@@ -856,6 +849,13 @@ class TicketTransfer(models.Model):
 
 
 class TicketConfiguration(models.Model):
+    """
+    Singleton configuration for global ticketing settings.
+
+    This is a singleton model (only one instance exists, pk=1) that stores
+    global settings like transfer windows. Admins can edit these values
+    through the Django admin interface or the API endpoint.
+    """
 
     transfer_window = models.DurationField(
         default=timedelta(hours=48),
@@ -865,6 +865,7 @@ class TicketConfiguration(models.Model):
         default=timedelta(hours=24),
         help_text="How long a transfer invite stays open for the recipient to accept/decline",
     )
+
     updated_by = models.ForeignKey(
         to=User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
@@ -896,6 +897,10 @@ class TicketConfiguration(models.Model):
             rule = PartnerCommissionRule.objects.get(business=category, is_active=True)
             return rule.commission_rate
         except PartnerCommissionRule.DoesNotExist:
+            logger.warning(
+                "No active PartnerCommissionRule found for category '%s'; defaulting fee to 5%%",
+                category,
+            )
             return Decimal("5.00")
 
 
