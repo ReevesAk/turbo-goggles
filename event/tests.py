@@ -25,7 +25,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 from freezegun import freeze_time
 
-from accounts.models import User, AccountType, TxModel, UserNotification
+from accounts.models import User, AccountType, UserNotification
 from banking.models import WalletModel
 from security import encrypt, decrypt
 
@@ -62,7 +62,7 @@ def _create_user(**overrides):
         "state": "Lagos",
         "city": "Ikeja",
         "is_verified": True,
-        "is_staff": True,
+        "is_staff": False,
         "active_role": "Member",
         "level": "Starter",
         "total_points": 0,
@@ -78,7 +78,10 @@ def _create_user(**overrides):
 
 def _create_partner(**overrides):
     """Create a partner user."""
-    defaults = {"active_role": "Partner"}
+    defaults = {
+        "active_role": "Partner",
+        "business_verified": True,
+    }
     defaults.update(overrides)
     user = _create_user(**defaults)
     AccountType.objects.create(user=user, user_type="Partner")
@@ -112,16 +115,12 @@ def _create_event(partner, **overrides):
     now = timezone.now()
     defaults = {
         "user": partner,
-        "business_name": "Test Events Ltd",
-        "business_type": "Events",
         "event_name": "Tech Conference 2024",
         "description": "A comprehensive tech conference covering AI, blockchain, and more.",
         "category": "Technology",
         "tags": ["tech", "ai", "blockchain"],
         "mode": "Physical",
         "address": "123 Test Street, Lagos",
-        "latitude": 6.5244,
-        "longitude": 3.3792,
         "status": Event.Status.ON_SALE,
         "start_date": now + timedelta(days=30),
         "end_date": now + timedelta(days=31),
@@ -154,7 +153,6 @@ def _create_ticket(event, **overrides):
 
 def _create_wallet(user, balance=Decimal("50000.00"), pin="123456"):
     """Create a wallet with INDIVIDUAL type and a hashed PIN."""
-
     return WalletModel.objects.create(
         user=user,
         account_number="1234567890",
@@ -179,12 +177,17 @@ def _create_purchase(member, ticket, **overrides):
     defaults.update(overrides)
     purchase = TicketPurchase.objects.create(**defaults)
 
-    # Create ticket codes
+    # Create ticket codes - bulk create avoids save() Cloudinary calls
+    codes = []
     for _ in range(purchase.quantity):
-        TicketCode.objects.create(
+        code = TicketCode(
             purchase=purchase,
             current_owner=member,
         )
+        # Generate code without triggering save()
+        code.code = code._generate_unique_code()
+        codes.append(code)
+    TicketCode.objects.bulk_create(codes)
 
     return purchase
 
@@ -219,33 +222,63 @@ def _create_order(member, event, tickets_data, **overrides):
             payment_reference=order.payment_reference,
         )
 
-        # Create ticket codes
+        # Create ticket codes - bulk create avoids save() Cloudinary calls
+        codes = []
         for _ in range(purchase.quantity):
-            TicketCode.objects.create(
+            code = TicketCode(
                 purchase=purchase,
                 current_owner=member,
             )
+            code.code = code._generate_unique_code()
+            codes.append(code)
+        TicketCode.objects.bulk_create(codes)
 
     return order
 
 
 # =============================================================================
-# Base Test Case with Throttle Mocking
+# Base Test Case with Throttle, Cloudinary & Celery Mocking
 # =============================================================================
 
 
 class ThrottleDisabledAPITestCase(APITestCase):
-    """Base class that disables DRF throttling for all tests."""
+    """
+    Base class that disables DRF throttling, mocks Cloudinary, and mocks Celery.
+    Prevents live API calls and task queue connections during tests.
+    """
 
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        # Disable DRF throttling
         cls._throttle_patcher = patch("rest_framework.views.APIView.check_throttles")
         cls._throttle_patcher.start()
+
+        # Mock Cloudinary uploader to prevent live API calls
+        cls._cloudinary_patcher = patch(
+            "cloudinary.uploader.upload",
+            return_value={"secure_url": "https://mock.cloudinary.com/qr.png"},
+        )
+        cls._cloudinary_patcher.start()
+
+        # Mock QR code image generation
+        cls._qrcode_patcher = patch(
+            "qrcode.QRCode.make_image", return_value=MagicMock()
+        )
+        cls._qrcode_patcher.start()
+
+        # Mock Celery's delay() to prevent Redis connections
+        cls._celery_patcher = patch(
+            "event.models.generate_ticket_qr_async.delay", return_value=MagicMock()
+        )
+        cls._celery_patcher.start()
 
     @classmethod
     def tearDownClass(cls):
         cls._throttle_patcher.stop()
+        cls._cloudinary_patcher.stop()
+        cls._qrcode_patcher.stop()
+        cls._celery_patcher.stop()
         super().tearDownClass()
 
 
@@ -290,12 +323,37 @@ class EventModelTests(ThrottleDisabledAPITestCase):
         self.event.save()
         self.assertFalse(self.event.is_on_sale)
 
-    def test_event_location_point_generation(self):
-        """Location point is generated from lat/lng."""
-        self.event.latitude = 6.5244
-        self.event.longitude = 3.3792
+    def test_event_is_upcoming_property(self):
+        """is_upcoming returns correct boolean."""
+        self.assertTrue(self.event.is_upcoming)
+
+        # Past event
+        past_event = _create_event(
+            self.partner,
+            start_date=timezone.now() - timedelta(days=10),
+            end_date=timezone.now() - timedelta(days=9),
+        )
+        self.assertFalse(past_event.is_upcoming)
+
+    def test_event_is_past_property(self):
+        """is_past returns correct boolean."""
+        self.assertFalse(self.event.is_past)
+
+        # Past event
+        past_event = _create_event(
+            self.partner,
+            start_date=timezone.now() - timedelta(days=10),
+            end_date=timezone.now() - timedelta(days=9),
+        )
+        self.assertTrue(past_event.is_past)
+
+    def test_event_location_setter(self):
+        """set_location creates Point from lat/lng."""
+        self.event.set_location(6.5244, 3.3792)
         self.event.save()
         self.assertIsNotNone(self.event.location)
+        self.assertEqual(self.event.latitude, 6.5244)
+        self.assertEqual(self.event.longitude, 3.3792)
 
     def test_update_view_count(self):
         """update_view_count atomically increments."""
@@ -344,6 +402,18 @@ class TicketModelTests(ThrottleDisabledAPITestCase):
         self.ticket.save()
         self.assertFalse(self.ticket.is_on_sale)
 
+        # Test sold out
+        self.ticket.is_active = True
+        self.ticket.slots_filled = 100
+        self.ticket.save()
+        self.assertFalse(self.ticket.is_on_sale)
+
+        # Test sales dates
+        self.ticket.slots_filled = 0
+        self.ticket.sales_start_date = timezone.now() + timedelta(days=1)
+        self.ticket.save()
+        self.assertFalse(self.ticket.is_on_sale)
+
     def test_reserve_slots_atomic(self):
         """reserve_slots atomically reserves slots."""
         result = self.ticket.reserve_slots(5)
@@ -355,6 +425,51 @@ class TicketModelTests(ThrottleDisabledAPITestCase):
         """reserve_slots fails when insufficient."""
         result = self.ticket.reserve_slots(200)
         self.assertFalse(result)
+
+    def test_reserve_slots_unlimited(self):
+        """reserve_slots always succeeds for unlimited tickets."""
+        self.ticket.unlimited_slots = True
+        self.ticket.save()
+        result = self.ticket.reserve_slots(999999)
+        self.assertTrue(result)
+
+
+class TicketPurchaseModelTests(ThrottleDisabledAPITestCase):
+    """Unit tests for TicketPurchase model."""
+
+    def setUp(self):
+        self.partner = _create_partner()
+        self.member = _create_member()
+        self.event = _create_event(self.partner)
+        self.ticket = _create_ticket(self.event)
+
+    def test_is_paid_property(self):
+        """is_paid returns correct boolean."""
+        purchase = TicketPurchase.objects.create(
+            member=self.member,
+            ticket=self.ticket,
+            event=self.event,
+            quantity=1,
+            unit_price=self.ticket.price,
+            total_amount=self.ticket.price,
+            status=TicketPurchase.Status.PENDING,
+        )
+        self.assertFalse(purchase.is_paid)
+
+        purchase.status = TicketPurchase.Status.PAID
+        purchase.save()
+        self.assertTrue(purchase.is_paid)
+
+    def test_is_within_transfer_window(self):
+        """is_within_transfer_window checks transfer window."""
+        purchase = _create_purchase(self.member, self.ticket)
+
+        # Should be within window
+        self.assertTrue(purchase.is_within_transfer_window)
+
+        # Fast forward past window
+        with freeze_time(timezone.now() + timedelta(hours=72)):
+            self.assertFalse(purchase.is_within_transfer_window)
 
 
 class TicketOrderModelTests(ThrottleDisabledAPITestCase):
@@ -538,7 +653,7 @@ class EventPublicListTests(ThrottleDisabledAPITestCase):
             start_date=now - timedelta(days=1),
             end_date=now + timedelta(days=5),
         )
-        response = self.client.get("/v1/event/")
+        response = self.client.get("/v1/events/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         body = decrypt(response.content)
         self.assertEqual(body["status"], "success")
@@ -563,25 +678,25 @@ class EventPublicListTests(ThrottleDisabledAPITestCase):
             end_date=now + timedelta(days=5),
         )
 
-        response = self.client.get("/v1/event/?category=Music")
+        response = self.client.get("/v1/events/?category=Music")
         body = decrypt(response.content)
         self.assertEqual(body["data"]["count"], 1)
 
     def test_list_events_requires_auth(self):
         """Unauthenticated requests get 401."""
         self.client.force_authenticate(user=None)
-        response = self.client.get("/v1/event/")
+        response = self.client.get("/v1/events/")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_list_events_cached(self):
         """Event list is cached."""
         _create_event(self.partner)
-        response1 = self.client.get("/v1/event/")
+        response1 = self.client.get("/v1/events/")
         body1 = decrypt(response1.content)
 
         with patch("django.core.cache.cache.get") as mock_cache_get:
             mock_cache_get.return_value = body1
-            response2 = self.client.get("/v1/event/")
+            response2 = self.client.get("/v1/events/")
             self.assertEqual(response2.status_code, status.HTTP_200_OK)
             mock_cache_get.assert_called()
 
@@ -592,13 +707,13 @@ class EventPublicDetailTests(ThrottleDisabledAPITestCase):
     def setUp(self):
         self.partner = _create_partner()
         self.member = _create_member()
-        self.event = _create_event(self.partner)
+        self.event = _create_event(self.partner, slug="test-event-2024")
         self.client.force_authenticate(user=self.member)
         cache.clear()
 
     def test_get_event_detail_success(self):
         """Members can view event details."""
-        response = self.client.get(f"/v1/event/{self.event.id}/")
+        response = self.client.get(f"/v1/events/{self.event.slug}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         body = decrypt(response.content)
         self.assertEqual(body["status"], "success")
@@ -607,14 +722,34 @@ class EventPublicDetailTests(ThrottleDisabledAPITestCase):
     def test_get_event_detail_increments_view_count(self):
         """View count increments on detail view."""
         initial_count = self.event.view_count
-        self.client.get(f"/v1/event/{self.event.id}/")
+        self.client.get(f"/v1/events/{self.event.slug}/")
         self.event.refresh_from_db()
         self.assertEqual(self.event.view_count, initial_count + 1)
 
     def test_get_event_detail_404(self):
         """Non-existent event returns 404."""
-        response = self.client.get(f"/v1/event/{uuid4()}/")
+        response = self.client.get("/v1/events/non-existent-slug/")
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+
+class EventTicketsListTests(ThrottleDisabledAPITestCase):
+    """Integration tests for event tickets listing."""
+
+    def setUp(self):
+        self.partner = _create_partner()
+        self.member = _create_member()
+        self.event = _create_event(self.partner, slug="test-event-2024")
+        self.ticket = _create_ticket(self.event)
+        self.client.force_authenticate(user=self.member)
+        cache.clear()
+
+    def test_list_event_tickets_success(self):
+        """Members can list tickets for an event."""
+        response = self.client.get(f"/v1/events/{self.event.slug}/tickets/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.content)
+        self.assertEqual(body["status"], "success")
+        self.assertEqual(len(body["data"]["tickets"]), 1)
 
 
 # =============================================================================
@@ -656,7 +791,7 @@ class TicketPurchaseTests(ThrottleDisabledAPITestCase):
             with patch("banking.controllers.Wallet.Debit") as mock_debit:
                 mock_debit.return_value = MagicMock(status_code=200)
                 response = self.client.post(
-                    "/v1/event/tickets/purchase/",
+                    "/v1/events/tickets/purchase/",
                     data=encrypt(self._purchase_payload()),
                     format="json",
                 )
@@ -680,7 +815,7 @@ class TicketPurchaseTests(ThrottleDisabledAPITestCase):
                 }
             )
             response = self.client.post(
-                "/v1/event/tickets/purchase/",
+                "/v1/events/tickets/purchase/",
                 data=encrypt(self._purchase_payload()),
                 format="json",
             )
@@ -696,7 +831,7 @@ class TicketPurchaseTests(ThrottleDisabledAPITestCase):
         self.ticket.save()
 
         response = self.client.post(
-            "/v1/event/tickets/purchase/",
+            "/v1/events/tickets/purchase/",
             data=encrypt(self._purchase_payload(quantity=2)),
             format="json",
         )
@@ -718,7 +853,7 @@ class TicketPurchaseTests(ThrottleDisabledAPITestCase):
                 mock_debit.return_value = MagicMock(status_code=200)
 
                 response1 = self.client.post(
-                    "/v1/event/tickets/purchase/",
+                    "/v1/events/tickets/purchase/",
                     data=encrypt(
                         self._purchase_payload(idempotency_key=idempotency_key)
                     ),
@@ -726,7 +861,7 @@ class TicketPurchaseTests(ThrottleDisabledAPITestCase):
                 )
 
                 response2 = self.client.post(
-                    "/v1/event/tickets/purchase/",
+                    "/v1/events/tickets/purchase/",
                     data=encrypt(
                         self._purchase_payload(idempotency_key=idempotency_key)
                     ),
@@ -783,7 +918,7 @@ class TicketCartPurchaseTests(ThrottleDisabledAPITestCase):
             with patch("banking.controllers.Wallet.Debit") as mock_debit:
                 mock_debit.return_value = MagicMock(status_code=200)
                 response = self.client.post(
-                    "/v1/event/tickets/cart-purchase/",
+                    "/v1/events/tickets/cart-purchase/",
                     data=encrypt(self._cart_payload()),
                     format="json",
                 )
@@ -804,7 +939,7 @@ class TicketCartPurchaseTests(ThrottleDisabledAPITestCase):
         payload["items"].append({"ticket_id": str(other_ticket.id), "quantity": 1})
 
         response = self.client.post(
-            "/v1/event/tickets/cart-purchase/",
+            "/v1/events/tickets/cart-purchase/",
             data=encrypt(payload),
             format="json",
         )
@@ -817,7 +952,7 @@ class TicketCartPurchaseTests(ThrottleDisabledAPITestCase):
         payload["items"][0]["ticket_id"] = str(uuid4())
 
         response = self.client.post(
-            "/v1/event/tickets/cart-purchase/",
+            "/v1/events/tickets/cart-purchase/",
             data=encrypt(payload),
             format="json",
         )
@@ -830,7 +965,7 @@ class TicketCartPurchaseTests(ThrottleDisabledAPITestCase):
         payload["items"][0]["quantity"] = 100  # max is 10
 
         response = self.client.post(
-            "/v1/event/tickets/cart-purchase/",
+            "/v1/events/tickets/cart-purchase/",
             data=encrypt(payload),
             format="json",
         )
@@ -860,7 +995,7 @@ class TicketTransferTests(ThrottleDisabledAPITestCase):
     def test_request_transfer_success(self):
         """Member can request transfer to another member."""
         response = self.client.post(
-            "/v1/event/tickets/transfer/request/",
+            "/v1/events/tickets/transfer/request/",
             data=encrypt(
                 {
                     "ticket_code": str(self.ticket_code.id),
@@ -876,7 +1011,7 @@ class TicketTransferTests(ThrottleDisabledAPITestCase):
     def test_request_transfer_self_fails(self):
         """Cannot transfer to self."""
         response = self.client.post(
-            "/v1/event/tickets/transfer/request/",
+            "/v1/events/tickets/transfer/request/",
             data=encrypt(
                 {
                     "ticket_code": str(self.ticket_code.id),
@@ -898,7 +1033,7 @@ class TicketTransferTests(ThrottleDisabledAPITestCase):
 
         self.client.force_authenticate(user=self.recipient)
         response = self.client.post(
-            f"/v1/event/tickets/transfer/{transfer.id}/respond/",
+            f"/v1/events/tickets/transfer/{transfer.id}/respond/",
             data=encrypt({"action": "accept"}),
             format="json",
         )
@@ -919,7 +1054,7 @@ class TicketTransferTests(ThrottleDisabledAPITestCase):
 
         self.client.force_authenticate(user=self.recipient)
         response = self.client.post(
-            f"/v1/event/tickets/transfer/{transfer.id}/respond/",
+            f"/v1/events/tickets/transfer/{transfer.id}/respond/",
             data=encrypt({"action": "decline"}),
             format="json",
         )
@@ -937,7 +1072,7 @@ class TicketTransferTests(ThrottleDisabledAPITestCase):
         )
 
         response = self.client.post(
-            f"/v1/event/tickets/transfer/{transfer.id}/cancel/",
+            f"/v1/events/tickets/transfer/{transfer.id}/cancel/",
             data=encrypt({}),
             format="json",
         )
@@ -968,7 +1103,7 @@ class TicketVerifyTests(ThrottleDisabledAPITestCase):
     def test_verify_ticket_success(self):
         """Partner can verify and check-in ticket."""
         response = self.client.post(
-            "/v1/event/partner/tickets/verify/",
+            "/v1/events/partner/tickets/verify/",
             data=encrypt({"scanned_value": str(self.ticket_code.token)}),
             format="json",
         )
@@ -984,7 +1119,7 @@ class TicketVerifyTests(ThrottleDisabledAPITestCase):
         self.ticket_code.check_in(by=self.partner)
 
         response = self.client.post(
-            "/v1/event/partner/tickets/verify/",
+            "/v1/events/partner/tickets/verify/",
             data=encrypt({"scanned_value": str(self.ticket_code.token)}),
             format="json",
         )
@@ -994,7 +1129,7 @@ class TicketVerifyTests(ThrottleDisabledAPITestCase):
     def test_verify_invalid_code(self):
         """Invalid code returns 400."""
         response = self.client.post(
-            "/v1/event/partner/tickets/verify/",
+            "/v1/events/partner/tickets/verify/",
             data=encrypt({"scanned_value": "invalid_code"}),
             format="json",
         )
@@ -1019,11 +1154,9 @@ class PartnerEventTests(ThrottleDisabledAPITestCase):
         """Partner can create event."""
         now = timezone.now()
         data = {
-            "business_name": "Test Events",
-            "business_type": "Events",
             "event_name": "New Event",
             "description": "Test event description",
-            "category": "Tech",
+            "category": "Restaurant",
             "mode": "Physical",
             "address": "123 Street",
             "start_date": (now + timedelta(days=30)).isoformat(),
@@ -1031,7 +1164,7 @@ class PartnerEventTests(ThrottleDisabledAPITestCase):
         }
 
         response = self.client.post(
-            "/v1/event/partner/",
+            "/v1/events/partner/",
             data=encrypt(data),
             format="json",
         )
@@ -1046,7 +1179,7 @@ class PartnerEventTests(ThrottleDisabledAPITestCase):
         _create_event(self.partner)
         _create_event(other_partner, event_name="Other Event")
 
-        response = self.client.get("/v1/event/partner/")
+        response = self.client.get("/v1/events/partner/")
         body = decrypt(response.content)
         self.assertEqual(len(body["data"]["events"]), 1)
 
@@ -1055,7 +1188,7 @@ class PartnerEventTests(ThrottleDisabledAPITestCase):
         event = _create_event(self.partner, status=Event.Status.DRAFT)
 
         response = self.client.patch(
-            f"/v1/event/partner/{event.id}/",
+            f"/v1/events/partner/{event.id}/",
             data=encrypt({"event_name": "Updated Event"}),
             format="json",
         )
@@ -1069,7 +1202,7 @@ class PartnerEventTests(ThrottleDisabledAPITestCase):
         event = _create_event(self.partner, status=Event.Status.ON_SALE)
 
         response = self.client.patch(
-            f"/v1/event/partner/{event.id}/",
+            f"/v1/events/partner/{event.id}/",
             data=encrypt({"event_name": "Hacked"}),
             format="json",
         )
@@ -1080,9 +1213,99 @@ class PartnerEventTests(ThrottleDisabledAPITestCase):
         """Partner can delete draft event."""
         event = _create_event(self.partner, status=Event.Status.DRAFT)
 
-        response = self.client.delete(f"/v1/event/partner/{event.id}/")
+        response = self.client.delete(f"/v1/events/partner/{event.id}/")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertFalse(Event.objects.filter(id=event.id).exists())
+
+    def test_non_verified_partner_cannot_create_event(self):
+        """Non-verified partner cannot create event."""
+        unverified_partner = _create_partner(
+            email="unverified@example.com",
+            business_verified=False,
+        )
+        self.client.force_authenticate(user=unverified_partner)
+
+        now = timezone.now()
+        data = {
+            "event_name": "New Event",
+            "description": "Test event description",
+            "category": "Technology",
+            "mode": "Physical",
+            "address": "123 Street",
+            "start_date": (now + timedelta(days=30)).isoformat(),
+            "end_date": (now + timedelta(days=31)).isoformat(),
+        }
+
+        response = self.client.post(
+            "/v1/events/partner/",
+            data=encrypt(data),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class PartnerTicketTests(ThrottleDisabledAPITestCase):
+    """Integration tests for partner ticket management."""
+
+    def setUp(self):
+        self.partner = _create_partner()
+        self.event = _create_event(self.partner, status=Event.Status.DRAFT)
+        self.client.force_authenticate(user=self.partner)
+        cache.clear()
+
+    def test_create_ticket_success(self):
+        """Partner can create ticket for draft event."""
+        now = timezone.now()
+        data = {
+            "name": "Regular",
+            "description": "Standard ticket",
+            "price": "10000.00",
+            "slot_cap": 100,
+            "sales_start_date": now.isoformat(),
+            "sales_end_date": (now + timedelta(days=25)).isoformat(),
+            "min_purchase": 1,
+            "max_purchase": 10,
+        }
+
+        response = self.client.post(
+            f"/v1/events/partner/{self.event.id}/tickets/",
+            data=encrypt(data),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Ticket.objects.count(), 1)
+
+    def test_cannot_create_ticket_for_on_sale_event(self):
+        """Cannot create ticket for on-sale event."""
+        self.event.status = Event.Status.ON_SALE
+        self.event.save()
+
+        response = self.client.post(
+            f"/v1/events/partner/{self.event.id}/tickets/",
+            data=encrypt({"name": "Late Ticket", "price": "20000.00"}),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_delete_ticket_without_purchases(self):
+        """Can delete ticket with no purchases."""
+        ticket = _create_ticket(self.event)
+
+        response = self.client.delete(f"/v1/events/partner/tickets/{ticket.id}/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(Ticket.objects.filter(id=ticket.id).exists())
+
+    def test_cannot_delete_ticket_with_purchases(self):
+        """Cannot delete ticket with existing purchases."""
+        ticket = _create_ticket(self.event)
+        member = _create_member()
+        _create_purchase(member, ticket)
+
+        response = self.client.delete(f"/v1/events/partner/tickets/{ticket.id}/")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
 # =============================================================================
@@ -1104,7 +1327,7 @@ class AdminEventReviewTests(ThrottleDisabledAPITestCase):
         event = _create_event(self.partner, status=Event.Status.IN_REVIEW)
 
         response = self.client.post(
-            f"/v1/event/admin/{event.id}/review/",
+            f"/v1/events/admin/{event.id}/review/",
             data=encrypt({"status": "on_sale"}),
             format="json",
         )
@@ -1118,7 +1341,7 @@ class AdminEventReviewTests(ThrottleDisabledAPITestCase):
         event = _create_event(self.partner, status=Event.Status.IN_REVIEW)
 
         response = self.client.post(
-            f"/v1/event/admin/{event.id}/review/",
+            f"/v1/events/admin/{event.id}/review/",
             data=encrypt(
                 {
                     "status": "rejected",
@@ -1138,12 +1361,106 @@ class AdminEventReviewTests(ThrottleDisabledAPITestCase):
         event = _create_event(self.partner, status=Event.Status.IN_REVIEW)
 
         response = self.client.post(
-            f"/v1/event/admin/{event.id}/review/",
+            f"/v1/events/admin/{event.id}/review/",
             data=encrypt({"status": "rejected"}),
             format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_partners_admin_can_review_events(self):
+        """PartnersAdmin can review events."""
+        partners_admin = _create_admin(email="partnersadmin@example.com")
+        partners_admin.active_role = "PartnersAdmin"
+        partners_admin.save()
+
+        self.client.force_authenticate(user=partners_admin)
+        event = _create_event(self.partner, status=Event.Status.IN_REVIEW)
+
+        response = self.client.post(
+            f"/v1/events/admin/{event.id}/review/",
+            data=encrypt({"status": "on_sale"}),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        event.refresh_from_db()
+        self.assertEqual(event.status, Event.Status.ON_SALE)
+
+
+class AdminSaleWindowTests(ThrottleDisabledAPITestCase):
+    """Integration tests for admin sale window management."""
+
+    def setUp(self):
+        self.admin = _create_admin()
+        self.partner = _create_partner()
+        self.event = _create_event(self.partner)
+        self.client.force_authenticate(user=self.admin)
+        cache.clear()
+
+    def test_create_sale_window_success(self):
+        """Admin can create sale window for partner."""
+        now = timezone.now()
+        data = {
+            "partner": str(self.partner.id),
+            "event": str(self.event.id),
+            "starts_at": (now + timedelta(days=1)).isoformat(),
+            "ends_at": (now + timedelta(days=3)).isoformat(),
+            "note": "Test window",
+        }
+
+        response = self.client.post(
+            "/v1/events/admin/sale-windows/create/",
+            data=encrypt(data),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(PartnerSaleWindow.objects.count(), 1)
+
+    def test_list_sale_windows(self):
+        """Admin can list sale windows."""
+        PartnerSaleWindow.objects.create(
+            partner=self.partner,
+            event=self.event,
+            granted_by=self.admin,
+            starts_at=timezone.now() + timedelta(days=1),
+            ends_at=timezone.now() + timedelta(days=3),
+        )
+
+        response = self.client.get("/v1/events/admin/sale-windows/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.content)
+        self.assertEqual(len(body["data"]["sale_windows"]), 1)
+
+
+class AdminTicketConfigurationTests(ThrottleDisabledAPITestCase):
+    """Integration tests for admin ticket configuration."""
+
+    def setUp(self):
+        self.admin = _create_admin()
+        self.client.force_authenticate(user=self.admin)
+        cache.clear()
+
+    def test_get_configuration(self):
+        """Admin can get ticket configuration."""
+        response = self.client.get("/v1/events/admin/ticket-config/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.content)
+        self.assertEqual(body["status"], "success")
+        self.assertIn("config", body["data"])
+
+    def test_update_configuration(self):
+        """Admin can update ticket configuration."""
+        response = self.client.patch(
+            "/v1/events/admin/ticket-config/",
+            data=encrypt({"transfer_window": "PT72H"}),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        config = TicketConfiguration.get_solo()
+        self.assertEqual(config.transfer_window.total_seconds(), 72 * 3600)
 
 
 class EventDetailedStatsTests(ThrottleDisabledAPITestCase):
@@ -1154,7 +1471,7 @@ class EventDetailedStatsTests(ThrottleDisabledAPITestCase):
         self.partner = _create_partner()
         self.member1 = _create_member(email="member1@example.com")
         self.member2 = _create_member(email="member2@example.com")
-        self.event = _create_event(self.partner)
+        self.event = _create_event(self.partner, slug="test-event-stats")
         self.ticket_a = _create_ticket(
             self.event, name="Regular", price=Decimal("10000.00")
         )
@@ -1170,7 +1487,7 @@ class EventDetailedStatsTests(ThrottleDisabledAPITestCase):
         _create_purchase(self.member1, self.ticket_b, quantity=1)
 
         self.client.force_authenticate(user=self.admin)
-        response = self.client.get(f"/v1/event/admin/{self.event.id}/detailed-stats/")
+        response = self.client.get(f"/v1/events/admin/{self.event.id}/detailed-stats/")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         body = decrypt(response.content)
@@ -1189,7 +1506,9 @@ class EventDetailedStatsTests(ThrottleDisabledAPITestCase):
         _create_purchase(self.member1, self.ticket_a, quantity=2)
 
         self.client.force_authenticate(user=self.partner)
-        response = self.client.get(f"/v1/event/partner/{self.event.id}/detailed-stats/")
+        response = self.client.get(
+            f"/v1/events/partner/{self.event.id}/detailed-stats/"
+        )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         body = decrypt(response.content)
@@ -1204,9 +1523,76 @@ class EventDetailedStatsTests(ThrottleDisabledAPITestCase):
         other_partner = _create_partner(email="other@example.com")
 
         self.client.force_authenticate(user=other_partner)
-        response = self.client.get(f"/v1/event/partner/{self.event.id}/detailed-stats/")
+        response = self.client.get(
+            f"/v1/events/partner/{self.event.id}/detailed-stats/"
+        )
 
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class AdminTicketStatsTests(ThrottleDisabledAPITestCase):
+    """Integration tests for admin ticket statistics."""
+
+    def setUp(self):
+        self.admin = _create_admin()
+        self.partner = _create_partner()
+        self.member = _create_member()
+        self.event = _create_event(self.partner)
+        self.ticket = _create_ticket(self.event)
+        self.client.force_authenticate(user=self.admin)
+        cache.clear()
+
+    def test_get_ticket_stats(self):
+        """Admin can get comprehensive ticket stats."""
+        _create_purchase(self.member, self.ticket, quantity=5)
+
+        response = self.client.get("/v1/events/admin/tickets/stats/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.content)
+        self.assertEqual(body["status"], "success")
+        data = body["data"]
+        self.assertEqual(data["purchases"]["tickets_sold"], 5)
+        self.assertEqual(data["events"]["total"], 1)
+        self.assertEqual(data["events"]["on_sale"], 1)
+
+
+class AdminRefundPurchaseTests(ThrottleDisabledAPITestCase):
+    """Integration tests for admin purchase refund."""
+
+    def setUp(self):
+        self.admin = _create_admin()
+        self.partner = _create_partner()
+        self.member = _create_member()
+        self.event = _create_event(self.partner)
+        self.ticket = _create_ticket(self.event)
+        self.purchase = _create_purchase(self.member, self.ticket)
+        self.client.force_authenticate(user=self.admin)
+        cache.clear()
+
+    def test_refund_purchase_success(self):
+        """Admin can refund a purchase."""
+        response = self.client.post(
+            f"/v1/events/admin/purchases/{self.purchase.id}/refund/",
+            data=encrypt({}),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.purchase.refresh_from_db()
+        self.assertEqual(self.purchase.status, TicketPurchase.Status.REFUNDED)
+
+    def test_refund_non_paid_purchase_fails(self):
+        """Cannot refund non-paid purchase."""
+        self.purchase.status = TicketPurchase.Status.PENDING
+        self.purchase.save()
+
+        response = self.client.post(
+            f"/v1/events/admin/purchases/{self.purchase.id}/refund/",
+            data=encrypt({}),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
 
 # =============================================================================
@@ -1235,7 +1621,7 @@ class TicketSecurityAuditTests(ThrottleDisabledAPITestCase):
 
         self.client.force_authenticate(user=self.partner)
         response = self.client.post(
-            "/v1/event/partner/tickets/verify/",
+            "/v1/events/partner/tickets/verify/",
             data=encrypt({"scanned_value": str(code.token)}),
             format="json",
         )
@@ -1246,13 +1632,13 @@ class TicketSecurityAuditTests(ThrottleDisabledAPITestCase):
     def test_member_cannot_access_partner_endpoints(self):
         """Members cannot access partner endpoints."""
         self.client.force_authenticate(user=self.member)
-        response = self.client.get("/v1/event/partner/")
+        response = self.client.get("/v1/events/partner/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_partner_cannot_access_admin_endpoints(self):
         """Partners cannot access admin endpoints."""
         self.client.force_authenticate(user=self.partner)
-        response = self.client.get("/v1/event/admin/")
+        response = self.client.get("/v1/events/admin/")
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_slot_reservation_race_prevention(self):
@@ -1302,8 +1688,6 @@ class TicketDataIntegrityTests(ThrottleDisabledAPITestCase):
         """PartnerTicketSale is created for each purchase."""
         purchase = _create_purchase(self.member, self.ticket, quantity=2)
 
-        from event.models import PartnerTicketSale
-
         # Create sale if it doesn't exist (for test purposes)
         if not PartnerTicketSale.objects.filter(purchase=purchase).exists():
             PartnerTicketSale.objects.create(
@@ -1343,7 +1727,7 @@ class TicketFuzzTests(ThrottleDisabledAPITestCase):
     def test_purchase_with_zero_quantity(self):
         """Zero quantity returns 400."""
         response = self.client.post(
-            "/v1/event/tickets/purchase/",
+            "/v1/events/tickets/purchase/",
             data=encrypt(
                 {
                     "ticket": str(self.ticket.id),
@@ -1359,7 +1743,7 @@ class TicketFuzzTests(ThrottleDisabledAPITestCase):
     def test_purchase_with_negative_quantity(self):
         """Negative quantity returns 400."""
         response = self.client.post(
-            "/v1/event/tickets/purchase/",
+            "/v1/events/tickets/purchase/",
             data=encrypt(
                 {
                     "ticket": str(self.ticket.id),
@@ -1375,7 +1759,7 @@ class TicketFuzzTests(ThrottleDisabledAPITestCase):
     def test_purchase_with_invalid_payment_option(self):
         """Invalid payment option returns 400."""
         response = self.client.post(
-            "/v1/event/tickets/purchase/",
+            "/v1/events/tickets/purchase/",
             data=encrypt(
                 {
                     "ticket": str(self.ticket.id),
@@ -1390,7 +1774,7 @@ class TicketFuzzTests(ThrottleDisabledAPITestCase):
     def test_purchase_with_nonexistent_ticket(self):
         """Non-existent ticket returns 400."""
         response = self.client.post(
-            "/v1/event/tickets/purchase/",
+            "/v1/events/tickets/purchase/",
             data=encrypt(
                 {
                     "ticket": str(uuid4()),
@@ -1406,7 +1790,7 @@ class TicketFuzzTests(ThrottleDisabledAPITestCase):
     def test_purchase_with_wrong_pin(self):
         """Wrong PIN returns 403."""
         response = self.client.post(
-            "/v1/event/tickets/purchase/",
+            "/v1/events/tickets/purchase/",
             data=encrypt(
                 {
                     "ticket": str(self.ticket.id),
@@ -1422,7 +1806,7 @@ class TicketFuzzTests(ThrottleDisabledAPITestCase):
     def test_cart_with_empty_items(self):
         """Empty cart returns 400."""
         response = self.client.post(
-            "/v1/event/tickets/cart-purchase/",
+            "/v1/events/tickets/cart-purchase/",
             data=encrypt(
                 {
                     "items": [],
@@ -1437,7 +1821,7 @@ class TicketFuzzTests(ThrottleDisabledAPITestCase):
     def test_cart_with_duplicate_tickets(self):
         """Duplicate tickets in cart returns 400."""
         response = self.client.post(
-            "/v1/event/tickets/cart-purchase/",
+            "/v1/events/tickets/cart-purchase/",
             data=encrypt(
                 {
                     "items": [
@@ -1465,7 +1849,7 @@ class TicketFuzzTests(ThrottleDisabledAPITestCase):
         ):
             recipient = _create_member(email="recipient@example.com")
             response = self.client.post(
-                "/v1/event/tickets/transfer/request/",
+                "/v1/events/tickets/transfer/request/",
                 data=encrypt(
                     {
                         "ticket_code": str(code.id),
@@ -1496,20 +1880,18 @@ class TicketPerformanceTests(ThrottleDisabledAPITestCase):
     def test_bulk_ticket_code_generation(self):
         """Bulk ticket code generation performs well."""
         import time
-        import uuid
 
         purchase = _create_purchase(self.member, self.ticket, quantity=100)
 
         start_time = time.time()
         codes = []
         for _ in range(100):
-            codes.append(
-                TicketCode(
-                    purchase=purchase,
-                    current_owner=self.member,
-                    code=uuid.uuid4().hex[:8].upper(),
-                )
+            code = TicketCode(
+                purchase=purchase,
+                current_owner=self.member,
             )
+            code.code = code._generate_unique_code()
+            codes.append(code)
         TicketCode.objects.bulk_create(codes)
         elapsed = time.time() - start_time
 
@@ -1529,8 +1911,155 @@ class TicketPerformanceTests(ThrottleDisabledAPITestCase):
 
         self.client.force_authenticate(user=self.member)
         start_time = time.time()
-        response = self.client.get("/v1/event/")
+        response = self.client.get("/v1/events/")
         elapsed = time.time() - start_time
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertLess(elapsed, 5)
+
+
+# =============================================================================
+# Partner Sales Ledger Tests
+# =============================================================================
+
+
+class PartnerSalesLedgerTests(ThrottleDisabledAPITestCase):
+    """Integration tests for partner sales ledger."""
+
+    def setUp(self):
+        self.partner = _create_partner()
+        self.member = _create_member()
+        self.event = _create_event(self.partner)
+        self.ticket = _create_ticket(self.event)
+        self.client.force_authenticate(user=self.partner)
+        cache.clear()
+
+    def test_sales_ledger_summary(self):
+        """Partner can view sales ledger with summary."""
+        purchase = _create_purchase(self.member, self.ticket, quantity=3)
+
+        # Create partner sale record
+        PartnerTicketSale.objects.create(
+            purchase=purchase,
+            partner=self.partner,
+            event=self.event,
+            ticket=self.ticket,
+            gross_amount=purchase.total_amount,
+        )
+
+        response = self.client.get("/v1/events/partner/sales/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.content)
+        self.assertEqual(body["status"], "success")
+        data = body["data"]
+        self.assertEqual(len(data["sales"]), 1)
+        self.assertIn("summary", data)
+        self.assertEqual(data["summary"]["total_gross"], str(purchase.total_amount))
+
+    def test_sales_ledger_filter_by_status(self):
+        """Partner can filter sales by settlement status."""
+        purchase = _create_purchase(self.member, self.ticket, quantity=2)
+
+        sale = PartnerTicketSale.objects.create(
+            purchase=purchase,
+            partner=self.partner,
+            event=self.event,
+            ticket=self.ticket,
+            gross_amount=purchase.total_amount,
+            settlement_status=PartnerTicketSale.SettlementStatus.SETTLED,
+        )
+
+        response = self.client.get(
+            "/v1/events/partner/sales/?settlement_status=settled"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.content)
+        self.assertEqual(len(body["data"]["sales"]), 1)
+
+
+# =============================================================================
+# Member Order & Purchase Tests
+# =============================================================================
+
+
+class MemberOrderTests(ThrottleDisabledAPITestCase):
+    """Integration tests for member orders."""
+
+    def setUp(self):
+        self.partner = _create_partner()
+        self.member = _create_member()
+        self.event = _create_event(self.partner)
+        self.ticket = _create_ticket(self.event)
+        self.client.force_authenticate(user=self.member)
+        cache.clear()
+
+    def test_list_orders(self):
+        """Member can list their orders."""
+        order = _create_order(
+            self.member,
+            self.event,
+            [{"ticket": self.ticket, "quantity": 2}],
+        )
+
+        response = self.client.get("/v1/events/tickets/orders/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.content)
+        self.assertEqual(len(body["data"]["orders"]), 1)
+
+    def test_list_purchases(self):
+        """Member can list their purchases."""
+        purchase = _create_purchase(self.member, self.ticket, quantity=3)
+
+        response = self.client.get("/v1/events/tickets/purchases/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.content)
+        self.assertEqual(len(body["data"]), 1)
+        self.assertEqual(body["data"][0]["quantity"], 3)
+
+    def test_list_ticket_codes(self):
+        """Member can list their ticket codes."""
+        purchase = _create_purchase(self.member, self.ticket, quantity=4)
+
+        response = self.client.get("/v1/events/tickets/my-codes/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.content)
+        self.assertEqual(len(body["data"]["tickets"]), 4)
+
+
+# =============================================================================
+# Partner Event Check-in Stats Tests
+# =============================================================================
+
+
+class PartnerEventCheckInStatsTests(ThrottleDisabledAPITestCase):
+    """Integration tests for partner check-in statistics."""
+
+    def setUp(self):
+        self.partner = _create_partner()
+        self.member1 = _create_member(email="member1@example.com")
+        self.member2 = _create_member(email="member2@example.com")
+        self.event = _create_event(self.partner)
+        self.ticket = _create_ticket(self.event)
+        self.client.force_authenticate(user=self.partner)
+        cache.clear()
+
+    def test_check_in_stats(self):
+        """Partner can view check-in statistics."""
+        purchase1 = _create_purchase(self.member1, self.ticket, quantity=2)
+        purchase2 = _create_purchase(self.member2, self.ticket, quantity=3)
+
+        # Check in some tickets
+        code1 = purchase1.codes.first()
+        code1.check_in(by=self.partner)
+
+        code2 = purchase2.codes.first()
+        code2.check_in(by=self.partner)
+
+        response = self.client.get(f"/v1/events/partner/{self.event.id}/check-ins/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.content)
+        data = body["data"]
+        self.assertEqual(data["total_tickets"], 5)
+        self.assertEqual(data["checked_in"], 2)
+        self.assertEqual(data["not_checked_in"], 3)
+        self.assertEqual(data["check_in_rate"], "40.0%")
