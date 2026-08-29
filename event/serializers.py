@@ -30,14 +30,14 @@ class EventPublicSerializer(serializers.ModelSerializer):
 
     tickets_available = serializers.SerializerMethodField()
     business_name = serializers.SerializerMethodField()
-    business_type = serializers.SerializerMethodField()
+    business_category = serializers.SerializerMethodField()
 
     class Meta:
         model = Event
         fields = [
             "id",
             "business_name",
-            "business_type",
+            "business_category",
             "event_name",
             "slug",
             "description",
@@ -58,8 +58,10 @@ class EventPublicSerializer(serializers.ModelSerializer):
     def get_business_name(self, obj):
         return obj.user.business_name if hasattr(obj.user, "business_name") else ""
 
-    def get_business_type(self, obj):
-        return obj.user.business_type if hasattr(obj.user, "business_type") else ""
+    def get_business_category(self, obj):
+        return (
+            obj.user.business_category if hasattr(obj.user, "business_category") else ""
+        )
 
     def get_tickets_available(self, obj):
         """Return count of available ticket types."""
@@ -84,14 +86,14 @@ class EventPartnerSerializer(serializers.ModelSerializer):
     tickets_count = serializers.SerializerMethodField()
     total_sales = serializers.SerializerMethodField()
     business_name = serializers.SerializerMethodField()
-    business_type = serializers.SerializerMethodField()
+    business_category = serializers.SerializerMethodField()
 
     class Meta:
         model = Event
         fields = [
             "id",
             "business_name",
-            "business_type",
+            "business_category",
             "event_name",
             "slug",
             "description",
@@ -108,6 +110,8 @@ class EventPartnerSerializer(serializers.ModelSerializer):
             "view_count",
             "tickets_count",
             "total_sales",
+            "latitude",
+            "longitude",
         ]
         read_only_fields = [
             "id",
@@ -117,14 +121,16 @@ class EventPartnerSerializer(serializers.ModelSerializer):
             "tickets_count",
             "total_sales",
             "business_name",
-            "business_type",
+            "business_category",
         ]
 
     def get_business_name(self, obj):
         return obj.user.business_name if hasattr(obj.user, "business_name") else ""
 
-    def get_business_type(self, obj):
-        return obj.user.business_type if hasattr(obj.user, "business_type") else ""
+    def get_business_category(self, obj):
+        return (
+            obj.user.business_category if hasattr(obj.user, "business_category") else ""
+        )
 
     def get_tickets_count(self, obj):
         return obj.create_ticket.count()
@@ -148,6 +154,20 @@ class EventPartnerSerializer(serializers.ModelSerializer):
         if self.instance is None and start and start < timezone.now():
             raise serializers.ValidationError("start_date must be in the future")
 
+        # Validate category matches partner's business category
+        category = attrs.get("category")
+        request = self.context.get("request")
+        if category and request and request.user.business_category:
+            if category != request.user.business_category:
+                raise serializers.ValidationError(
+                    {
+                        "category": (
+                            f"Event category '{category}' does not match your "
+                            f"verified business category '{request.user.business_category}'."
+                        )
+                    }
+                )
+
         # Validate mode
         mode = attrs.get("mode", getattr(self.instance, "mode", "Physical"))
         link = attrs.get("link", getattr(self.instance, "link", None))
@@ -166,9 +186,24 @@ class EventPartnerSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        latitude = validated_data.pop("latitude", None)
+        longitude = validated_data.pop("longitude", None)
         validated_data["user"] = self.context["request"].user
         validated_data["status"] = Event.Status.IN_REVIEW
-        return super().create(validated_data)
+        event = super().create(validated_data)
+        if latitude is not None and longitude is not None:
+            event.set_location(latitude, longitude)
+            event.save(update_fields=["location"])
+        return event
+
+    def update(self, instance, validated_data):
+        latitude = validated_data.pop("latitude", None)
+        longitude = validated_data.pop("longitude", None)
+        instance = super().update(instance, validated_data)
+        if latitude is not None and longitude is not None:
+            instance.set_location(latitude, longitude)
+            instance.save(update_fields=["location"])
+        return instance
 
 
 class EventAdminReviewSerializer(serializers.ModelSerializer):

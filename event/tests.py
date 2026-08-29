@@ -269,7 +269,7 @@ class ThrottleDisabledAPITestCase(APITestCase):
 
         # Mock Celery's delay() to prevent Redis connections
         cls._celery_patcher = patch(
-            "event.models.generate_ticket_qr_async.delay", return_value=MagicMock()
+            "event.tasks.generate_ticket_qr_async.delay", return_value=MagicMock()
         )
         cls._celery_patcher.start()
 
