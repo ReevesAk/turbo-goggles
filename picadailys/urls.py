@@ -81,4 +81,6 @@ urlpatterns = [
     path("v1/tasks/", include("tasks.urls")),
     # Flight endpoints.
     path("v1/flights/", include("flights.urls")),
+    # Events & Ticketing endpoints.
+    path("v1/events/", include("event.urls")),
 ]
