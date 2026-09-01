@@ -87,6 +87,8 @@ class EventPartnerSerializer(serializers.ModelSerializer):
     total_sales = serializers.SerializerMethodField()
     business_name = serializers.SerializerMethodField()
     business_category = serializers.SerializerMethodField()
+    latitude = serializers.FloatField(write_only=True, required=False)
+    longitude = serializers.FloatField(write_only=True, required=False)
 
     class Meta:
         model = Event
