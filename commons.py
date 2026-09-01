@@ -47,6 +47,7 @@ from gamification.points import Points as PointsEngine, TIER_VALUES
 
 yournotify_api_key = config("YOURNOTIFY_API_KEY")
 yournotify_base_url = config("YOURNOTIFY_BASE_URL")
+yournotify_whatsapp_otp_template_id = config("YOURNOTIFY_WHATSAPP_OTP_TEMPLATE_ID", cast=int)
 
 
 def generateOTP(OTP):
@@ -173,52 +174,21 @@ class Messaging:
             "Content-Type": "application/json"
         }
 
-        phone = "234" + Messaging._normalize_phone(phone_number)
+        phone = "+234" + Messaging._normalize_phone(phone_number)
         payload = {
             "name": "Picadailys OTP",
+            "from": "+2349116200062",
+            "template_id": yournotify_whatsapp_otp_template_id,
             "status": "running",
-            "send_at": None,
             "lists": [
-            phone
-            ],
-            "channel": "whatsapp",
-            "from": "1038875632647675",
-            "template_id": "auth_verify_code:en_US",
-            "template_params": [
-                "#123456",
-                "Delivered"
-            ],
-            "attribs": {
-        "whatsapp_template": {
-            "name": "auth_verify_code",
-            "language": "en_US"
-        },
-        "template_id": "auth_verify_code:en_US",
-        "template_name": "auth_verify_code",
-        "components": [
-            {
-            "type": "body",
-            "parameters": [
                 {
-                "type": "text",
-                "text": otp
+                    "telephone": phone,
+                    "attribs": {
+                        "code": otp
+                    }
                 }
-            ]
-            },
-            {
-            "type": "button",
-            "sub_type": "url",
-            "index": "0",
-            "parameters": [
-                {
-                "type": "text",
-                "text": otp
-                }
-            ]
-            }
-        ]
+            ],
         }
-    }
         response = requests.post(url, headers=headers, json=payload, timeout=15)
         return response.json()
 

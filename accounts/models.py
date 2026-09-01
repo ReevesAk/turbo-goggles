@@ -122,6 +122,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     password_attempts = models.IntegerField(default=0, null=True)
     password_locked_until = models.DateTimeField(null=True, blank=True)
 
+    # Single active session for admin/support (web dashboard) roles. Rotated on
+    # every successful privileged login; a token whose `sid` claim no longer
+    # matches this value is rejected. NULL for regular app users, who stay
+    # multi-device. See accounts/session.py.
+    active_session_id = models.UUIDField(null=True, blank=True)
+
     # Brand details.
     has_promoted = models.BooleanField(default=False)
 

@@ -54,6 +54,7 @@ from .serializers import (
     FundWalletSerializers,
 )
 from security import encrypt, decrypt
+from user_profile.fcm import send_push_to_user
 
 logger = logging.getLogger(__name__)
 
@@ -1530,6 +1531,12 @@ class FundWallet(generics.GenericAPIView):
                                     user=user,
                                     title="Welcome Bonus",
                                     message="You have been credited with a ₦500 cashback welcome bonus. Use it for purchases.",
+                                )
+                                send_push_to_user(
+                                    user=user,
+                                    title="Welcome Bonus! 🎁",
+                                    body="You've been credited with a ₦500 cashback welcome bonus. Start shopping!",
+                                    data={"type": "welcome_bonus", "amount": "500"},
                                 )
                                 ActivityModel.objects.create(
                                     user=user,

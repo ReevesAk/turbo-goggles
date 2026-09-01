@@ -49,7 +49,7 @@ from banking.models import WalletModel, TransferModel, FundWithCard
 from vas.models import ValueAddedServices
 from .models import ActivityModel, knowledgeBaseModel
 from fmcg.models import Product, PickupAdress
-from accounts.models import DeviceId, AccountType
+from accounts.models import AccountType
 from accounts.tokens import create_jwt_pair_for_user
 from accounts.serializers import VerifyOTPSerializer
 from support.models import Ticket
@@ -334,19 +334,6 @@ class LoginAdmin(APIView):
             user_obj.password_attempts = 0
             user_obj.password_locked_until = None
             user_obj.save(update_fields=["password_attempts", "password_locked_until"])
-
-            # Check if the user has more than two devices registered
-            existing_device = DeviceId.objects.filter(user=user).exists()
-            if existing_device:
-                return Response(
-                    data=encrypt(
-                        {
-                            "status": "fail",
-                            "message": "User cannot login on more than two devices, oldest device ID deleted.",
-                        }
-                    ),
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
 
             if not user.is_verified:
                 logger.warning(

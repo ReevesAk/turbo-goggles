@@ -1348,6 +1348,13 @@ class Logout(APIView):
             token.blacklist()
 
             current_user = request.user
+
+            # End the single active session for admin/support users so the
+            # token can't be revived and the slot is free for the next login.
+            if current_user.active_session_id is not None:
+                current_user.active_session_id = None
+                current_user.save(update_fields=["active_session_id"])
+
             UserNotification.objects.create(
                 user=current_user,
                 title="Logout.",

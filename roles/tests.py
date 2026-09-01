@@ -187,7 +187,10 @@ class LoginAdminEndpointTests(APITestCase):
         body = decrypt(response.data)
         self.assertEqual(body["status"], "fail")
 
-    def test_login_admin_existing_device_returns_400(self):
+    def test_login_admin_existing_device_id_does_not_block_login(self):
+        """A leftover DeviceId row (mobile-only concept) must never block an
+        admin dashboard login — device-count limiting was replaced by
+        single-session enforcement (see accounts/session.py)."""
         user = _create_user(
             email="adminlogin@example.com",
             phone_number="2348555555555",
@@ -202,9 +205,7 @@ class LoginAdminEndpointTests(APITestCase):
             content_type="application/json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        body = decrypt(response.data)
-        self.assertIn("more than two devices", body["message"])
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
 
     def test_login_admin_success_returns_tokens_and_roles(self):
         user = _create_user(

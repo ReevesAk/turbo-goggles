@@ -1,8 +1,9 @@
 import logging
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from django.core.cache import cache
 from django.db.models import Count, Q, Sum
+from django.db.models.functions import Coalesce, TruncDate
 from django.utils import timezone
 
 # Third party imports
@@ -435,13 +436,57 @@ class ListAllBrandAdsUsers(generics.ListAPIView):
         return Response(data=encrypted_response, status=status.HTTP_200_OK)
 
 
+def _ad_budget_spent(ad_type, obj):
+    """
+    Money consumed by an ad so far: what was paid minus the proportional
+    unused-slot credit (same basis as the `unused_credit` property). Returns
+    None for in-app tasks, which are free platform missions with no budget.
+    """
+    if ad_type == "in_app":
+        return None
+    try:
+        amount = Decimal(str(obj.amount or "0"))
+    except (InvalidOperation, TypeError):
+        return "0.00"
+    spent = max(Decimal("0"), min(amount - obj.unused_credit, amount))
+    return str(spent.quantize(Decimal("0.01")))
+
+
+def _ad_points_rewarded(ad_type, obj):
+    """
+    Total points paid out to users for completing an ad. UGC sums the actual
+    per-submission `points_awarded` (approved only) since a level multiplier
+    can lift individual payouts; brand ads have no per-submission amount
+    stored, so filled slots x reward_points. None for in-app tasks.
+    """
+    if ad_type == "in_app":
+        return None
+    if ad_type == "ugc":
+        # Annotated on get_ugc_queryset(); fall back to a direct aggregate if
+        # this obj came from somewhere that didn't annotate.
+        annotated = getattr(obj, "points_rewarded", None)
+        if annotated is not None:
+            return annotated
+        return (
+            obj.submissions.filter(status="approved").aggregate(
+                total=Sum("points_awarded")
+            )["total"]
+            or 0
+        )
+    return (obj.slots_filled or 0) * (obj.reward_points or 0)
+
+
 @extend_schema(
     summary="List all ads created by the current BrandAd user",
     tags=["Brand Ads"],
     description=(
         "Returns all ad campaigns created by the authenticated user. "
         "Results are cached for **2 minutes**. "
-        "`remaining_time` returns `'Expired'` once the campaign duration elapses."
+        "`remaining_time` returns `'Expired'` once the campaign duration elapses. "
+        "Each row also carries `budget_spent` (money consumed so far = amount "
+        "paid minus the proportional unused-slot credit) and "
+        "`total_points_rewarded` (points paid out to users); both are `null` "
+        "for `in_app` tasks, which have no monetary budget."
     ),
     parameters=[
         OpenApiParameter(
@@ -482,8 +527,18 @@ class ListAllBrandAds(generics.ListAPIView):
         )
 
     def get_ugc_queryset(self):
-        return UserGeneratedContent.objects.filter(user=self.request.user).order_by(
-            "-created_at"
+        return (
+            UserGeneratedContent.objects.filter(user=self.request.user)
+            .annotate(
+                points_rewarded=Coalesce(
+                    Sum(
+                        "submissions__points_awarded",
+                        filter=Q(submissions__status="approved"),
+                    ),
+                    0,
+                )
+            )
+            .order_by("-created_at")
         )
 
     def get_inapp_queryset(self):
@@ -518,7 +573,19 @@ class ListAllBrandAds(generics.ListAPIView):
         for ad_type, objs, serializer_cls in sources:
             rows = serializer_cls(objs, many=True).data
             for obj, row in zip(objs, rows):
-                tagged_rows.append((obj.created_at, {**row, "ad_type": ad_type}))
+                tagged_rows.append(
+                    (
+                        obj.created_at,
+                        {
+                            **row,
+                            "ad_type": ad_type,
+                            "budget_spent": _ad_budget_spent(ad_type, obj),
+                            "total_points_rewarded": _ad_points_rewarded(
+                                ad_type, obj
+                            ),
+                        },
+                    )
+                )
 
         merged = [
             row
@@ -1034,6 +1101,11 @@ class SingleAdDetailView(generics.RetrieveAPIView):
                     "timing": "30s",
                     "auto_boost": True,
                     "auto_boost_points": 0,
+                    "daily_analytics": [
+                        {"date": "2026-08-26", "engagements": 5},
+                        {"date": "2026-08-27", "engagements": 12},
+                    ],
+                    "location_breakdown": {"Lagos": "45", "Abuja": "20"},
                     "location_perimeter": {
                         "gender": "All",
                         "demography": "18 - 25",
@@ -1083,6 +1155,11 @@ class SingleAdDetailView(generics.RetrieveAPIView):
                     "timing": "30s",
                     "auto_boost": True,
                     "auto_boost_points": 300000,
+                    "daily_analytics": [
+                        {"date": "2026-08-26", "engagements": 5},
+                        {"date": "2026-08-27", "engagements": 12},
+                    ],
+                    "location_breakdown": {"Lagos": "45", "Abuja": "20"},
                     "location_perimeter": None,
                     "performance_breakdown": {
                         "campaign_budget": "170000",
@@ -1162,6 +1239,35 @@ class BrandAdAnalyticsView(generics.GenericAPIView):
 
         media = [{"images": m.images, "videos": m.videos} for m in ad.ad_media.all()]
 
+        # An "engagement" is an approved brand-task submission — the same event
+        # that fills a slot and pays out points. Broken down by the day it was
+        # approved, and by the submitter's home state. Both are exposed while
+        # the campaign is still running, unlike performance_breakdown.
+        approved = ad.brand_submissions.filter(status="Approved")
+
+        daily_qs = (
+            approved.annotate(day=TruncDate(Coalesce("reviewed_at", "created_at")))
+            .values("day")
+            .annotate(engagements=Count("id"))
+            .order_by("day")
+        )
+        daily_analytics = [
+            {"date": row["day"].isoformat(), "engagements": row["engagements"]}
+            for row in daily_qs
+            if row["day"]
+        ]
+
+        location_qs = (
+            approved.values("user__social_profile__state")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+        location_breakdown = {
+            row["user__social_profile__state"]: str(row["count"])
+            for row in location_qs
+            if row["user__social_profile__state"]
+        }
+
         base = {
             "id": ad.id,
             "is_finished": is_finished,
@@ -1189,6 +1295,8 @@ class BrandAdAnalyticsView(generics.GenericAPIView):
             "timing": ad.task_details.get("timing") if ad.task_details else None,
             "auto_boost": ad.auto_boost,
             "auto_boost_points": ad.auto_boost_points,
+            "daily_analytics": daily_analytics,
+            "location_breakdown": location_breakdown,
         }
 
         if not is_finished:
@@ -1203,8 +1311,6 @@ class BrandAdAnalyticsView(generics.GenericAPIView):
             base["performance_breakdown"] = None
             base["performance_demographic"] = None
         else:
-            approved = ad.brand_submissions.filter(status="Approved")
-
             cpe = ad.cost_per_engagement
             budget_spent = Decimal(str(ad.slots_filled or 0)) * cpe
             if budget_spent == 0 and ad.amount:
@@ -1219,11 +1325,6 @@ class BrandAdAnalyticsView(generics.GenericAPIView):
             )
             age_qs = (
                 approved.values("user__social_profile__age_bracket")
-                .annotate(count=Count("id"))
-                .order_by("-count")
-            )
-            state_qs = (
-                approved.values("user__social_profile__state")
                 .annotate(count=Count("id"))
                 .order_by("-count")
             )
@@ -1250,7 +1351,7 @@ class BrandAdAnalyticsView(generics.GenericAPIView):
                 },
                 "by_state": {
                     row["user__social_profile__state"]: row["count"]
-                    for row in state_qs
+                    for row in location_qs
                     if row["user__social_profile__state"]
                 },
             }
