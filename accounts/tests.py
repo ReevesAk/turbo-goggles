@@ -660,3 +660,87 @@ class LogoutEndpointTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_205_RESET_CONTENT)
         body = decrypt(response.data)
         self.assertEqual(body["status"], "success")
+
+
+class SingleSessionEnforcementTests(APITestCase):
+    """Admin/support roles get one active session; a new login ends the old one."""
+
+    logout_url = "/v1/accounts/logout"
+
+    def _auth(self, access):
+        return {"HTTP_AUTHORIZATION": f"Bearer {access}"}
+
+    def test_privileged_login_sets_session_id_and_sid_claim(self):
+        user = _create_user(
+            phone_number="2348001112221",
+            email="admin-sess@example.com",
+            active_role="SuperAdmin",
+        )
+        tokens = create_jwt_pair_for_user(user)
+
+        user.refresh_from_db()
+        self.assertIsNotNone(user.active_session_id)
+
+        from rest_framework_simplejwt.tokens import AccessToken
+
+        self.assertEqual(
+            str(AccessToken(tokens["access"])["sid"]), str(user.active_session_id)
+        )
+
+    def test_second_login_supersedes_first_session(self):
+        user = _create_user(
+            phone_number="2348001112222",
+            email="admin-super@example.com",
+            active_role="TaskAdmin",
+        )
+        first = create_jwt_pair_for_user(user)
+
+        # First token works before the second login.
+        ok = self.client.post(
+            self.logout_url,
+            data=_make_payload(refresh_token=first["refresh"]),
+            content_type="application/json",
+            **self._auth(first["access"]),
+        )
+        self.assertEqual(ok.status_code, status.HTTP_205_RESET_CONTENT)
+
+        # Re-login (logout cleared the session id), then a brand-new login.
+        create_jwt_pair_for_user(user)
+        second = create_jwt_pair_for_user(user)
+
+        stale = self.client.post(
+            self.logout_url,
+            data=_make_payload(refresh_token=second["refresh"]),
+            content_type="application/json",
+            **self._auth(first["access"]),
+        )
+        self.assertEqual(stale.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(stale.data["code"], "session_superseded")
+
+        fresh = self.client.post(
+            self.logout_url,
+            data=_make_payload(refresh_token=second["refresh"]),
+            content_type="application/json",
+            **self._auth(second["access"]),
+        )
+        self.assertEqual(fresh.status_code, status.HTTP_205_RESET_CONTENT)
+
+    def test_regular_user_is_not_session_limited(self):
+        user = _create_user(
+            phone_number="2348001112223",
+            email="member-sess@example.com",
+            active_role="Member",
+        )
+        first = create_jwt_pair_for_user(user)
+        create_jwt_pair_for_user(user)
+
+        user.refresh_from_db()
+        self.assertIsNone(user.active_session_id)
+
+        resp = self.client.post(
+            self.logout_url,
+            data=_make_payload(refresh_token=first["refresh"]),
+            content_type="application/json",
+            **self._auth(first["access"]),
+        )
+        self.assertEqual(resp.status_code, status.HTTP_205_RESET_CONTENT)

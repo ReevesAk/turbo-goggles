@@ -59,7 +59,7 @@ from rest_framework.parsers import MultiPartParser, JSONParser
 import rest_framework.serializers as s
 from drf_spectacular.utils import extend_schema, inline_serializer
 
-from accounts.models import User, UserNotification, AccountType, DeviceId
+from accounts.models import User, UserNotification, AccountType
 from accounts.tokens import create_jwt_pair_for_user
 from accounts.otp import otp_manager
 from security import encrypt
@@ -3180,26 +3180,6 @@ class LoginAgent(APIView):
             user_obj.password_attempts = 0
             user_obj.password_locked_until = None
             user_obj.save(update_fields=["password_attempts", "password_locked_until"])
-
-            # Check if the user has more than two devices registered
-            existing_device_count = DeviceId.objects.filter(user=user).count()
-            if existing_device_count >= 2:
-                if existing_device_count == 3:
-                    oldest_device = DeviceId.objects.filter(user=user).earliest(
-                        "created_at"
-                    )
-                    oldest_device.delete()
-                    logger.info(
-                        f"Device limit exceeded for user {user.email}. Oldest device deleted."
-                    )
-
-                return Response(
-                    data={
-                        "status": "fail",
-                        "message": "Agent cannot login on more than two devices, oldest device ID deleted.",
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
 
             if not user.is_verified:
                 logger.warning(
