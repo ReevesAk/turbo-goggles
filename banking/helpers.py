@@ -86,7 +86,7 @@ def cloudinary_to_bytes(url):
     return response.content, content_type
 
 
-def cloudinary_to_base64(url, quality=40, max_size=(700, 700)):
+def cloudinary_to_base64(url, quality=85, max_size=(700, 700)):
     """
     Downloads an image from Cloudinary, compresses it, and returns base64 string.
     """

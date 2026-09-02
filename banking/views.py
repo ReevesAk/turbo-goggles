@@ -135,6 +135,9 @@ class VerifYBVN(generics.GenericAPIView):
 
         # Prevent duplicate BVNs
         if UserKYC.objects.filter(bvn=user_data["bvn"]).exists():
+            logger.warning(
+                f"BVN verification failed for user {user.id}: BVN {user_data['bvn']} already registered."
+            )
             return Response(
                 data=encrypt(
                     {
@@ -197,6 +200,10 @@ class VerifYBVN(generics.GenericAPIView):
 
         img_resp = entity.get("selfie_verification")
         if img_resp.get("match") is not True or img_resp.get("confidence_value") < 90:
+            logger.warning(
+                f"BVN verification failed for user {user.id}: selfie mismatch "
+                f"(match={img_resp.get('match')}, confidence_value={img_resp.get('confidence_value')})."
+            )
             return Response(
                 data=encrypt(
                     {
@@ -210,6 +217,10 @@ class VerifYBVN(generics.GenericAPIView):
         doj_phone = entity.get("phone_number1")
         supplied_phone = user_data.get("bvn_phone")
         if doj_phone != supplied_phone:
+            logger.warning(
+                f"BVN verification failed for user {user.id}: phone number mismatch "
+                f"(bvn_phone={doj_phone!r}, supplied={supplied_phone!r})."
+            )
             return Response(
                 data=encrypt(
                     {
@@ -317,6 +328,9 @@ class VerifYNIN(generics.GenericAPIView):
 
         # Prevent duplicate NIN
         if UserKYC.objects.filter(nin=user_data["nin"]).exists():
+            logger.warning(
+                f"NIN verification failed for user {user.id}: NIN {user_data['nin']} already registered."
+            )
             return Response(
                 data=encrypt(
                     {
@@ -379,6 +393,10 @@ class VerifYNIN(generics.GenericAPIView):
 
         img_resp = entity.get("selfie_verification")
         if img_resp.get("match") is not True or img_resp.get("confidence_value") < 90:
+            logger.warning(
+                f"NIN verification failed for user {user.id}: selfie mismatch "
+                f"(match={img_resp.get('match')}, confidence_value={img_resp.get('confidence_value')})."
+            )
             return Response(
                 data=encrypt(
                     {
@@ -393,6 +411,10 @@ class VerifYNIN(generics.GenericAPIView):
         verified_dob = nin_data["entity"].get("date_of_birth")
 
         if verified_dob != supplied_dob:
+            logger.warning(
+                f"NIN verification failed for user {user.id}: date of birth mismatch "
+                f"(verified={verified_dob!r}, supplied={supplied_dob!r})."
+            )
             return Response(
                 data=encrypt(
                     {
