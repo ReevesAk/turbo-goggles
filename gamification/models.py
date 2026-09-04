@@ -799,6 +799,7 @@ class UserGeneratedContent(models.Model):
         Age demographic targeting options.
         """
 
+        AGE_18_PLUS = "18+", _("18+")
         AGE_18_25 = "18 - 25", _("18 - 25")
         AGE_26_35 = "26 - 35", _("26 - 35")
         AGE_36_45 = "36 - 45", _("36 - 45")

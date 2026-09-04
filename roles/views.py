@@ -4217,10 +4217,15 @@ MAX_CHART_RANGE_DAYS = 400
     description=(
         "Returns cash_in/cash_out bucketed by calendar day for the selected "
         "period. Pass `granularity` (daily/weekly/monthly/quarterly/yearly, "
-        "default weekly) or an explicit `start_date`/`end_date` range (capped "
-        f"at {MAX_CHART_RANGE_DAYS} days). cash_in is inbound transfers + card "
-        "deposits; cash_out is outbound transfers + VAS bill payments + "
-        "self-service/partner spend."
+        "default weekly) alone to have it pick the date range too, or an "
+        "explicit `start_date`/`end_date` range (capped at "
+        f"{MAX_CHART_RANGE_DAYS} days) - `granularity` may still be passed "
+        "alongside start_date/end_date purely to control bucket size (e.g. "
+        "roll a frontend-computed date range up into months); the date range "
+        "always comes from start_date/end_date when both are given. Response "
+        "rows are one per calendar day if no granularity is resolved at all. "
+        "cash_in is inbound transfers + card deposits; cash_out is outbound "
+        "transfers + VAS bill payments + self-service/partner spend."
     ),
     parameters=[
         OpenApiParameter(
@@ -4228,7 +4233,13 @@ MAX_CHART_RANGE_DAYS = 400
             OpenApiTypes.STR,
             OpenApiParameter.QUERY,
             required=False,
-            description=f"One of {GRANULARITY_CHOICES}. Ignored if start_date/end_date are passed.",
+            description=(
+                f"One of {GRANULARITY_CHOICES}. Controls the date range when "
+                "start_date/end_date aren't passed; when they are, still "
+                "controls how the series is bucketed (e.g. start_date/"
+                "end_date + granularity=monthly returns one row per month "
+                "within that range)."
+            ),
         ),
         OpenApiParameter(
             "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
@@ -4311,7 +4322,15 @@ class CashInVsCashOutChartView(APIView):
                 current_start, current_end, _, _ = resolve_period(
                     start_date=start_date, end_date=end_date
                 )
-                resolved_granularity = "custom"
+                # The date range always comes from start_date/end_date here -
+                # but granularity may still be passed alongside them purely
+                # to control how the series gets bucketed (see
+                # bucket_income_expenditure_series below). Falls back to
+                # "custom" (no bucketing, one row per day) if granularity
+                # wasn't also passed.
+                resolved_granularity = (
+                    granularity if granularity in GRANULARITY_CHOICES else "custom"
+                )
             elif granularity in GRANULARITY_CHOICES:
                 current_start, current_end, _, _ = resolve_period(
                     granularity=granularity

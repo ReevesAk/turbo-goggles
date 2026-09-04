@@ -44,7 +44,9 @@ def eligible_members(
         # lowercase (TARGET_GENDER_CHOICES) - iexact handles the mismatch.
         qs = qs.filter(social_profile__sex__iexact=gender)
 
-    if age_bracket:
+    # "18+" is the "all adults" bucket - no MemberSurvey row stores it as a
+    # literal age_bracket, so it means "skip the age filter", not "match 18+".
+    if age_bracket and age_bracket != "18+":
         qs = qs.filter(social_profile__age_bracket__iexact=age_bracket)
 
     if state:
