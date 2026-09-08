@@ -1,6 +1,7 @@
 import json as _json
 import time
 import uuid
+import base64
 from datetime import timedelta
 from unittest.mock import patch, MagicMock
 
@@ -13,6 +14,7 @@ from rest_framework.test import APITestCase
 from accounts.models import OTP, User
 from security import decrypt, encrypt
 from .models import TransferModel, WalletModel
+from .webhooks import AccountUpgradeWebhookNotificationView
 
 
 def _make_payload(**kwargs):
@@ -61,6 +63,65 @@ def _create_wallet(user, **overrides):
     }
     data.update(overrides)
     return WalletModel.objects.create(**data)
+
+
+class AccountUpgradeWebhookTests(APITestCase):
+    def setUp(self):
+        self.user = _create_user(
+            phone_number="2347000000002", email="webhook.user@example.com"
+        )
+        self.wallet = _create_wallet(self.user, account_number="1100068645")
+        credentials = base64.b64encode(b"webhook-user:webhook-password").decode()
+        self.headers = {"HTTP_AUTHORIZATION": f"Basic {credentials}"}
+
+    def _post_webhook(self, payload):
+        with (
+            patch.object(
+                AccountUpgradeWebhookNotificationView,
+                "EXPECTED_USERNAME",
+                "webhook-user",
+            ),
+            patch.object(
+                AccountUpgradeWebhookNotificationView,
+                "EXPECTED_PASSWORD",
+                "webhook-password",
+            ),
+            patch("banking.webhooks.send_push_to_user"),
+        ):
+            return self.client.post(
+                "/v1/banking/webhook/account-upgrade",
+                data=payload,
+                format="json",
+                **self.headers,
+            )
+
+    def test_approval_sample_upgrades_wallet_to_tier_two(self):
+        response = self._post_webhook(
+            {
+                "accountNumber": "1100068645",
+                "status": "Completed",
+                "message": "Account upgraded to tier 2",
+            }
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.wallet.refresh_from_db()
+        self.assertEqual(self.wallet.tier_level, 2)
+        self.assertEqual(self.wallet.tier2_upgrade_status, "APPROVED")
+
+    def test_declined_sample_marks_wallet_as_declined(self):
+        response = self._post_webhook(
+            {
+                "accountNumber": "1100068645",
+                "status": "Declined",
+                "message": "invalid photo....",
+            }
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.wallet.refresh_from_db()
+        self.assertEqual(self.wallet.tier_level, 1)
+        self.assertEqual(self.wallet.tier2_upgrade_status, "DECLINED")
 
 
 class BankingModelTests(APITestCase):
@@ -197,7 +258,9 @@ class WalletPinFlowTests(APITestCase):
         self.wallet = _create_wallet(self.user)
         self.client.force_authenticate(user=self.user)
 
-    def test_set_wallet_pin_requires_wallet(self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity):
+    def test_set_wallet_pin_requires_wallet(
+        self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity
+    ):
         self.wallet.delete()
 
         response = self.client.post(
@@ -210,7 +273,9 @@ class WalletPinFlowTests(APITestCase):
         body = decrypt(response.data)
         self.assertIn("Wallet not found", body["error"])
 
-    def test_set_wallet_pin_rejects_mismatch(self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity):
+    def test_set_wallet_pin_rejects_mismatch(
+        self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity
+    ):
         response = self.client.post(
             self.set_pin_url,
             data=_make_payload(pin="1234", pin2="4321"),
@@ -221,7 +286,9 @@ class WalletPinFlowTests(APITestCase):
         body = decrypt(response.data)
         self.assertIn("Pins do not match", body["error"])
 
-    def test_set_wallet_pin_success_hashes_pin(self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity):
+    def test_set_wallet_pin_success_hashes_pin(
+        self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity
+    ):
         response = self.client.post(
             self.set_pin_url,
             data=_make_payload(pin="1234", pin2="1234"),
@@ -236,7 +303,9 @@ class WalletPinFlowTests(APITestCase):
         self.assertTrue(check_password("1234", self.wallet.pin))
         self.assertTrue(self.user.has_created_pin)
 
-    def test_forgot_wallet_pin_creates_otp(self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity):
+    def test_forgot_wallet_pin_creates_otp(
+        self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity
+    ):
         response = self.client.post(self.forgot_pin_url)
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -244,7 +313,9 @@ class WalletPinFlowTests(APITestCase):
         self.assertEqual(body["status"], "success")
         self.assertTrue(OTP.objects.filter(user_id=self.user.id).exists())
 
-    def test_resend_wallet_pin_otp_creates_new_otp(self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity):
+    def test_resend_wallet_pin_otp_creates_new_otp(
+        self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity
+    ):
         response = self.client.post(self.resend_otp_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -252,7 +323,9 @@ class WalletPinFlowTests(APITestCase):
         self.assertEqual(body["status"], "success")
         self.assertTrue(OTP.objects.filter(user_id=self.user.id).exists())
 
-    def test_verify_wallet_pin_otp_rejects_invalid_otp(self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity):
+    def test_verify_wallet_pin_otp_rejects_invalid_otp(
+        self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity
+    ):
         response = self.client.post(
             self.verify_otp_url,
             data=_make_payload(otp="9999"),
@@ -263,7 +336,9 @@ class WalletPinFlowTests(APITestCase):
         body = decrypt(response.data)
         self.assertIn("Invalid or expired OTP", body["error"])
 
-    def test_verify_wallet_pin_otp_success(self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity):
+    def test_verify_wallet_pin_otp_success(
+        self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity
+    ):
         from accounts.otp import otp_manager
 
         otp = otp_manager.create_otp(user_id=str(self.user.id))
@@ -279,7 +354,9 @@ class WalletPinFlowTests(APITestCase):
         body = decrypt(response.data)
         self.assertEqual(body["status"], "success")
 
-    def test_reset_wallet_pin_requires_valid_otp(self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity):
+    def test_reset_wallet_pin_requires_valid_otp(
+        self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity
+    ):
         response = self.client.post(
             self.reset_pin_url,
             data=_make_payload(otp="9999", pin="1234", pin2="1234"),
@@ -290,7 +367,9 @@ class WalletPinFlowTests(APITestCase):
         body = decrypt(response.data)
         self.assertIn("Invalid or expired OTP", body["error"])
 
-    def test_reset_wallet_pin_rejects_pin_mismatch(self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity):
+    def test_reset_wallet_pin_rejects_pin_mismatch(
+        self, mock_msg, mock_send_alert, mock_create_notification, mock_create_activity
+    ):
         from accounts.otp import otp_manager
 
         otp = otp_manager.create_otp(user_id=str(self.user.id))

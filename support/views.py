@@ -3155,9 +3155,7 @@ class LoginAgent(APIView):
             )
 
         if not user_obj.is_verified or not user_obj.has_usable_password():
-            logger.warning(
-                f"Login attempt for unverified/incomplete account: {email}."
-            )
+            logger.warning(f"Login attempt for unverified/incomplete account: {email}.")
             return Response(
                 data={
                     "status": "fail",

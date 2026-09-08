@@ -46,9 +46,7 @@ def rotate_session(user) -> uuid.UUID:
 
     # Only tokens that could still be used are worth blacklisting; expired ones
     # are already dead. Keeps the loop bounded for a long-lived admin account.
-    stale = OutstandingToken.objects.filter(
-        user=user, expires_at__gt=timezone.now()
-    )
+    stale = OutstandingToken.objects.filter(user=user, expires_at__gt=timezone.now())
     for token in stale:
         BlacklistedToken.objects.get_or_create(token=token)
 

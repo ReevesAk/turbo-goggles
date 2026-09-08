@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0026_alter_txmodel_tx_type'),
+        ("accounts", "0026_alter_txmodel_tx_type"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='user',
-            name='active_session_id',
+            model_name="user",
+            name="active_session_id",
             field=models.UUIDField(blank=True, null=True),
         ),
     ]

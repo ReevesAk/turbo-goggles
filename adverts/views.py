@@ -580,9 +580,7 @@ class ListAllBrandAds(generics.ListAPIView):
                             **row,
                             "ad_type": ad_type,
                             "budget_spent": _ad_budget_spent(ad_type, obj),
-                            "total_points_rewarded": _ad_points_rewarded(
-                                ad_type, obj
-                            ),
+                            "total_points_rewarded": _ad_points_rewarded(ad_type, obj),
                         },
                     )
                 )

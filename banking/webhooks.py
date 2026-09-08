@@ -646,7 +646,11 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
         )
 
     def extract_tier(self, message: str):
-        match = re.search(r"upgraded to\s+(\w+)", message, re.IGNORECASE)
+        match = re.search(
+            r"upgraded\s+to\s+(?:tier\s*)?\(?([23])\)?",
+            message or "",
+            re.IGNORECASE,
+        )
         return match.group(1) if match else None
 
 

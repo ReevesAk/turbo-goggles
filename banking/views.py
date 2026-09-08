@@ -111,7 +111,7 @@ class PaginationStyle(PageNumberPagination):
 )
 class VerifYBVN(generics.GenericAPIView):
     """VerifYBVN handles the POST request of verifying a customer's bvn.
-    It accepts bvn registered phone number and bvn as inputs.
+    It accepts a BVN as input.
     """
 
     serializer_class = BVNSerializer
@@ -214,22 +214,7 @@ class VerifYBVN(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        doj_phone = entity.get("phone_number1")
         supplied_phone = user_data.get("bvn_phone")
-        if doj_phone != supplied_phone:
-            logger.warning(
-                f"BVN verification failed for user {user.id}: phone number mismatch "
-                f"(bvn_phone={doj_phone!r}, supplied={supplied_phone!r})."
-            )
-            return Response(
-                data=encrypt(
-                    {
-                        "status": "fail",
-                        "message": "BVN verification failed, phone number mismatch.",
-                    }
-                ),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
         # --- SUCCESS: Update records ---
         kyc.bvn = user_data["bvn"]
@@ -1414,7 +1399,9 @@ class ForgotWalletPin(generics.GenericAPIView):
         elif user.alert_type_choice == "SMS":
             response_msg = "An OTP has been sent to your phone number."
         else:
-            response_msg = "An OTP has been sent to your phone number and email address."
+            response_msg = (
+                "An OTP has been sent to your phone number and email address."
+            )
 
         create_activity.delay(
             user_id=user.id,
@@ -1485,7 +1472,9 @@ class PinResendOTP(generics.GenericAPIView):
         )
 
         if user.alert_type_choice == "Email":
-            status_msg = "Otp resent Successfully. Check your email address for validation"
+            status_msg = (
+                "Otp resent Successfully. Check your email address for validation"
+            )
         elif user.alert_type_choice == "SMS":
             status_msg = "Otp resent Successfully. Check your phone for validation"
         else:

@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('vas', '0002_fix_created_at_auto_now'),
+        ("vas", "0002_fix_created_at_auto_now"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='valueaddedservices',
-            name='token',
+            model_name="valueaddedservices",
+            name="token",
             field=models.CharField(blank=True, max_length=255, null=True),
         ),
     ]
