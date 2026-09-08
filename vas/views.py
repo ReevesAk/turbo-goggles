@@ -1855,7 +1855,9 @@ class BillPaymentView(generics.GenericAPIView):
         units = vas_data.get("units") if isinstance(vas_data, dict) else None
         if not units and isinstance(vas_data, dict):
             other_field = vas_data.get("otherField") or ""
-            if isinstance(other_field, str) and other_field.lower().startswith("units:"):
+            if isinstance(other_field, str) and other_field.lower().startswith(
+                "units:"
+            ):
                 units = other_field.split(":", 1)[1].strip()
         units = units or ""
 

@@ -6,13 +6,25 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('gamification', '0027_referral_referral_type'),
+        ("gamification", "0027_referral_referral_type"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='usergeneratedcontent',
-            name='demography',
-            field=models.CharField(blank=True, choices=[('18+', '18+'), ('18 - 25', '18 - 25'), ('26 - 35', '26 - 35'), ('36 - 45', '36 - 45'), ('46+', '46+')], help_text='Target age demographic', max_length=150, null=True),
+            model_name="usergeneratedcontent",
+            name="demography",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("18+", "18+"),
+                    ("18 - 25", "18 - 25"),
+                    ("26 - 35", "26 - 35"),
+                    ("36 - 45", "36 - 45"),
+                    ("46+", "46+"),
+                ],
+                help_text="Target age demographic",
+                max_length=150,
+                null=True,
+            ),
         ),
     ]
