@@ -498,9 +498,32 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
         if upgrade_status == "Completed":
             wallet = WalletModel.objects.filter(account_number=account_number).first()
             user = wallet.user if wallet else None
+            tier = self.extract_tier(message)
+
+            # Skip reprocessing once the wallet already reflects this exact
+            # approval so users don't get duplicate SMS/email/push for one
+            # real upgrade.
+            if (
+                wallet
+                and wallet.tier2_upgrade_status == "APPROVED"
+                and tier is not None
+                and str(wallet.tier_level) == str(tier)
+            ):
+                logger.info(
+                    f"Duplicate account-upgrade webhook for {account_number} "
+                    f"(tier={tier}), already processed; skipping."
+                )
+                return Response(
+                    {
+                        "success": True,
+                        "code": "00",
+                        "status": "success",
+                        "message": "Already processed.",
+                    },
+                    status=status.HTTP_200_OK,
+                )
 
             if wallet and user:
-                tier = self.extract_tier(message)
                 alert_type = getattr(user, "alert_type_choice", None)
 
                 if alert_type in ("SMS", "Both"):
@@ -547,11 +570,10 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
                 send_push_to_user(
                     user=user,
                     title="Account Upgraded! 🚀",
-                    body=f"Your wallet has been upgraded to {self.extract_tier(message)} tier. Enjoy enhanced benefits.",
+                    body=f"Your wallet has been upgraded to {tier} tier. Enjoy enhanced benefits.",
                     data={"type": "account_upgrade", "account_number": account_number},
                 )
 
-                tier = self.extract_tier(message)
                 ActivityModel.objects.create(
                     user=user,
                     title="Account Upgrade",
@@ -647,7 +669,7 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
 
     def extract_tier(self, message: str):
         match = re.search(
-            r"upgraded\s+to\s+(?:tier\s*)?\(?([23])\)?",
+            r"tier\s*\(?([23])\)?",
             message or "",
             re.IGNORECASE,
         )
