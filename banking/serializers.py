@@ -30,8 +30,8 @@ class BVNSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "bvn",
-            "bvn_phone",
         ]
+        extra_kwargs = {"bvn": {"validators": []}}
 
 
 class NINSerializer(serializers.ModelSerializer):
@@ -44,6 +44,7 @@ class NINSerializer(serializers.ModelSerializer):
             "nin",
             "nin_dob",
         ]
+        extra_kwargs = {"nin": {"validators": []}}
 
 
 class WalletCreationSerializers(serializers.ModelSerializer):
