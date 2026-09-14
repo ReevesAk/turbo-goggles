@@ -199,7 +199,9 @@ class VerifYBVN(generics.GenericAPIView):
         entity.pop("image", None)
 
         img_resp = entity.get("selfie_verification")
-        if img_resp.get("match") is not True or img_resp.get("confidence_value") < 90:
+        if img_resp.get("match") is not True or not (
+            70 <= img_resp.get("confidence_value", 0) <= 80
+        ):
             logger.warning(
                 f"BVN verification failed for user {user.id}: selfie mismatch "
                 f"(match={img_resp.get('match')}, confidence_value={img_resp.get('confidence_value')})."
@@ -216,6 +218,7 @@ class VerifYBVN(generics.GenericAPIView):
 
         # --- SUCCESS: Update records ---
         kyc.bvn = user_data["bvn"]
+        kyc.bvn_phone = entity.get("phone_number1")
         kyc.is_bvn_img_a_match = True
         kyc.save()
 
@@ -498,6 +501,31 @@ class CreateUserWallet(generics.GenericAPIView):
             )
 
         unique_code = Wallet.generate_unique_code()
+
+        kyc = UserKYC.objects.filter(user=current_user).first()
+
+        if kyc is None:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "KYC record not found. Please complete your BVN verification.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not kyc.bvn_phone:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "BVN phone number is missing. Please re-verify your BVN.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
             wallet_response = Wallet.Open(
                 transactionTrackingRef=unique_code,
@@ -505,10 +533,10 @@ class CreateUserWallet(generics.GenericAPIView):
                 otherNames=current_user.first_name,
                 accountName=payload.get("acct_name"),
                 gender=payload.get("gender"),
-                bvn=payload.get("bvn"),
+                bvn=kyc.bvn,
                 dateOfBirth=payload.get("dateOfBirth"),
                 email=current_user.email,
-                phoneNo=current_user.phone_number,
+                phoneNo=kyc.bvn_phone,
             )
 
             if wallet_response is None:
