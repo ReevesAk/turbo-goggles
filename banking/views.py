@@ -62,6 +62,7 @@ from .helpers import (
     is_credit_tx,
     describe_transaction,
 )
+from .utils import normalize_ng_phone
 from cloudinary import uploader as cloud
 from security import encrypt, decrypt
 
@@ -198,13 +199,16 @@ class VerifYBVN(generics.GenericAPIView):
         # Remove heavy base64 image
         entity.pop("image", None)
 
-        img_resp = entity.get("selfie_verification")
-        if img_resp.get("match") is not True or not (
-            70 <= img_resp.get("confidence_value", 0) <= 100
-        ):
+        img_resp = entity.get("selfie_verification") or {}
+        confidence = img_resp.get("confidence_value", 0)
+
+        if not (70 <= confidence <= 100):
+
             logger.warning(
-                f"BVN verification failed for user {user.id}: selfie mismatch "
-                f"(match={img_resp.get('match')}, confidence_value={img_resp.get('confidence_value')})."
+                "BVN verification failed for user %s: selfie confidence out of "
+                "acceptable range (confidence_value=%s).",
+                user.id,
+                confidence,
             )
             return Response(
                 data=encrypt(
@@ -216,9 +220,18 @@ class VerifYBVN(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        normalized_phone = normalize_ng_phone(entity.get("phone_number1"))
+        if not normalized_phone:
+            logger.warning(
+                "BVN verification for user %s returned no usable phone "
+                "(raw=%r). Storing NULL and letting the wallet flow fall back.",
+                user.id,
+                entity.get("phone_number1"),
+            )
+
         # --- SUCCESS: Update records ---
         kyc.bvn = user_data["bvn"]
-        kyc.bvn_phone = entity.get("phone_number1")
+        kyc.bvn_phone = normalized_phone
         kyc.is_bvn_img_a_match = True
         kyc.save()
 
@@ -246,7 +259,7 @@ class VerifYBVN(generics.GenericAPIView):
                 "middle_name": entity.get("middle_name"),
                 "date_of_birth": entity.get("date_of_birth"),
                 "gender": entity.get("gender"),
-                "phone_number": entity.get("phone_number1"),
+                "phone_number": normalized_phone,
                 "bvn": user_data["bvn"],
             },
         }
@@ -376,11 +389,17 @@ class VerifYNIN(generics.GenericAPIView):
         # Remove heavy image if present
         nin_data.pop("image", None)
 
-        img_resp = entity.get("selfie_verification")
-        if img_resp.get("match") is not True or img_resp.get("confidence_value") < 90:
+        img_resp = entity.get("selfie_verification") or {}
+
+        confidence = img_resp.get("confidence_value", 0)
+
+        if not (70 <= confidence <= 100):
+
             logger.warning(
-                f"NIN verification failed for user {user.id}: selfie mismatch "
-                f"(match={img_resp.get('match')}, confidence_value={img_resp.get('confidence_value')})."
+                "BVN verification failed for user %s: selfie confidence out of "
+                "acceptable range (confidence_value=%s).",
+                user.id,
+                confidence,
             )
             return Response(
                 data=encrypt(
@@ -515,7 +534,9 @@ class CreateUserWallet(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if not kyc.bvn_phone:
+        phone_no = kyc.bvn_phone or normalize_ng_phone(current_user.phone_number)
+
+        if not phone_no:
             return Response(
                 data=encrypt(
                     {
@@ -536,7 +557,7 @@ class CreateUserWallet(generics.GenericAPIView):
                 bvn=kyc.bvn,
                 dateOfBirth=payload.get("dateOfBirth"),
                 email=current_user.email,
-                phoneNo=kyc.bvn_phone,
+                phoneNo=phone_no,
             )
 
             if wallet_response is None:
