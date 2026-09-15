@@ -200,7 +200,7 @@ class VerifYBVN(generics.GenericAPIView):
 
         img_resp = entity.get("selfie_verification")
         if img_resp.get("match") is not True or not (
-            70 <= img_resp.get("confidence_value", 0) <= 80
+            70 <= img_resp.get("confidence_value", 0) <= 100
         ):
             logger.warning(
                 f"BVN verification failed for user {user.id}: selfie mismatch "
