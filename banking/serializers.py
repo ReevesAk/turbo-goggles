@@ -50,7 +50,7 @@ class NINSerializer(serializers.ModelSerializer):
 class WalletCreationSerializers(serializers.ModelSerializer):
     """Serailizers for creating a bank account for users."""
 
-    bvn = serializers.CharField(max_length=12, write_only=True, required=True)
+    bvn = serializers.CharField(max_length=12, write_only=True, required=False)
 
     class Meta:
         model = WalletModel
