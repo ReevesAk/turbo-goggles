@@ -31,6 +31,7 @@ from rest_framework import status
 # In-projects imports.
 from .helpers import Pin
 from .transfer_charge import TransferCharge
+from .throttles import IdempotentTransferThrottle
 from roles.models import ActivityModel
 from .controllers import Transfers, Paystack, Wallet
 from .models import TransferModel, WalletModel, FundWithCard
@@ -366,6 +367,7 @@ class IntraBankTransfer(generics.CreateAPIView):
 
     serializer_class = BankTransfersSerializer
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
+    throttle_classes = [IdempotentTransferThrottle]
     throttle_scope = "wallet_transfer"
 
     @staticmethod
@@ -862,6 +864,7 @@ class InterBankTransfer(generics.CreateAPIView):
 
     serializer_class = BankTransfersSerializer
     permission_classes = (IsAuthenticated, (IsPartnerUserOrMember | IsBrandAd))
+    throttle_classes = [IdempotentTransferThrottle]
     throttle_scope = "wallet_transfer"
 
     @staticmethod

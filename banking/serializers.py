@@ -400,6 +400,21 @@ class UpgradeNotificationWebhookSerializer(serializers.Serializer):
     message = serializers.CharField()
 
 
+class ReversalTransactionSerializer(serializers.Serializer):
+    externalreference = serializers.CharField()
+
+
+class ReversalNotificationWebhookSerializer(serializers.Serializer):
+    transaction = ReversalTransactionSerializer()
+    merchant = serializers.CharField()
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2)
+    sourcebank = serializers.CharField()
+    accountnumber = serializers.CharField()
+    narration = serializers.CharField()
+    code = serializers.CharField()
+    message = serializers.CharField()
+
+
 class FundWalletSerializers(serializers.Serializer):
     class Meta:
         model = FundWithCard
