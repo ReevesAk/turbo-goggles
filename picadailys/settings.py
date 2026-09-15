@@ -247,7 +247,7 @@ REST_FRAMEWORK = {
         "otp": "5/minute",
         "otp_request": "3/minute",
         "login": "5/minute",
-        "wallet_transfer": "10/hour",
+        "wallet_transfer": "20/hour",
         "pin_change": "5/hour",
         "password_change": "5/hour",
     },

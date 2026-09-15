@@ -25,6 +25,7 @@ from .serializers import (
     WebhookSerializer,
     TransferNotificationWebhookSerializer,
     UpgradeNotificationWebhookSerializer,
+    ReversalNotificationWebhookSerializer,
 )
 from accounts.models import UserNotification, User, TxModel
 from roles.models import ActivityModel
@@ -45,7 +46,7 @@ secret_key = config("PAYSTACK_SECRET_KEY")
 @extend_schema(
     summary="9PSB webhook dispatcher",
     tags=["Webhooks"],
-    description="Entry-point webhook called by 9PSB. Dispatches to the appropriate handler based on the `event` query parameter (transfer or account_upgrade).",
+    description="Entry-point webhook called by 9PSB. Dispatches to the appropriate handler based on the `event` query parameter (transfer, account_upgrade, or reversal).",
     exclude=True,
 )
 class WebhookDispatcherView(generics.GenericAPIView):
@@ -72,6 +73,9 @@ class WebhookDispatcherView(generics.GenericAPIView):
 
         if normalized_event == "account_upgrade":
             return AccountUpgradeWebhookNotificationView.as_view()(request._request)
+
+        if normalized_event == "reversal":
+            return ReversalWebhookNotificationView.as_view()(request._request)
 
         logger.warning(f"Unsupported webhook event type received: {event!r}")
         return Response(
@@ -674,6 +678,146 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
             re.IGNORECASE,
         )
         return match.group(1) if match else None
+
+
+@extend_schema(
+    summary="9PSB transfer reversal webhook",
+    tags=["Webhooks"],
+    description="Called by 9PSB when a previously sent outbound transfer is reversed back into a Picadailys wallet. Verifies Basic Auth, records the reversal, and notifies the account holder. Does not attempt to reconcile against the original TransferModel row, since 9PSB's own transaction reference isn't currently persisted at transfer-initiation time.",
+    exclude=True,
+)
+class ReversalWebhookNotificationView(generics.CreateAPIView):
+    serializer_class = ReversalNotificationWebhookSerializer
+
+    # Credentials you registered with 9PSB
+    EXPECTED_USERNAME = config("NINE_PSB_WEBHOOK_USERNAME")
+    EXPECTED_PASSWORD = config("NINE_PSB_WEBHOOK_PASSWORD")
+
+    def verify_basic_auth(self, request):
+        """Validate Basic Auth header."""
+        auth_header = request.headers.get("Authorization")
+
+        if not auth_header or not auth_header.startswith("Basic "):
+            return Response(
+                {
+                    "success": False,
+                    "code": "401",
+                    "status": "FAILED",
+                    "message": "Missing or invalid Authorization header",
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        try:
+            encoded_credentials = auth_header.split(" ")[1]
+            decoded_credentials = base64.b64decode(encoded_credentials).decode("utf-8")
+            username, password = decoded_credentials.split(":", 1)
+        except Exception:
+            return Response(
+                {
+                    "success": False,
+                    "code": "400",
+                    "status": "FAILED",
+                    "message": "Invalid Basic Auth format or encoding",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if username != self.EXPECTED_USERNAME or password != self.EXPECTED_PASSWORD:
+            return Response(
+                {
+                    "success": False,
+                    "code": "401",
+                    "status": "FAILED",
+                    "message": "Invalid username or password",
+                },
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        return None  # Auth passed
+
+    def post(self, request, *args, **kwargs):
+        # Step 1: Validate Basic Auth
+        auth_error = self.verify_basic_auth(request)
+        if auth_error:
+            return auth_error
+
+        # Step 2: Validate payload
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        webhook_data = serializer.validated_data
+
+        logger.info(f"Received 9PSB reversal webhook: {webhook_data}")
+
+        # Step 3: Extract key details
+        merchant = webhook_data.get("merchant")
+        account_number = webhook_data.get("accountnumber")
+        amount = webhook_data.get("amount")
+        narration = webhook_data.get("narration")
+        source_bank = webhook_data.get("sourcebank")
+        external_reference = webhook_data["transaction"]["externalreference"]
+
+        if merchant == "PICADAILYS":
+            wallet = WalletModel.objects.filter(account_number=account_number).first()
+            user = wallet.user if wallet else None
+
+            # Idempotency guard — if we already processed this reversal, ack and stop
+            if (
+                wallet
+                and TxModel.objects.filter(tx_reference=external_reference).exists()
+            ):
+                logger.info(
+                    f"Duplicate reversal webhook for externalreference={external_reference}, skipping."
+                )
+                return Response(
+                    {"success": True, "message": "Already processed."},
+                    status=status.HTTP_200_OK,
+                )
+
+            if wallet:
+                TxModel.objects.create(
+                    tx_reference=external_reference,
+                    user=wallet.user,
+                    tx_type="Transfer Reversal",
+                    amount=amount,
+                    description=f"Reversal from {source_bank}: {narration}",
+                    status="SUCCESS",
+                )
+
+                UserNotification.objects.create(
+                    user=user,
+                    title="Transfer Reversed",
+                    message=f"₦{amount} was reversed back to your wallet.",
+                )
+
+                send_push_to_user(
+                    user=user,
+                    title="Transfer Reversed ↩️",
+                    body=f"₦{amount} was reversed back to your wallet.",
+                    data={
+                        "type": "wallet_reversal",
+                        "amount": str(amount),
+                        "reference": external_reference,
+                    },
+                )
+
+                ActivityModel.objects.create(
+                    user=user,
+                    title="Transfer Reversal",
+                    description=f"{user.full_name}'s wallet was credited ₦{amount} from a reversed transfer.",
+                )
+
+                logger.info(f"Wallet {account_number} reversal of ₦{amount} recorded.")
+
+        return Response(
+            {
+                "success": True,
+                "code": "00",
+                "status": "SUCCESS",
+                "message": "Acknowledged",
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @extend_schema(
