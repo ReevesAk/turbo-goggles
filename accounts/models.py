@@ -231,6 +231,10 @@ class TxModel(models.Model):
     status = models.CharField(max_length=20, default="PENDING", choices=STATUS_CHOICES)
     is_task = models.BooleanField(default=False)
     task_id = models.UUIDField(null=True, blank=True)
+    # VAS (airtime/data) purchases only - carried so a PENDING row can be
+    # reconciled and completed later without the original request context.
+    phone_number = models.CharField(max_length=20, null=True, blank=True)
+    network = models.CharField(max_length=20, null=True, blank=True)
     # Idempotency guard for gamification.signals.track_financial_task_progress
     # - set once this row has counted toward its task's progress, so a
     # later re-save (retry, webhook replay) can never double-count it.

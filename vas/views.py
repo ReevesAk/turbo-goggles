@@ -36,6 +36,7 @@ from gamification.points import TIER_VALUES
 from .utility import (
     create_activity,
     create_notification,
+    complete_data_purchase,
     # send_token,
     # send_token_to_guest_users,
 )
@@ -72,13 +73,21 @@ def _bill_payment_category(billerId):
 
 
 def _handle_pending_response(
-    user=None, tx_reference=None, tx_type=None, amount=None, description=""
+    user=None,
+    tx_reference=None,
+    tx_type=None,
+    amount=None,
+    description="",
+    phone=None,
+    network=None,
 ):
     """
     Shared response for a purchase the provider explicitly flagged as still
     processing (e.g. responseCode 202), even after a patient status poll.
     No refund is issued here - 9PSB settles/reverses a pending transaction
-    on their side once it resolves.
+    on their side once it resolves. phone/network are stashed on the row so
+    the reconciliation sweep (vas/tasks.py) can complete this purchase's
+    success side effects without the original request context.
     """
     if user and tx_reference:
         try:
@@ -91,6 +100,8 @@ def _handle_pending_response(
                         "amount": amount,
                         "description": description,
                         "status": "PENDING",
+                        "phone_number": phone,
+                        "network": network,
                     },
                 )
         except Exception as e:
@@ -879,51 +890,22 @@ class DataSubscriptionView(generics.GenericAPIView):
         }
 
         title = "Data purchase"
-        message = f"This is to inform you that you have made a data purchase of {amount} naira data on {phone}."
-        description = (
-            f"{user.first_name if user else 'Guest'} {user.last_name if user else ''} "
-            f"has made a purchase of {amount} naira data on {phone}."
-        )
 
         if user:
-            create_notification(user=user, title=title, message=message)
-            create_activity(user=user, title=title, description=description)
-            try:
-                with transaction.atomic():
-                    TxModel.objects.update_or_create(
-                        tx_reference=tx_reference,
-                        defaults={
-                            "user": user,
-                            "tx_type": "Data",
-                            "amount": amount,
-                            "description": title,
-                            "status": "SUCCESS",
-                            "is_task": self.is_task,
-                            "task_id": self.task_id,
-                        },
-                    )
-                    CashbackService.reward_cashback(
-                        user=user, amount=amount, service="data", tx_ref=tx_reference
-                    )
-            except Exception as e:
-                logger.error(f"Database query error: {str(e)}")
-
-            if cashback is not None:
-                response_data["cashback_used"] = str(cashback)
-
-            post_vas_update.delay(
-                user_id=user.id,
-                account_number=account_number,
-                amount_str=str(amount),
+            complete_data_purchase(
+                user=user,
                 tx_reference=tx_reference,
-                service_type="DATA",
+                amount=amount,
                 phone=phone,
                 network=network,
-                alert_type=getattr(user, "alert_type_choice", "Both"),
-                phone_number=getattr(user, "phone_number", None),
-                email=getattr(user, "email", None),
+                account_number=account_number,
+                is_task=self.is_task,
+                task_id=self.task_id,
             )
+            if cashback is not None:
+                response_data["cashback_used"] = str(cashback)
         else:
+            description = f"Guest has made a purchase of {amount} naira data on {phone}."
             create_activity(guest_id=guest_id, title=title, description=description)
 
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
@@ -1188,6 +1170,19 @@ class DataSubscriptionView(generics.GenericAPIView):
                         tx_ref=tx_reference,
                     )
                     if data_response is None:
+                        status_resp = VAS.confirm_status(
+                            tx_ref=tx_reference, bearer_token=token
+                        )
+                        if status_resp and VAS.is_success(status_resp):
+                            return self._handle_data_success(
+                                user=user,
+                                phone=phone,
+                                productId=product_id,
+                                amount=amount,
+                                network=network,
+                                tx_reference=tx_reference,
+                                cashback=cashback_used,
+                            )
                         return self._handle_data_failure(
                             tx_reference=tx_reference,
                             user=user,
@@ -1226,6 +1221,8 @@ class DataSubscriptionView(generics.GenericAPIView):
                             tx_type="Data",
                             amount=amount,
                             description="Data purchase pending.",
+                            phone=phone,
+                            network=network,
                         )
                     return self._handle_data_failure(
                         tx_reference=tx_reference,
@@ -1262,6 +1259,19 @@ class DataSubscriptionView(generics.GenericAPIView):
                     tx_ref=tx_reference,
                 )
                 if data_response is None:
+                    status_resp = VAS.confirm_status(
+                        tx_ref=tx_reference, bearer_token=token
+                    )
+                    if status_resp and VAS.is_success(status_resp):
+                        return self._handle_data_success(
+                            user=user,
+                            phone=phone,
+                            productId=product_id,
+                            amount=purchase_amount,
+                            network=network,
+                            tx_reference=tx_reference,
+                            cashback=cashback_used,
+                        )
                     if cashback_used:
                         CashbackService.refund_cashback(
                             user=user, cashback_amount=cashback_used
@@ -1306,6 +1316,8 @@ class DataSubscriptionView(generics.GenericAPIView):
                             tx_type="Data",
                             amount=purchase_amount,
                             description="Data purchase pending.",
+                            phone=phone,
+                            network=network,
                         )
                     if cashback_used:
                         CashbackService.refund_cashback(
@@ -1349,6 +1361,19 @@ class DataSubscriptionView(generics.GenericAPIView):
                     tx_ref=tx_reference,
                 )
                 if data_response is None:
+                    status_resp = VAS.confirm_status(
+                        tx_ref=tx_reference, bearer_token=token
+                    )
+                    if status_resp and VAS.is_success(status_resp):
+                        return self._handle_data_success(
+                            user=user,
+                            guest_id=guest_id,
+                            phone=phone,
+                            productId=product_id,
+                            amount=amount,
+                            network=network,
+                            tx_reference=tx_reference,
+                        )
                     return self._handle_data_failure(
                         tx_reference=tx_reference,
                         user=user,
@@ -1387,6 +1412,8 @@ class DataSubscriptionView(generics.GenericAPIView):
                         tx_type="Data",
                         amount=amount,
                         description="Data purchase pending.",
+                        phone=phone,
+                        network=network,
                     )
                 return self._handle_data_failure(
                     tx_reference=tx_reference,

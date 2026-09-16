@@ -545,6 +545,7 @@ CRONJOBS = [
     # points balance with NextBee's external number every 5 minutes, which
     # is now stale/wrong and was clobbering the internal Points engine.
     ("*/30 * * * *", "banking.tasks.reconcile_pending_transfers"),
+    ("*/15 * * * *", "vas.tasks.reconcile_pending_vas_transactions"),
     ("0 0 * * *", "waitlist.jobs.remove_unverified_waitlist_users"),
     ("0 3 * * *", "flights.jobs.sync_airports"),
 ]

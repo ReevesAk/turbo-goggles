@@ -40,15 +40,20 @@ class VAS:
     @staticmethod
     def is_success(response):
         """
-        True only when the envelope claims success AND, if the payload
-        carries its own nested transaction status, that status doesn't
-        contradict it. Seen in production: a 200 response whose envelope
-        says {"status": "success", ...} while the nested transaction
-        record says {"transactionStatus": "failed", "description":
-        "Transaction with reference '...' not found"} - the wallet was
-        still debited, but treating the envelope alone as success told the
-        customer the purchase succeeded when it hadn't. Don't trust the
-        envelope alone if the payload explicitly disagrees.
+        An explicit envelope failure (e.g. {"status": "fail", ...}) always
+        wins, regardless of what any nested transaction status claims.
+        Otherwise, a nested transaction status - when the payload has one -
+        is authoritative over the envelope: seen in production, a 200
+        response whose envelope says {"status": "success", ...} while the
+        nested transaction record said {"transactionStatus": "failed",
+        "description": "Transaction with reference '...' not found"} - the
+        wallet was still debited, but treating the envelope alone as
+        success told the customer the purchase succeeded when it hadn't.
+        Also seen: 9PSB's status-check response, which carries a nested
+        transactionStatus but no top-level status/message envelope at all -
+        treating that missing envelope as failure discarded a genuine
+        nested success. Only fall back to the bare envelope when there's no
+        nested status to read.
         """
         if not response or response.status_code != 200:
             return False
@@ -56,10 +61,14 @@ class VAS:
             body = response.json()
         except Exception:
             return False
+        raw_status = body.get("status")
         msg = (body.get("message") or "").lower()
-        status = body.get("status") or ""
+        status = raw_status or ""
         envelope_success = "success" in msg or status in ("00", "SUCCESS", "success")
-        if not envelope_success:
+        envelope_explicit_failure = (raw_status is not None or bool(msg)) and (
+            not envelope_success
+        )
+        if envelope_explicit_failure:
             return False
 
         data = body.get("data") if isinstance(body.get("data"), dict) else None
@@ -68,10 +77,10 @@ class VAS:
             data = content.get("transactions", content)
         if isinstance(data, dict):
             nested_status = str(data.get("transactionStatus", "")).lower()
-            if nested_status and nested_status not in ("success", "successful", "00"):
-                return False
+            if nested_status:
+                return nested_status in ("success", "successful", "00")
 
-        return True
+        return envelope_success
 
     @staticmethod
     def is_pending(response):
@@ -282,13 +291,13 @@ class VAS:
         }
         _log_request("data", url, payload=payload, headers=headers)
         try:
-            response = requests.post(url=url, json=payload, headers=headers, timeout=15)
+            response = requests.post(url=url, json=payload, headers=headers, timeout=30)
             if response.status_code == 401:
                 fresh = VAS.authenticate(force_refresh=True)
                 if fresh:
                     headers["Authorization"] = f"Bearer {fresh}"
                     response = requests.post(
-                        url=url, json=payload, headers=headers, timeout=15
+                        url=url, json=payload, headers=headers, timeout=30
                     )
             _log_response("data", response)
             return response
