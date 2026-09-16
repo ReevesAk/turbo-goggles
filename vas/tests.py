@@ -163,6 +163,21 @@ class VasIsSuccessTests(TestCase):
         )
         self.assertFalse(VAS.is_success(response))
 
+    def test_no_envelope_with_nested_success_is_success(self):
+        """9PSB's status-check response (VAS.status) carries a nested
+        transactionStatus but often no top-level status/message envelope at
+        all. Treating that missing envelope as failure discarded a genuine
+        nested success - this was the "Topup transaction status retrieved"
+        false failure reported in production for hybrid cashback/points
+        data purchases."""
+        response = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "data": {"transactionStatus": "success", "responseCode": 200}
+            },
+        )
+        self.assertTrue(VAS.is_success(response))
+
 
 class BillPaymentCategoryTests(TestCase):
     """_bill_payment_category - classifies a BillPaymentView purchase as
@@ -331,12 +346,13 @@ class VasEndpointCoverageTests(APITestCase):
 
 
 class HybridPaymentFlowTests(APITestCase):
+    @patch("vas.helpers.time.sleep")
     @patch("vas.views.Pay.refund_pts")
     @patch("vas.views.VAS.data")
     @patch("vas.views.VAS.status")
     @patch("vas.views.VAS.authenticate", return_value="token")
     def test_data_subscription_hybrid_points_wallet_flow(
-        self, mock_auth, mock_status, mock_data, mock_refund_pts
+        self, mock_auth, mock_status, mock_data, mock_refund_pts, mock_sleep
     ):
         """
         Hybrid payment: points cover the full purchase, VAS is called with
@@ -346,6 +362,11 @@ class HybridPaymentFlowTests(APITestCase):
         separate Wallet.Debit/Credit call in this flow; the debit itself
         happens provider-side via VAS.data's debitAccount, and points are
         deducted/refunded locally via commons.Pay.with_pts/refund_pts.
+
+        mock_data returns None here (simulating a timeout), which now
+        (see VAS.confirm_status) makes the view poll VAS.status with real
+        backoff sleeps before giving up - time.sleep is mocked so this test
+        doesn't actually block for ~25s.
         """
         mock_status.return_value = MagicMock(
             json=lambda: {"data": {"transactionStatus": "fail", "responseCode": 500}}
@@ -425,6 +446,47 @@ class HybridPaymentFlowTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(mock_data.call_args.kwargs["debitAccount"], "1234567890")
+
+    @patch("vas.views.post_vas_update.delay")
+    @patch("vas.views.VAS.data")
+    @patch("vas.views.VAS.status")
+    @patch("vas.views.VAS.authenticate", return_value="token")
+    def test_data_subscription_wallet_only_confirms_status_after_timeout(
+        self, mock_auth, mock_status, mock_data, mock_post_vas_update
+    ):
+        """
+        VAS.data() returning None (e.g. a client-side timeout) doesn't mean
+        9PSB didn't actually deliver the bundle - poll VAS.status via
+        VAS.confirm_status before reporting failure, same as AirTimeTopUp
+        already does. Regression test for the reported bug where a wallet
+        purchase that actually succeeded upstream was reported as failed
+        ("VAS service unavailable.", error: {}) despite the bundle landing.
+        """
+        mock_data.return_value = None
+        mock_status.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {"status": "success", "data": {}},
+        )
+
+        user = self.create_and_login_user()
+
+        payload = encrypt(
+            {
+                "payment_option": "WALLET",
+                "phone_number": "08010000000",
+                "amount": "1000",
+                "network": "MTN",
+                "product_id": "mtn-1gb",
+                "pin": "1234",
+            }
+        )
+        response = self.client.post(
+            reverse("vas:data_subscription"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(mock_status.called)
 
     @patch("vas.views.VAS.data")
     @patch("vas.views.VAS.status")
