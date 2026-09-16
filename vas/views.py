@@ -118,6 +118,30 @@ def _handle_pending_response(
     )
 
 
+def _vas_failure_reason(response):
+    """Pull the most specific failure reason out of a VAS response body -
+    a nested data.description (e.g. "Transaction failed") over the
+    envelope's own message, since a status-check response's top-level
+    message is often just "Topup transaction status retrieved" (that the
+    status query itself worked, not why the purchase failed). Returns None
+    if response is missing or unparseable, so callers can fall back to a
+    second response (e.g. try the original VAS.data() response - which
+    tends to carry the real reason, like "Insufficient balance to cover
+    the transaction" - before the less specific status-check response)."""
+    if response is None or not hasattr(response, "json"):
+        return None
+    try:
+        body = response.json()
+    except Exception:
+        return None
+    if not isinstance(body, dict):
+        return None
+    data = body.get("data") if isinstance(body.get("data"), dict) else None
+    if isinstance(data, dict) and data.get("description"):
+        return data["description"]
+    return body.get("message") or None
+
+
 @extend_schema(
     summary="Purchase airtime for any Nigerian network",
     tags=["VAS"],
@@ -447,7 +471,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                         remaining = purchase_amount
                     if use_points and remaining > 0:
                         Pay.with_pts(user=user, amount=remaining)
-                        pts_used = avail_pts
+                        pts_used = Decimal(str(remaining))
 
                 account_number = user_wallet.account_number if user_wallet else ""
         except WalletModel.DoesNotExist:
@@ -905,7 +929,9 @@ class DataSubscriptionView(generics.GenericAPIView):
             if cashback is not None:
                 response_data["cashback_used"] = str(cashback)
         else:
-            description = f"Guest has made a purchase of {amount} naira data on {phone}."
+            description = (
+                f"Guest has made a purchase of {amount} naira data on {phone}."
+            )
             create_activity(guest_id=guest_id, title=title, description=description)
 
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
@@ -918,6 +944,7 @@ class DataSubscriptionView(generics.GenericAPIView):
         phone=None,
         amount=None,
         data_response=None,
+        error_detail=None,
         reason="",
         tx_reference=None,
     ):
@@ -959,20 +986,21 @@ class DataSubscriptionView(generics.GenericAPIView):
         else:
             logger.warning("Data failure: No response body from provider.")
 
-        if data_response is not None:
-            if hasattr(data_response, "data"):
-                error_detail = data_response.data
-            elif hasattr(data_response, "text"):
-                try:
-                    error_detail = data_response.json().get(
-                        "message", data_response.text
-                    )
-                except ValueError:
-                    error_detail = data_response.text
+        if error_detail is None:
+            if data_response is not None:
+                if hasattr(data_response, "data"):
+                    error_detail = data_response.data
+                elif hasattr(data_response, "text"):
+                    try:
+                        error_detail = data_response.json().get(
+                            "message", data_response.text
+                        )
+                    except ValueError:
+                        error_detail = data_response.text
+                else:
+                    error_detail = str(data_response)
             else:
-                error_detail = str(data_response)
-        else:
-            error_detail = {}
+                error_detail = {}
 
         response_data = {
             "status": "fail",
@@ -1146,7 +1174,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                 remaining = purchase_amount
             if use_points and remaining > 0:
                 Pay.with_pts(user=user, amount=remaining)
-                pts_used = avail_pts
+                pts_used = Decimal(str(remaining))
 
         match payment_option:
             case "WALLET":
@@ -1230,6 +1258,8 @@ class DataSubscriptionView(generics.GenericAPIView):
                         phone=phone,
                         amount=amount,
                         data_response=status_resp,
+                        error_detail=_vas_failure_reason(data_response)
+                        or _vas_failure_reason(status_resp),
                         reason="Data subscription failed.",
                     )
 
@@ -1331,6 +1361,8 @@ class DataSubscriptionView(generics.GenericAPIView):
                         phone=phone,
                         amount=purchase_amount,
                         data_response=status_resp,
+                        error_detail=_vas_failure_reason(data_response)
+                        or _vas_failure_reason(status_resp),
                         reason="Data subscription failed.",
                     )
 
@@ -1422,6 +1454,8 @@ class DataSubscriptionView(generics.GenericAPIView):
                     phone=phone,
                     amount=amount,
                     data_response=status_resp,
+                    error_detail=_vas_failure_reason(data_response)
+                    or _vas_failure_reason(status_resp),
                     reason="Data subscription failed.",
                 )
 

@@ -399,6 +399,66 @@ class HybridPaymentFlowTests(APITestCase):
         self.assertEqual(mock_data.call_args.kwargs["debitAccount"], collection_account)
         self.assertTrue(mock_refund_pts.called)
 
+    @patch("vas.views.Pay.refund_pts")
+    @patch("vas.views.VAS.data")
+    @patch("vas.views.VAS.status")
+    @patch("vas.views.VAS.authenticate", return_value="token")
+    def test_data_subscription_failure_shows_original_reason_not_generic_status_message(
+        self, mock_auth, mock_status, mock_data, mock_refund_pts
+    ):
+        """
+        Regression test: 9PSB rejected the purchase outright with a
+        specific reason ("Insufficient balance to cover the transaction"),
+        but the fallback status-check response only ever carries a generic
+        envelope message ("Topup transaction status retrieved") and a
+        generic nested description ("Transaction failed"). The mobile
+        client should see the original, actionable reason - not the
+        generic status-check wording.
+        """
+        mock_data.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "status": "failed",
+                "responseCode": "300",
+                "message": "Insufficient balance to cover the transaction",
+            },
+        )
+        mock_status.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "status": "success",
+                "responseCode": "200",
+                "message": "Topup transaction status retrieved",
+                "data": {
+                    "transactionStatus": "failed",
+                    "description": "Transaction failed",
+                },
+            },
+        )
+
+        user = self.create_and_login_user()
+        PointsModel.objects.create(user=user, balance=1000, tier="Influencer")
+
+        payload = encrypt(
+            {
+                "payment_option": "WALLET",
+                "phone_number": "08010000000",
+                "amount": "1000",
+                "network": "MTN",
+                "product_id": "mtn-1gb",
+                "use_points": True,
+                "pin": "1234",
+            }
+        )
+        response = self.client.post(
+            reverse("vas:data_subscription"),
+            data=json.dumps(payload),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        body = decrypt(response.data)
+        self.assertEqual(body["error"], "Insufficient balance to cover the transaction")
+
     @patch("vas.views.post_vas_update.delay")
     @patch("vas.views.VAS.data")
     @patch("vas.views.VAS.status")
