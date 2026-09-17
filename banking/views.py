@@ -62,6 +62,7 @@ from .helpers import (
     is_credit_tx,
     describe_transaction,
 )
+from .utils import normalize_ng_phone, parse_dojah_dob, format_dob_for_9psb
 from cloudinary import uploader as cloud
 from security import encrypt, decrypt
 
@@ -134,7 +135,7 @@ class VerifYBVN(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
 
         # Prevent duplicate BVNs
-        if UserKYC.objects.filter(bvn=user_data["bvn"]).exists():
+        if UserKYC.objects.filter(bvn=user_data["bvn"]).exclude(user=user).exists():
             logger.warning(
                 f"BVN verification failed for user {user.id}: BVN {user_data['bvn']} already registered."
             )
@@ -198,11 +199,17 @@ class VerifYBVN(generics.GenericAPIView):
         # Remove heavy base64 image
         entity.pop("image", None)
 
-        img_resp = entity.get("selfie_verification")
-        if img_resp.get("match") is not True or img_resp.get("confidence_value") < 90:
+        img_resp = entity.get("selfie_verification") or {}
+        confidence = img_resp.get("confidence_value")
+
+        if (
+            img_resp.get("match") is not True
+            or not isinstance(confidence, (int, float))
+            or confidence < 90
+        ):
             logger.warning(
                 f"BVN verification failed for user {user.id}: selfie mismatch "
-                f"(match={img_resp.get('match')}, confidence_value={img_resp.get('confidence_value')})."
+                f"(match={img_resp.get('match')}, confidence_value={confidence!r})."
             )
             return Response(
                 data=encrypt(
@@ -214,8 +221,37 @@ class VerifYBVN(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # --- SUCCESS: Update records ---
+        normalized_phone = normalize_ng_phone(entity.get("phone_number1"))
+        parsed_dob = parse_dojah_dob(entity.get("date_of_birth"))
+
+        if not normalized_phone:
+            logger.warning(
+                "BVN verification failed for user %s: Dojah returned no usable phone (raw=%r).",
+                user.id,
+                entity.get("phone_number1"),
+            )
+
+        if not parsed_dob:
+            logger.warning(
+                "BVN verification failed for user %s: Dojah returned unparseable DOB (raw=%r).",
+                user.id,
+                entity.get("date_of_birth"),
+            )
+
+        if not normalized_phone or not parsed_dob:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "BVN verification failed: the BVN record is missing a usable phone number or date of birth. Please contact support.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         kyc.bvn = user_data["bvn"]
+        kyc.bvn_phone = normalized_phone
+        kyc.bvn_dob = parsed_dob.isoformat()
         kyc.is_bvn_img_a_match = True
         kyc.save()
 
@@ -243,7 +279,7 @@ class VerifYBVN(generics.GenericAPIView):
                 "middle_name": entity.get("middle_name"),
                 "date_of_birth": entity.get("date_of_birth"),
                 "gender": entity.get("gender"),
-                "phone_number": entity.get("phone_number1"),
+                "phone_number": normalized_phone,
                 "bvn": user_data["bvn"],
             },
         }
@@ -309,7 +345,7 @@ class VerifYNIN(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
 
         # Prevent duplicate NIN
-        if UserKYC.objects.filter(nin=user_data["nin"]).exists():
+        if UserKYC.objects.filter(nin=user_data["nin"]).exclude(user=user).exists():
             logger.warning(
                 f"NIN verification failed for user {user.id}: NIN {user_data['nin']} already registered."
             )
@@ -371,19 +407,25 @@ class VerifYNIN(generics.GenericAPIView):
         entity = nin_data.get("entity", {})
 
         # Remove heavy image if present
-        nin_data.pop("image", None)
+        entity.pop("image", None)
 
-        img_resp = entity.get("selfie_verification")
-        if img_resp.get("match") is not True or img_resp.get("confidence_value") < 90:
+        img_resp = entity.get("selfie_verification") or {}
+        confidence = img_resp.get("confidence_value")
+
+        if (
+            img_resp.get("match") is not True
+            or not isinstance(confidence, (int, float))
+            or confidence < 90
+        ):
             logger.warning(
                 f"NIN verification failed for user {user.id}: selfie mismatch "
-                f"(match={img_resp.get('match')}, confidence_value={img_resp.get('confidence_value')})."
+                f"(match={img_resp.get('match')}, confidence_value={confidence!r})."
             )
             return Response(
                 data=encrypt(
                     {
                         "status": "fail",
-                        "message": "NIN verification failed. Selfie does not match.",
+                        "message": "NIN verification failed, selfie does not match.",
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -498,6 +540,56 @@ class CreateUserWallet(generics.GenericAPIView):
             )
 
         unique_code = Wallet.generate_unique_code()
+
+        kyc = UserKYC.objects.filter(user=current_user).first()
+
+        if kyc is None:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "KYC record not found. Please complete your BVN verification.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not kyc.bvn:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "BVN is required for wallet creation. Please complete your BVN verification.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        phone_no = kyc.bvn_phone
+
+        if not phone_no:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "BVN phone number is missing. Please re-verify your BVN.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        date_of_birth_9psb = format_dob_for_9psb(kyc.bvn_dob)
+        if not date_of_birth_9psb:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "Date of birth is missing or invalid. Please re-verify your BVN.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
             wallet_response = Wallet.Open(
                 transactionTrackingRef=unique_code,
@@ -505,10 +597,10 @@ class CreateUserWallet(generics.GenericAPIView):
                 otherNames=current_user.first_name,
                 accountName=payload.get("acct_name"),
                 gender=payload.get("gender"),
-                bvn=payload.get("bvn"),
-                dateOfBirth=payload.get("dateOfBirth"),
+                bvn=kyc.bvn,
+                dateOfBirth=date_of_birth_9psb,
                 email=current_user.email,
-                phoneNo=current_user.phone_number,
+                phoneNo=phone_no,
             )
 
             if wallet_response is None:
