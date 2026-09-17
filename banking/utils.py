@@ -1,6 +1,8 @@
 import logging
 from datetime import datetime, date
 
+from commons import Messaging
+
 logger = logging.getLogger(__name__)
 
 _DOB_FORMATS = ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%Y/%m/%d")
@@ -18,19 +20,16 @@ def normalize_ng_phone(phone: str | None) -> str | None:
     if not digits:
         return None
 
-    # 11 digits starting with 0 (local trunk format)
-    if len(digits) == 11 and digits.startswith("0"):
-        return "234" + digits[1:]
+    # Messaging._normalize_phone strips one leading "234" or "0" per call.
+    # Calling it twice collapses even a double-prefixed "234" + "0" + local
+    # number down to the bare 10-digit local number in one pass.
+    local = Messaging._normalize_phone(digits)
+    local = Messaging._normalize_phone(local)
 
-    # 13 digits already in country-code format (234 + 10-digit local, no trunk 0)
-    if len(digits) == 13 and digits.startswith("234") and digits[3] != "0":
-        return digits
+    if len(local) == 10:
+        return "234" + local
 
-    # 10 digits missing the trunk 0
-    if len(digits) == 10:
-        return "234" + digits
-
-    # Unknown length — log and return None rather than persisting garbage.
+    # Unknown/malformed shape — log and return None rather than persisting garbage.
     logger.warning("Unrecognized NG phone format, cannot normalize: %r", phone)
     return None
 
