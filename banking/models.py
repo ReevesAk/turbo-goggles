@@ -53,6 +53,7 @@ class UserKYC(models.Model):
     nin = EncryptedCharField(max_length=100, null=True, unique=True)
     is_nin_img_a_match = models.BooleanField(default=False, null=True)
     nin_dob = models.CharField(max_length=40, null=True)
+    bvn_dob = models.CharField(max_length=40, null=True)
     nin_name = models.CharField(max_length=200, null=True)
     bvn_phone = EncryptedCharField(max_length=100, null=True)
 
