@@ -135,7 +135,7 @@ class VerifYBVN(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
 
         # Prevent duplicate BVNs
-        if UserKYC.objects.filter(bvn=user_data["bvn"]).exists():
+        if UserKYC.objects.filter(bvn=user_data["bvn"]).exclude(user=user).exists():
             logger.warning(
                 f"BVN verification failed for user {user.id}: BVN {user_data['bvn']} already registered."
             )
@@ -222,26 +222,36 @@ class VerifYBVN(generics.GenericAPIView):
             )
 
         normalized_phone = normalize_ng_phone(entity.get("phone_number1"))
+        parsed_dob = parse_dojah_dob(entity.get("date_of_birth"))
+
         if not normalized_phone:
             logger.warning(
-                "BVN verification for user %s returned no usable phone "
-                "(raw=%r). Storing NULL and letting the wallet flow fall back.",
+                "BVN verification failed for user %s: Dojah returned no usable phone (raw=%r).",
                 user.id,
                 entity.get("phone_number1"),
             )
 
-        parsed_dob = parse_dojah_dob(entity.get("date_of_birth"))
         if not parsed_dob:
             logger.warning(
-                "BVN verification for user %s returned unparseable DOB (raw=%r). "
-                "Storing NULL; wallet creation will be blocked until re-verified.",
+                "BVN verification failed for user %s: Dojah returned unparseable DOB (raw=%r).",
                 user.id,
                 entity.get("date_of_birth"),
             )
 
+        if not normalized_phone or not parsed_dob:
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "fail",
+                        "message": "BVN verification failed: the BVN record is missing a usable phone number or date of birth. Please contact support.",
+                    }
+                ),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         kyc.bvn = user_data["bvn"]
         kyc.bvn_phone = normalized_phone
-        kyc.bvn_dob = parsed_dob.isoformat() if parsed_dob else None
+        kyc.bvn_dob = parsed_dob.isoformat()
         kyc.is_bvn_img_a_match = True
         kyc.save()
 
@@ -335,7 +345,7 @@ class VerifYNIN(generics.GenericAPIView):
         serializer.is_valid(raise_exception=True)
 
         # Prevent duplicate NIN
-        if UserKYC.objects.filter(nin=user_data["nin"]).exists():
+        if UserKYC.objects.filter(nin=user_data["nin"]).exclude(user=user).exists():
             logger.warning(
                 f"NIN verification failed for user {user.id}: NIN {user_data['nin']} already registered."
             )
