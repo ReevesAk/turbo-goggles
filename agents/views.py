@@ -50,7 +50,7 @@ class AgentWebTokenView(APIView):
 
 
 def _resolve_agent(request):
-    """Reads the short-lived handoff JWT (ReferralAgentService.issue_web_token)
+    """Reads the short-lived handoff JWT (ReferralAgentService.issue_web_dashboard_url)
     from the Authorization header. Deliberately separate from the app's normal
     session auth - this token identifies a ReferralAgent, not a logged-in
     User, and is only ever consumed by the web dashboard."""
@@ -61,6 +61,16 @@ def _resolve_agent(request):
         return ReferralAgentService.resolve_web_token(auth.split(" ", 1)[1])
     except (jwt.PyJWTError, ReferralAgent.DoesNotExist):
         return None
+
+
+def _display_name(user):
+    """user.full_name is never populated at registration (see
+    accounts/views.py's Register view), so it's blank for most users - fall
+    back to first_name/last_name, same pattern as
+    user_profile.serializers.UserLocationResponseSerializer."""
+    if user.full_name:
+        return user.full_name
+    return f"{user.first_name or ''} {user.last_name or ''}".strip()
 
 
 class AgentMeView(APIView):
@@ -94,7 +104,9 @@ class AgentReferralsView(APIView):
         referrals = agent.referrals.select_related("referred").order_by("-created_at")
         paginator = self._Pagination()
         page = paginator.paginate_queryset(referrals, request)
-        data = [{"name": r.referred.full_name, "joined": r.created_at} for r in page]
+        data = [
+            {"name": _display_name(r.referred), "joined": r.created_at} for r in page
+        ]
         return paginator.get_paginated_response(data)
 
 
