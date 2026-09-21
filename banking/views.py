@@ -48,6 +48,7 @@ from .serializers import (
     SubmitCorporateSerializer,
 )
 from accounts.models import UserNotification, TxModel, User
+from agents.services import ReferralAgentService
 from roles.models import ActivityModel
 from .tasks import create_notification, create_activity, send_alert_notification
 from .models import WalletModel, UserKYC, AddressVerificationModel
@@ -731,6 +732,8 @@ class CreateUserWallet(generics.GenericAPIView):
                 # Set the value of has_wallet to true.
                 current_user.has_wallet = True
                 current_user.save()
+
+                ReferralAgentService.credit_signup_bonus(current_user)
 
                 # Set the value of user's active at account creation.
                 user_acc.active_role_on_creation = current_user.active_role

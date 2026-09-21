@@ -41,6 +41,8 @@ from gamification.points import Points
 from gamification.referrals import Referrals
 from gamification.models import StreakChallenge
 from waitlist.models import WaitlistModel
+from agents.models import ReferralAgent
+from agents.services import ReferralAgentService
 from commons import Biometrics, Messaging
 from security import encrypt, decrypt
 from .utils import mask_email, mask_phone
@@ -136,6 +138,14 @@ class Register(generics.GenericAPIView):
                     walk_to_earn_referral_code=referred_by_code, is_deleted=False
                 ).first()
                 referrer_code_type = "walk_to_earn"
+            agent = None
+            if referrer is None:
+                agent = ReferralAgent.objects.filter(
+                    agent_code=referred_by_code
+                ).first()
+                if agent is not None:
+                    referrer = agent.user
+                    referrer_code_type = "agent"
             if referrer is None:
                 return Response(
                     data=encrypt(
@@ -190,6 +200,10 @@ class Register(generics.GenericAPIView):
                 if referrer_code_type == "walk_to_earn":
                     Referrals.record_walk_to_earn_referral(
                         referrer=referrer, referred=user, code_used=referred_by_code
+                    )
+                elif referrer_code_type == "agent":
+                    ReferralAgentService.record_referral(
+                        agent=agent, referred_user=user, code_used=referred_by_code
                     )
                 else:
                     Referrals.record_referral(

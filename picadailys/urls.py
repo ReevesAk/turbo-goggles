@@ -83,4 +83,6 @@ urlpatterns = [
     path("v1/flights/", include("flights.urls")),
     # Events & Ticketing endpoints.
     path("v1/events/", include("event.urls")),
+    # Referral-agent endpoints.
+    path("v1/agents/", include("agents.urls")),
 ]
