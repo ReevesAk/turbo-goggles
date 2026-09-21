@@ -90,6 +90,7 @@ INSTALLED_APPS = [
     "tasks",
     "flights",
     "event",
+    "agents",
 ]
 
 MIDDLEWARE = [
