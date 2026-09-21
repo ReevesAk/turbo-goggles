@@ -118,6 +118,8 @@ class UpdateUserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             "id",
+            "first_name",
+            "last_name",
             "state",
             "city",
             "created_at",
