@@ -1776,7 +1776,26 @@ class VerifyBillerAccountView(generics.GenericAPIView):
                 )
 
             if VAS.is_success(verify_resp):
-                response_data = {"status": "success", "data": verify_resp.json()}
+                verify_json = verify_resp.json()
+                verify_data = (
+                    verify_json.get("data", {})
+                    if isinstance(verify_json, dict)
+                    else {}
+                )
+                address = None
+                other_field = (
+                    verify_data.get("otherField")
+                    if isinstance(verify_data, dict)
+                    else None
+                ) or ""
+                if isinstance(
+                    other_field, str
+                ) and other_field.lower().startswith("address:"):
+                    address = other_field.split(":", 1)[1].strip()
+
+                response_data = {"status": "success", "data": verify_json}
+                if address:
+                    response_data["address"] = address
                 logger.info(
                     f"Biller verification successful for {requester}: {response_data}"
                 )
@@ -1855,6 +1874,8 @@ class BillPaymentView(generics.GenericAPIView):
         phone_number=None,
         customerName=None,
         otherField=None,
+        address=None,
+        is_postpaid=False,
         vas_response=None,
         tx_reference=None,
         account_number="",
@@ -1908,6 +1929,14 @@ class BillPaymentView(generics.GenericAPIView):
         if token and isinstance(token, str) and token.startswith("Token:"):
             token = token.split(":", 1)[1].strip()
 
+        # For missing tokens in the case of postpaidelectricity,
+        # the provider returns a literal string "null"
+        # (not JSON null) - treat that as missing.
+        token_missing_after_debit = False
+        if token and isinstance(token, str) and token.strip().lower() == "null":
+            token_missing_after_debit = True
+            token = None
+
         # Units bought come back under "otherField" (e.g. "Units: 4.2"), not
         # a "units" key - vas_data.get("units", "") was reading a key this
         # provider never sends, so units_bought (and the email below) were
@@ -1930,6 +1959,7 @@ class BillPaymentView(generics.GenericAPIView):
         if is_electricity:
             response_data["token_details"] = token
             response_data["units_bought"] = units
+            response_data["customer_name"] = customerName
 
         response_data["service_response"] = vas_data
 
@@ -1957,6 +1987,13 @@ class BillPaymentView(generics.GenericAPIView):
                             "status": "SUCCESS",
                             "is_task": self.is_task,
                             "task_id": self.task_id,
+                            "address": address,
+                            "customer_name": customerName,
+                            "meter_type": (
+                                ("postpaid" if is_postpaid else "prepaid")
+                                if is_electricity
+                                else None
+                            ),
                         },
                     )
             except Exception as e:
@@ -2003,6 +2040,8 @@ class BillPaymentView(generics.GenericAPIView):
         if user and is_electricity and token:
             alert_type = getattr(user, "alert_type_choice", "Both")
             sms_msg = f"Your electricity token is: {token}"
+            if customerName:
+                sms_msg += f" | Name: {customerName}"
             if units:
                 sms_msg += f" | Units: {units}"
             sms_msg += f" | Ref: {tx_reference}"
@@ -2015,6 +2054,7 @@ class BillPaymentView(generics.GenericAPIView):
                     "title": "Electricity Token",
                     "rows": [
                         {"label": "Token", "value": token},
+                        {"label": "Name", "value": customerName or ""},
                         {"label": "Units", "value": units or "N/A"},
                         {"label": "Amount", "value": f"₦{float(amount):,.2f}"},
                         {"label": "Meter Number", "value": customerId or ""},
@@ -2038,6 +2078,43 @@ class BillPaymentView(generics.GenericAPIView):
                 email_subject="Your Electricity Token",
                 email_body=sms_msg,
                 html_content=email_body,
+            )
+
+        # 9PSB confirmed the debit but never issued a real token (see the
+        # "Token: null" guard above). Postpaid electricity is a straight
+        # bill payment - no token is ever issued, so a null token there is
+        # expected, not an incident (confirmed after PICA-92769646948278
+        # turned out to be postpaid, not a real loss - 9PSB's own
+        # "isToken" flag was true regardless, so it can't be trusted to
+        # tell prepaid/postpaid apart; is_postpaid has to come from the
+        # client's own item selection instead). Only prepaid gets flagged:
+        # there, the customer's money moved with nothing to show for it
+        # and we have no automated way to regenerate a token from here.
+        if is_electricity and token_missing_after_debit and not is_postpaid:
+            logger.error(
+                "Electricity purchase debited with no token issued: "
+                "tx_reference=%s customerId=%s billerId=%s amount=%s user=%s",
+                tx_reference,
+                customerId,
+                billerId,
+                amount,
+                getattr(user, "email", None) or guest_id,
+            )
+            ops_body = (
+                f"Electricity purchase debited but 9PSB returned no token.\n\n"
+                f"Reference: {tx_reference}\n"
+                f"Meter/customerId: {customerId}\n"
+                f"BillerId: {billerId}\n"
+                f"Amount: NGN {amount}\n"
+                f"Customer: {getattr(user, 'email', None) or guest_id}\n\n"
+                f"Please follow up with 9PSB to reissue the token or refund the customer."
+            )
+            send_alert_notification.delay(
+                email="support@picadailys.com",
+                alert_type="Email",
+                email_subject=f"[ACTION NEEDED] Electricity token missing - {tx_reference}",
+                email_body=ops_body,
+                html_content=f"<pre>{ops_body}</pre>",
             )
 
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
@@ -2158,6 +2235,13 @@ class BillPaymentView(generics.GenericAPIView):
         customerName = user_data.get("customerName")
         itemId = user_data.get("itemId")
         otherField = user_data.get("otherField")
+        address = user_data.get("address")
+        # Electricity only - "prepaid" (token issued) or "postpaid" (bill
+        # payment, no token ever issued). 9PSB's own "isToken" flag isn't a
+        # reliable signal for this (seen true on a postpaid purchase with
+        # no token), so this has to come from the client's own item
+        # selection instead of anything in the provider response.
+        is_postpaid = str(user_data.get("meter_type") or "").lower() == "postpaid"
         biometrics = user_data.get("use_biometrics")
 
         tx_reference = (
@@ -2340,6 +2424,8 @@ class BillPaymentView(generics.GenericAPIView):
                         phone_number=phone_number,
                         customerName=customerName,
                         otherField=otherField,
+                        address=address,
+                        is_postpaid=is_postpaid,
                         vas_response=vas_response,
                         tx_reference=tx_reference,
                         account_number=account_number,
@@ -2361,6 +2447,8 @@ class BillPaymentView(generics.GenericAPIView):
                         phone_number=phone_number,
                         customerName=customerName,
                         otherField=otherField,
+                        address=address,
+                        is_postpaid=is_postpaid,
                         vas_response=status_resp,
                         tx_reference=tx_reference,
                         account_number=account_number,
@@ -2443,6 +2531,8 @@ class BillPaymentView(generics.GenericAPIView):
                         phone_number=phone_number,
                         customerName=customerName,
                         otherField=otherField,
+                        address=address,
+                        is_postpaid=is_postpaid,
                         vas_response=vas_response,
                         tx_reference=tx_reference,
                         account_number=account_number,
@@ -2461,6 +2551,8 @@ class BillPaymentView(generics.GenericAPIView):
                         phone_number=phone_number,
                         customerName=customerName,
                         otherField=otherField,
+                        address=address,
+                        is_postpaid=is_postpaid,
                         vas_response=status_resp,
                         tx_reference=tx_reference,
                         account_number=account_number,
