@@ -1010,17 +1010,19 @@ class UpdateUserProfile(generics.UpdateAPIView):
             "User  %s is attempting to update their profile.", request.user.email
         )
 
-        # Prepare the payload by stripping whitespace from string values
-        payload = {
-            key: value.strip() if isinstance(value, str) else value
-            for key, value in request.data.items()
-        }
-
         partial = kwargs.pop("partial", False)
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=payload, partial=partial)
 
         try:
+            decrypted_payload = decrypt(request.data)
+
+            # Prepare the payload by stripping whitespace from string values
+            payload = {
+                key: value.strip() if isinstance(value, str) else value
+                for key, value in decrypted_payload.items()
+            }
+
+            serializer = self.get_serializer(instance, data=payload, partial=partial)
             serializer.is_valid(raise_exception=True)
             self.perform_update(serializer)
 

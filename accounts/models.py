@@ -235,6 +235,15 @@ class TxModel(models.Model):
     # reconciled and completed later without the original request context.
     phone_number = models.CharField(max_length=20, null=True, blank=True)
     network = models.CharField(max_length=20, null=True, blank=True)
+    # Bill Payment (electricity) only - meter address from the 9PSB verify
+    # step, round-tripped through the client on the pay request.
+    address = models.CharField(max_length=255, null=True, blank=True)
+    # Bill Payment (electricity/cable) only - the verified customer/meter
+    # name, and "prepaid"/"postpaid" for electricity (client-supplied -
+    # see vas_electricity_meter_types memory: 9PSB's own response can't
+    # reliably tell prepaid and postpaid apart).
+    customer_name = models.CharField(max_length=255, null=True, blank=True)
+    meter_type = models.CharField(max_length=20, null=True, blank=True)
     # Idempotency guard for gamification.signals.track_financial_task_progress
     # - set once this row has counted toward its task's progress, so a
     # later re-save (retry, webhook replay) can never double-count it.
