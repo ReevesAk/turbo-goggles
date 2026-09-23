@@ -1010,19 +1010,21 @@ class UpdateUserProfile(generics.UpdateAPIView):
             "User  %s is attempting to update their profile.", request.user.email
         )
 
-        partial = kwargs.pop("partial", False)
+        kwargs.pop("partial", None)
         instance = self.get_object()
 
         try:
             decrypted_payload = decrypt(request.data)
-
-            # Prepare the payload by stripping whitespace from string values
             payload = {
                 key: value.strip() if isinstance(value, str) else value
                 for key, value in decrypted_payload.items()
             }
+            payload = {key: value for key, value in payload.items() if value != ""}
 
-            serializer = self.get_serializer(instance, data=payload, partial=partial)
+            # Always partial: this endpoint edits whichever fields were
+            # sent, not a full profile replacement - true independent of
+            # whether the client calls PUT or PATCH.
+            serializer = self.get_serializer(instance, data=payload, partial=True)
             serializer.is_valid(raise_exception=True)
             self.perform_update(serializer)
 
