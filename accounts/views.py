@@ -1283,7 +1283,7 @@ class ResetPassword(generics.CreateAPIView):
         try:
             user = User.objects.get(id=user_id)
             logger.info(f"User found for ID: {user.id}")
-        except User.DoesNotExist:
+        except (User.DoesNotExist, ValueError, TypeError):
             logger.error(f"User not found with ID: {user_id}")
             return Response(
                 data=encrypt({"error": "User not found"}),
