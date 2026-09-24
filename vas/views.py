@@ -56,19 +56,21 @@ logger = logging.getLogger(__name__)
 ELECTRICITY_BILLER_IDS = {choice[0] for choice in ELECTRICITY_SERVICE_ID_CHOICES}
 
 
-def _bill_payment_category(billerId):
-    """Best-effort Electricity Bill vs Cable TV label for failed/pending
-    BillPaymentView purchases, where there's no provider response yet to
-    read "isToken" off of (see _handle_success). Falls back to billerId
-    against ELECTRICITY_SERVICE_ID_CHOICES/TV_SERVICE_ID_CHOICES (vas/
-    models.py) - but those are a VTPass-style naming guess (e.g.
-    "portharcourt-electric"), while this middleware's real billerIds are
-    its own short codes (e.g. "BP-PH" for Port Harcourt, confirmed from
-    production logs), so this mislabels every real electricity billerId as
-    Cable TV today. Low priority to fix properly (pending/failed bill
-    payments are rare) vs. _handle_success's isToken fix, but be aware
-    failed/pending Electricity purchases will show "Failed Cable TV" etc.
-    until ELECTRICITY_BILLER_IDS is replaced with the real biller codes."""
+def _bill_payment_category(billerId, has_meter_type=False):
+    """Electricity Bill vs Cable TV label for failed/pending BillPaymentView
+    purchases, where there's no provider response yet to read "isToken" off
+    of (see _handle_success). "meter_type" is an electricity-only field the
+    client sends (required to tell prepaid/postpaid apart, see is_postpaid
+    below) - Cable TV purchases never carry it - so its presence is a
+    reliable signal regardless of billerId naming. Only fall back to
+    ELECTRICITY_BILLER_IDS when meter_type is absent: that list is a
+    VTPass-style naming guess (e.g. "portharcourt-electric") while this
+    middleware's real billerIds are its own short codes (e.g. "BP-PH" for
+    Port Harcourt, confirmed from production logs), so that fallback still
+    mislabels real electricity billerIds as Cable TV until
+    ELECTRICITY_BILLER_IDS is replaced with the real biller codes."""
+    if has_meter_type:
+        return "Electricity Bill"
     return "Electricity Bill" if billerId in ELECTRICITY_BILLER_IDS else "Cable TV"
 
 
@@ -1778,9 +1780,7 @@ class VerifyBillerAccountView(generics.GenericAPIView):
             if VAS.is_success(verify_resp):
                 verify_json = verify_resp.json()
                 verify_data = (
-                    verify_json.get("data", {})
-                    if isinstance(verify_json, dict)
-                    else {}
+                    verify_json.get("data", {}) if isinstance(verify_json, dict) else {}
                 )
                 address = None
                 other_field = (
@@ -1788,9 +1788,9 @@ class VerifyBillerAccountView(generics.GenericAPIView):
                     if isinstance(verify_data, dict)
                     else None
                 ) or ""
-                if isinstance(
-                    other_field, str
-                ) and other_field.lower().startswith("address:"):
+                if isinstance(other_field, str) and other_field.lower().startswith(
+                    "address:"
+                ):
                     address = other_field.split(":", 1)[1].strip()
 
                 response_data = {"status": "success", "data": verify_json}
@@ -2129,6 +2129,7 @@ class BillPaymentView(generics.GenericAPIView):
         reason="",
         tx_reference=None,
         billerId=None,
+        has_meter_type=False,
     ):
         """Central failure handler for both Electricity and Cable payment failures."""
         if vas_response is not None:
@@ -2142,7 +2143,7 @@ class BillPaymentView(generics.GenericAPIView):
         else:
             error_detail = {}
 
-        title = f"Failed {_bill_payment_category(billerId)}"
+        title = f"Failed {_bill_payment_category(billerId, has_meter_type)}"
         message = f"Bill payment of {amount} on {phone_number} failed."
         description = (
             f"{user.first_name if user else 'Guest'} {user.last_name if user else ''} "
@@ -2242,6 +2243,7 @@ class BillPaymentView(generics.GenericAPIView):
         # no token), so this has to come from the client's own item
         # selection instead of anything in the provider response.
         is_postpaid = str(user_data.get("meter_type") or "").lower() == "postpaid"
+        has_meter_type = bool(user_data.get("meter_type"))
         biometrics = user_data.get("use_biometrics")
 
         tx_reference = (
@@ -2376,6 +2378,7 @@ class BillPaymentView(generics.GenericAPIView):
                         ),
                         reason="VAS authentication failed.",
                         billerId=billerId,
+                        has_meter_type=has_meter_type,
                     )
                 vas_response = VAS.bill_payment(
                     bearer_token=token,
@@ -2410,6 +2413,7 @@ class BillPaymentView(generics.GenericAPIView):
                         ),
                         reason="VAS service unavailable.",
                         billerId=billerId,
+                        has_meter_type=has_meter_type,
                     )
                 if VAS.is_success(vas_response):
                     return self._handle_success(
@@ -2461,7 +2465,7 @@ class BillPaymentView(generics.GenericAPIView):
                         amount=(
                             purchase_amount if (use_points or use_cashback) else amount
                         ),
-                        description=f"{_bill_payment_category(billerId)} pending.",
+                        description=f"{_bill_payment_category(billerId, has_meter_type)} pending.",
                     )
                 if cashback_used:
                     CashbackService.refund_cashback(
@@ -2478,6 +2482,7 @@ class BillPaymentView(generics.GenericAPIView):
                     vas_response=status_resp,
                     reason="Bill payment failed.",
                     billerId=billerId,
+                    has_meter_type=has_meter_type,
                 )
 
             # case "TREASURY": disabled — treasury VAS payments on hold
@@ -2498,6 +2503,7 @@ class BillPaymentView(generics.GenericAPIView):
                         amount=amount,
                         reason="VAS authentication failed.",
                         billerId=billerId,
+                        has_meter_type=has_meter_type,
                     )
                 vas_response = VAS.bill_payment(
                     bearer_token=token,
@@ -2519,6 +2525,7 @@ class BillPaymentView(generics.GenericAPIView):
                         amount=amount,
                         reason="VAS service unavailable.",
                         billerId=billerId,
+                        has_meter_type=has_meter_type,
                     )
                 if VAS.is_success(vas_response):
                     return self._handle_success(
@@ -2563,7 +2570,7 @@ class BillPaymentView(generics.GenericAPIView):
                         tx_reference=tx_reference,
                         tx_type="Bill Payment",
                         amount=amount,
-                        description=f"{_bill_payment_category(billerId)} pending.",
+                        description=f"{_bill_payment_category(billerId, has_meter_type)} pending.",
                     )
                 return self._handle_failure(
                     tx_reference=tx_reference,
@@ -2574,6 +2581,7 @@ class BillPaymentView(generics.GenericAPIView):
                     vas_response=status_resp,
                     reason="Bill payment failed.",
                     billerId=billerId,
+                    has_meter_type=has_meter_type,
                 )
 
             case _:
