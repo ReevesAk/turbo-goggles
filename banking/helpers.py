@@ -206,7 +206,7 @@ def generate_transaction_sms(
         f"Amt: NGN{amount:.2f}",
         f"Desc: {description}",
         f"Date: {timezone.now().strftime('%d-%b-%Y %H:%M')}",
-        f"Bal: NGN{balance:.2f}",
+        f"Bal: NGN{balance:,.2f}",
     ]
     if transaction_type.upper() == "DEBIT":
         msg = f"If not you, contact support immediately. Call {support_phone}."

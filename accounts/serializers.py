@@ -20,7 +20,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         max_length=68, min_length=10, write_only=True, style={"input_type": "password"}
     )
     device_id = serializers.CharField(max_length=68, min_length=10, write_only=True)
-    device_name = serializers.CharField(max_length=68, min_length=10, write_only=True)
+    device_name = serializers.CharField(max_length=68, write_only=True)
     device_os = serializers.CharField(max_length=68, min_length=10, write_only=True)
     referred_by_code = serializers.CharField(
         max_length=50, min_length=3, write_only=True, required=False, allow_blank=True

@@ -13,7 +13,6 @@ from .points import Points
 logger = logging.getLogger(__name__)
 
 CODE_RANDOM_LENGTH = 6
-WALK_TO_EARN_CODE_SUFFIX = "WALK"
 
 
 class Referrals:
@@ -47,19 +46,16 @@ class Referrals:
     @staticmethod
     def generate_walk_to_earn_code(user) -> str:
         """
-        Same shape as generate_code, with WALK appended so the code is
-        recognizable at a glance as the walk-to-earn variant - separate
-        code space (see _is_code_taken) but shares the same uniqueness
-        pool as generate_code.
+        Short random code (no name prefix/suffix) - separate code space
+        (see _is_code_taken) but shares the same uniqueness pool as
+        generate_code.
         """
-        prefix = (user.first_name or "USER").upper().replace(" ", "")[:5]
         while True:
-            suffix = "".join(
+            code = "".join(
                 random.choices(
                     string.ascii_uppercase + string.digits, k=CODE_RANDOM_LENGTH
                 )
             )
-            code = f"{prefix}{suffix}{WALK_TO_EARN_CODE_SUFFIX}"
             if not Referrals._is_code_taken(code):
                 return code
 

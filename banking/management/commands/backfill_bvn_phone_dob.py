@@ -43,7 +43,9 @@ class Command(BaseCommand):
         )
 
         total = affected.count()
-        self.stdout.write(f"Found {total} BVN-verified users missing bvn_phone/bvn_dob.")
+        self.stdout.write(
+            f"Found {total} BVN-verified users missing bvn_phone/bvn_dob."
+        )
 
         if options["dry_run"]:
             for kyc in affected:
