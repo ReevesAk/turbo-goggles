@@ -2483,12 +2483,13 @@ class TierListView(generics.RetrieveAPIView):
 
     def retrieve(self, request, *args, **kwargs):
         user = request.user
+        points = getattr(user, "points", None)
 
         response = {
             "status": "success",
             "message": "Tier levels retrieved successfully!",
             "data": {
-                "current_level": user.level,
+                "current_level": points.tier if points else "Starter",
                 "total_points": user.total_points,
                 "tiers": LEVELS,
             },
