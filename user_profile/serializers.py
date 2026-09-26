@@ -27,7 +27,8 @@ class GetUserSerializer(serializers.ModelSerializer):
     lifetime_points = serializers.IntegerField(source="total_points", read_only=True)
     points_balance = serializers.SerializerMethodField()
     redeemable = serializers.SerializerMethodField()
-    tier = serializers.CharField(read_only=True)
+    level = serializers.SerializerMethodField()
+    tier = serializers.SerializerMethodField(method_name="get_level")
     socials = serializers.SerializerMethodField()
 
     class Meta:
@@ -72,6 +73,12 @@ class GetUserSerializer(serializers.ModelSerializer):
     def get_redeemable(self, obj) -> int:
         points = getattr(obj, "points", None)
         return points.redeemable if points else 0
+
+    def get_level(self, obj) -> str:
+        """Tier based on lifetime points earned, regardless of what's been
+        redeemed - kept in sync with the persisted Points.tier."""
+        points = getattr(obj, "points", None)
+        return points.tier if points else "Starter"
 
     def get_socials(self, obj) -> dict | None:
         try:
