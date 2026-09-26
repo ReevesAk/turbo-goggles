@@ -1146,6 +1146,7 @@ class EventPartnerProfile(models.Model):
     #  Identity (NIN)
     nin = EncryptedCharField(
         max_length=100,
+        unique=True,
         help_text="National Identification Number (encrypted at rest)",
     )
     nin_dob = models.CharField(
