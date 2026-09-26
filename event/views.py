@@ -10,7 +10,7 @@ from decimal import Decimal
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Sum, Q
 from django.utils import timezone
 from django.core.cache import cache
@@ -1957,6 +1957,15 @@ class EventPartnerVerificationSubmitView(generics.GenericAPIView):
     Resubmission semantics: if a profile exists (PENDING or REJECTED), the
     same row is overwritten. An APPROVED profile cannot be resubmitted — the
     partner is already eligible.
+
+    Concurrency:
+      - Two concurrent requests from the same user are serialized via
+        select_for_update() on the existing row (and by the OneToOne
+        constraint if no row exists yet).
+      - Two concurrent requests with the same NIN are serialized by the
+        DB-level unique constraint on `nin`; the loser receives 409.
+      - External calls (Dojah / 9PSB) run OUTSIDE the atomic block so the
+        row lock is held only for the final write.
     """
 
     serializer_class = EventPartnerVerificationSubmitSerializer
@@ -1977,7 +1986,6 @@ class EventPartnerVerificationSubmitView(generics.GenericAPIView):
         user = request.user
         data = serializer.validated_data
 
-        # Guard: already approved
         existing = EventPartnerProfile.objects.filter(user=user).first()
         if existing and existing.is_approved:
             return _error_response(
@@ -1985,19 +1993,18 @@ class EventPartnerVerificationSubmitView(generics.GenericAPIView):
                 status.HTTP_400_BAD_REQUEST,
             )
 
-        # Guard: duplicate NIN across users
-        nin_conflict = (
+        nin_taken_by_other = (
             EventPartnerProfile.objects.filter(nin=data["nin"])
             .exclude(user=user)
             .exists()
         )
-        if nin_conflict:
+        if nin_taken_by_other:
             return _error_response(
                 "This NIN is already registered to another event partner.",
                 status.HTTP_400_BAD_REQUEST,
             )
 
-        # NIN verification via Dojah
+        #  Step 1: NIN verification via Dojah (outside the lock)
         try:
             selfie_b64 = cloudinary_to_base64(url=user.profile_img_url)
         except Exception:
@@ -2044,10 +2051,10 @@ class EventPartnerVerificationSubmitView(generics.GenericAPIView):
             )
 
         nin_name = (
-            f"{entity.get('first_name', '')} " f"{entity.get('last_name', '')}"
+            f"{entity.get('first_name', '')} {entity.get('last_name', '')}"
         ).strip()
 
-        # Bank account verification via 9PSB
+        #  Step 2: Bank account verification via 9PSB (outside the lock)
         try:
             bank_response = Transfers.getAccount(
                 acct_num=data["bank_account_number"],
@@ -2082,38 +2089,75 @@ class EventPartnerVerificationSubmitView(generics.GenericAPIView):
             expected_name, verified_account_name
         )
 
-        # Persist the profile
-        with transaction.atomic():
-            profile = existing or EventPartnerProfile(user=user)
+        #  Step 3: Persist (locked, re-validated)
+        try:
+            with transaction.atomic():
+                locked_existing = (
+                    EventPartnerProfile.objects.select_for_update()
+                    .filter(user=user)
+                    .first()
+                )
 
-            profile.nin = data["nin"]
-            profile.nin_dob = supplied_dob
-            profile.nin_verified = True
-            profile.nin_name = nin_name
+                if locked_existing and locked_existing.is_approved:
+                    return _error_response(
+                        "You are already verified as an event partner.",
+                        status.HTTP_400_BAD_REQUEST,
+                    )
 
-            profile.business_name = data["business_name"]
-            profile.business_address = data["business_address"]
-            profile.tin = data["tin"]
+                nin_conflict = (
+                    EventPartnerProfile.objects.filter(nin=data["nin"])
+                    .exclude(user=user)
+                    .exists()
+                )
+                if nin_conflict:
+                    return _error_response(
+                        "This NIN is already registered to another event partner.",
+                        status.HTTP_400_BAD_REQUEST,
+                    )
 
-            profile.bank_code = data["bank_code"]
-            profile.bank_name = data.get("bank_name", "") or ""
-            profile.bank_account_number = data["bank_account_number"]
-            profile.bank_account_name = verified_account_name
-            profile.bank_verified = True
+                profile = locked_existing or EventPartnerProfile(user=user)
 
-            if names_match:
-                profile.status = EventPartnerProfile.Status.APPROVED
-                profile.rejection_reason = ""
-                profile.reviewed_by = None
-                profile.reviewed_at = timezone.now()
-            else:
-                profile.status = EventPartnerProfile.Status.PENDING
-                profile.rejection_reason = ""
-                profile.reviewed_by = None
-                profile.reviewed_at = None
+                profile.nin = data["nin"]
+                profile.nin_dob = supplied_dob
+                profile.nin_verified = True
+                profile.nin_name = nin_name
 
-            profile.save()
+                profile.business_name = data["business_name"]
+                profile.business_address = data["business_address"]
+                profile.tin = data["tin"]
 
+                profile.bank_code = data["bank_code"]
+                profile.bank_name = data.get("bank_name", "") or ""
+                profile.bank_account_number = data["bank_account_number"]
+                profile.bank_account_name = verified_account_name
+                profile.bank_verified = True
+
+                if names_match:
+                    profile.status = EventPartnerProfile.Status.APPROVED
+                    profile.rejection_reason = ""
+                    profile.reviewed_by = None
+                    profile.reviewed_at = timezone.now()
+                else:
+                    profile.status = EventPartnerProfile.Status.PENDING
+                    profile.rejection_reason = ""
+                    profile.reviewed_by = None
+                    profile.reviewed_at = None
+
+                profile.save()
+
+        except IntegrityError as exc:
+            logger.warning(
+                "Event partner verification IntegrityError for user %s: %s",
+                user.id,
+                exc,
+            )
+            return _error_response(
+                "This verification conflicts with an existing record. "
+                "Please refresh and try again.",
+                status.HTTP_409_CONFLICT,
+            )
+
+        #  Notifications fire OUTSIDE the lock
         if names_match:
             _notify_partner_verification_approved(profile)
             logger.info(
@@ -2217,6 +2261,26 @@ class AdminEventPartnerVerificationListView(generics.ListAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
+
+        # Manual pagination because the response envelope is custom
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            paginator = self.paginator
+            return _success_response(
+                "Event-partner verifications retrieved.",
+                {
+                    "count": paginator.page.paginator.count,
+                    "page": paginator.page.number,
+                    "page_size": paginator.get_page_size(request),
+                    "total_pages": paginator.page.paginator.num_pages,
+                    "next": paginator.get_next_link(),
+                    "previous": paginator.get_previous_link(),
+                    "results": serializer.data,
+                },
+            )
+
+        # Fallback (pagination disabled via ?page_size=off or misconfig)
         serializer = self.get_serializer(queryset, many=True)
         return _success_response(
             "Event-partner verifications retrieved.",
@@ -2232,7 +2296,9 @@ class AdminEventPartnerVerificationListView(generics.ListAPIView):
     tags=["Event Partner Verification [Admin]"],
     description=(
         "Approve or reject a PENDING event-partner verification record. "
-        "Already-decided records cannot be re-reviewed."
+        "Already-decided records cannot be re-reviewed. The record is "
+        "locked for the duration of the check-then-write so two concurrent "
+        "admins cannot both pass the PENDING guard."
     ),
     request=EventPartnerVerificationAdminReviewSerializer,
 )
@@ -2244,20 +2310,6 @@ class AdminEventPartnerVerificationReviewView(generics.GenericAPIView):
 
     def post(self, request, *args, **kwargs):
         profile_id = kwargs.get("id")
-        try:
-            profile = EventPartnerProfile.objects.select_related("user").get(
-                id=profile_id
-            )
-        except EventPartnerProfile.DoesNotExist:
-            return _error_response(
-                "Verification record not found.", status.HTTP_404_NOT_FOUND
-            )
-
-        if profile.status != EventPartnerProfile.Status.PENDING:
-            return _error_response(
-                "Only PENDING verification records can be reviewed.",
-                status.HTTP_400_BAD_REQUEST,
-            )
 
         decrypted_data = _decrypt_request_data(request)
         if decrypted_data is None:
@@ -2273,6 +2325,23 @@ class AdminEventPartnerVerificationReviewView(generics.GenericAPIView):
         action = serializer.validated_data["action"]
 
         with transaction.atomic():
+            try:
+                profile = (
+                    EventPartnerProfile.objects.select_for_update()
+                    .select_related("user")
+                    .get(id=profile_id)
+                )
+            except EventPartnerProfile.DoesNotExist:
+                return _error_response(
+                    "Verification record not found.", status.HTTP_404_NOT_FOUND
+                )
+
+            if profile.status != EventPartnerProfile.Status.PENDING:
+                return _error_response(
+                    "Only PENDING verification records can be reviewed.",
+                    status.HTTP_400_BAD_REQUEST,
+                )
+
             if action == "approve":
                 profile.status = EventPartnerProfile.Status.APPROVED
                 profile.rejection_reason = ""
