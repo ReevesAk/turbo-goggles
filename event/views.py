@@ -5,6 +5,7 @@ Views for the event/ticketing module, organized by role.
 
 """
 
+from json import JSONDecodeError
 import logging
 from decimal import Decimal
 from datetime import datetime, timedelta
@@ -70,6 +71,7 @@ from .serializers import (
     TicketTransferRespondSerializer,
     TicketVerifySerializer,
 )
+from banking.utils import parse_dojah_dob
 
 logger = logging.getLogger(__name__)
 
@@ -2027,7 +2029,16 @@ class EventPartnerVerificationSubmitView(generics.GenericAPIView):
                 status.HTTP_502_BAD_GATEWAY,
             )
 
-        nin_body = nin_response.json() or {}
+        try:
+            nin_body = nin_response.json() or {}
+        except (JSONDecodeError, ValueError):
+            logger.warning("Dojah NIN response was not valid JSON despite 200 status.")
+            return _error_response(
+                "NIN verification service returned an invalid response. "
+                "Please try again later.",
+                status.HTTP_502_BAD_GATEWAY,
+            )
+
         entity = nin_body.get("entity") or {}
 
         img_resp = entity.get("selfie_verification") or {}
@@ -2042,9 +2053,15 @@ class EventPartnerVerificationSubmitView(generics.GenericAPIView):
                 status.HTTP_400_BAD_REQUEST,
             )
 
-        verified_dob = entity.get("date_of_birth")
         supplied_dob = data["nin_dob"].isoformat()
-        if not verified_dob or str(verified_dob)[:10] != supplied_dob:
+        verified_dob_parsed = parse_dojah_dob(entity.get("date_of_birth"))
+        if not verified_dob_parsed or verified_dob_parsed.isoformat() != supplied_dob:
+            logger.info(
+                "NIN DOB mismatch: supplied=%s, parsed_from_dojah=%s, raw=%r",
+                supplied_dob,
+                verified_dob_parsed,
+                entity.get("date_of_birth"),
+            )
             return _error_response(
                 "NIN verification failed: date of birth mismatch.",
                 status.HTTP_400_BAD_REQUEST,
@@ -2071,8 +2088,20 @@ class EventPartnerVerificationSubmitView(generics.GenericAPIView):
                 status.HTTP_502_BAD_GATEWAY,
             )
 
-        bank_body = bank_response.json() or {}
+        try:
+            bank_body = bank_response.json() or {}
+        except (JSONDecodeError, ValueError):
+            logger.warning(
+                "9PSB account lookup returned non-JSON body despite 200 status."
+            )
+            return _error_response(
+                "Bank account verification service returned an invalid response. "
+                "Please try again later.",
+                status.HTTP_502_BAD_GATEWAY,
+            )
+
         bank_entity = bank_body.get("entity") or bank_body.get("data") or {}
+
         verified_account_name = (
             bank_entity.get("account_name") or bank_entity.get("accountName") or ""
         )
@@ -2262,23 +2291,22 @@ class AdminEventPartnerVerificationListView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
 
-        # Manual pagination because the response envelope is custom
+        # Manual pagination
         page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            paginator = self.paginator
-            return _success_response(
-                "Event-partner verifications retrieved.",
-                {
-                    "count": paginator.page.paginator.count,
-                    "page": paginator.page.number,
-                    "page_size": paginator.get_page_size(request),
-                    "total_pages": paginator.page.paginator.num_pages,
-                    "next": paginator.get_next_link(),
-                    "previous": paginator.get_previous_link(),
-                    "results": serializer.data,
-                },
-            )
+        serializer = self.get_serializer(page, many=True)
+        paginator = self.paginator
+        return _success_response(
+            "Event-partner verifications retrieved.",
+            {
+                "count": paginator.page.paginator.count,
+                "page": paginator.page.number,
+                "page_size": paginator.get_page_size(request),
+                "total_pages": paginator.page.paginator.num_pages,
+                "next": paginator.get_next_link(),
+                "previous": paginator.get_previous_link(),
+                "results": serializer.data,
+            },
+        )
 
         # Fallback (pagination disabled via ?page_size=off or misconfig)
         serializer = self.get_serializer(queryset, many=True)
