@@ -31,6 +31,7 @@ from security import encrypt, decrypt
 
 from .models import (
     Event,
+    EventPartnerProfile,
     PartnerSaleWindow,
     PartnerTicketSale,
     Ticket,
@@ -234,6 +235,29 @@ def _create_order(member, event, tickets_data, **overrides):
         TicketCode.objects.bulk_create(codes)
 
     return order
+
+
+def _create_event_partner_profile(user, **overrides):
+    """Create an EventPartnerProfile with sensible defaults (APPROVED)."""
+    defaults = {
+        "user": user,
+        "nin": "12345678901",
+        "nin_dob": "1990-01-01",
+        "nin_verified": True,
+        "nin_name": f"{user.first_name} {user.last_name}",
+        "business_name": "Test Business Ltd",
+        "business_address": "1 Test Street, Lagos",
+        "tin": "TIN123456789",
+        "bank_code": "000013",
+        "bank_name": "GTBank",
+        "bank_account_number": "0123456789",
+        "bank_account_name": f"{user.first_name} {user.last_name}",
+        "bank_verified": True,
+        "status": EventPartnerProfile.Status.APPROVED,
+        "reviewed_at": timezone.now(),
+    }
+    defaults.update(overrides)
+    return EventPartnerProfile.objects.create(**defaults)
 
 
 # =============================================================================
@@ -1147,6 +1171,10 @@ class PartnerEventTests(ThrottleDisabledAPITestCase):
 
     def setUp(self):
         self.partner = _create_partner()
+        _create_event_partner_profile(
+            self.partner,
+            status=EventPartnerProfile.Status.APPROVED,
+        )
         self.client.force_authenticate(user=self.partner)
         cache.clear()
 
@@ -1954,7 +1982,9 @@ class PartnerSalesLedgerTests(ThrottleDisabledAPITestCase):
         data = body["data"]
         self.assertEqual(len(data["sales"]), 1)
         self.assertIn("summary", data)
-        self.assertEqual(data["summary"]["total_gross"], str(purchase.total_amount))
+        self.assertEqual(
+            float(data["summary"]["total_gross"]), float(purchase.total_amount)
+        )
 
     def test_sales_ledger_filter_by_status(self):
         """Partner can filter sales by settlement status."""
@@ -2063,3 +2093,604 @@ class PartnerEventCheckInStatsTests(ThrottleDisabledAPITestCase):
         self.assertEqual(data["checked_in"], 2)
         self.assertEqual(data["not_checked_in"], 3)
         self.assertEqual(data["check_in_rate"], "40.0%")
+
+
+# =============================================================================
+# Event Partner Verification — Model Unit Tests
+# =============================================================================
+
+
+class EventPartnerProfileModelTests(ThrottleDisabledAPITestCase):
+    """Unit tests for EventPartnerProfile model."""
+
+    def setUp(self):
+        self.partner = _create_partner()
+        self.profile = _create_event_partner_profile(self.partner)
+
+    def test_is_partner_verified_true_for_approved(self):
+        self.assertTrue(EventPartnerProfile.is_partner_verified(self.partner))
+
+    def test_is_partner_verified_false_for_pending(self):
+        self.profile.status = EventPartnerProfile.Status.PENDING
+        self.profile.save()
+        self.assertFalse(EventPartnerProfile.is_partner_verified(self.partner))
+
+    def test_is_partner_verified_false_for_rejected(self):
+        self.profile.status = EventPartnerProfile.Status.REJECTED
+        self.profile.save()
+        self.assertFalse(EventPartnerProfile.is_partner_verified(self.partner))
+
+    def test_is_partner_verified_false_when_no_profile(self):
+        other = _create_partner(email="noprofile@example.com")
+        self.assertFalse(EventPartnerProfile.is_partner_verified(other))
+
+    def test_names_match_case_insensitive(self):
+        self.assertTrue(EventPartnerProfile.names_match("John Doe", "JOHN DOE"))
+
+    def test_names_match_extra_whitespace(self):
+        self.assertTrue(EventPartnerProfile.names_match("John  Doe", "John Doe"))
+
+    def test_names_match_leading_trailing_whitespace(self):
+        self.assertTrue(EventPartnerProfile.names_match("  John Doe  ", "John Doe"))
+
+    def test_names_match_rejects_substring(self):
+        self.assertFalse(EventPartnerProfile.names_match("John Doe", "John Doe Ltd"))
+
+    def test_names_match_rejects_different_names(self):
+        self.assertFalse(EventPartnerProfile.names_match("John Doe", "Jane Smith"))
+
+    def test_names_match_rejects_empty(self):
+        self.assertFalse(EventPartnerProfile.names_match("", "John Doe"))
+        self.assertFalse(EventPartnerProfile.names_match("John Doe", ""))
+
+    def test_nin_encrypted_roundtrip(self):
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.nin, "12345678901")
+
+    def test_bank_account_number_encrypted_roundtrip(self):
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.bank_account_number, "0123456789")
+
+
+# =============================================================================
+# Event Partner Verification — Endpoint Integration Tests
+# =============================================================================
+
+
+class EventPartnerVerificationSubmitTests(ThrottleDisabledAPITestCase):
+    """Integration tests for POST /events/partner/verification/submit/."""
+
+    def setUp(self):
+        self.partner = _create_partner()
+        self.partner.first_name = "John"
+        self.partner.last_name = "Doe"
+        self.partner.profile_img_url = "https://mock.cloudinary.com/selfie.jpg"
+        self.partner.save()
+        self.client.force_authenticate(user=self.partner)
+        cache.clear()
+
+    def _payload(self, **overrides):
+        data = {
+            "nin": "12345678901",
+            "nin_dob": "1990-01-01",
+            "business_name": "John Doe Ventures",
+            "business_address": "1 Test Street, Lagos",
+            "tin": "TIN123456789",
+            "bank_code": "000013",
+            "bank_name": "GTBank",
+            "bank_account_number": "0123456789",
+        }
+        data.update(overrides)
+        return data
+
+    def _dojah_ok(self, dob="1990-01-01", first="John", last="Doe", match=True):
+        """Build a mock response for KYC.verify_nin."""
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = {
+            "entity": {
+                "first_name": first,
+                "last_name": last,
+                "date_of_birth": dob,
+                "selfie_verification": {
+                    "match": match,
+                    "confidence_value": 95.0,
+                },
+            }
+        }
+        return resp
+
+    def _bank_ok(self, account_name="John Doe"):
+        """Build a mock response for Transfers.getAccount."""
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = {"data": {"account_name": account_name}}
+        return resp
+
+    # -------- Happy paths --------
+
+    @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
+    @patch("event.views.Transfers.getAccount")
+    @patch("event.views.KYC.verify_nin")
+    def test_submit_auto_approves_when_names_match(
+        self, mock_nin, mock_bank, mock_selfie
+    ):
+        mock_nin.return_value = self._dojah_ok()
+        mock_bank.return_value = self._bank_ok("JOHN DOE")  # case differs on purpose
+
+        response = self.client.post(
+            "/v1/events/partner/verification/submit/",
+            data=encrypt(self._payload()),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        body = decrypt(response.content)
+        self.assertEqual(body["status"], "success")
+
+        profile = EventPartnerProfile.objects.get(user=self.partner)
+        self.assertEqual(profile.status, EventPartnerProfile.Status.APPROVED)
+        self.assertTrue(profile.nin_verified)
+        self.assertTrue(profile.bank_verified)
+        self.assertIsNotNone(profile.reviewed_at)
+        self.assertIsNone(profile.reviewed_by)
+        self.assertEqual(profile.bank_account_name, "JOHN DOE")
+
+    @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
+    @patch("event.views.Transfers.getAccount")
+    @patch("event.views.KYC.verify_nin")
+    def test_submit_parks_at_pending_when_names_mismatch(
+        self, mock_nin, mock_bank, mock_selfie
+    ):
+        mock_nin.return_value = self._dojah_ok()
+        mock_bank.return_value = self._bank_ok("Some Other Person Ltd")
+
+        response = self.client.post(
+            "/v1/events/partner/verification/submit/",
+            data=encrypt(self._payload()),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        profile = EventPartnerProfile.objects.get(user=self.partner)
+        self.assertEqual(profile.status, EventPartnerProfile.Status.PENDING)
+        self.assertIsNone(profile.reviewed_at)
+        self.assertIsNone(profile.reviewed_by)
+
+    @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
+    @patch("event.views.Transfers.getAccount")
+    @patch("event.views.KYC.verify_nin")
+    def test_submit_handles_accountName_camelcase(
+        self, mock_nin, mock_bank, mock_selfie
+    ):
+        """9PSB responses vary; ensure accountName is picked up."""
+        mock_nin.return_value = self._dojah_ok()
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = {"entity": {"accountName": "John Doe"}}
+        mock_bank.return_value = resp
+
+        response = self.client.post(
+            "/v1/events/partner/verification/submit/",
+            data=encrypt(self._payload()),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        profile = EventPartnerProfile.objects.get(user=self.partner)
+        self.assertEqual(profile.status, EventPartnerProfile.Status.APPROVED)
+
+    @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
+    @patch("event.views.Transfers.getAccount")
+    @patch("event.views.KYC.verify_nin")
+    def test_resubmit_overwrites_rejected_row(self, mock_nin, mock_bank, mock_selfie):
+        existing = _create_event_partner_profile(
+            self.partner,
+            status=EventPartnerProfile.Status.REJECTED,
+            rejection_reason="Bad docs",
+            reviewed_at=timezone.now(),
+        )
+        original_id = existing.id
+
+        mock_nin.return_value = self._dojah_ok()
+        mock_bank.return_value = self._bank_ok("John Doe")
+
+        response = self.client.post(
+            "/v1/events/partner/verification/submit/",
+            data=encrypt(self._payload()),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(EventPartnerProfile.objects.count(), 1)
+        profile = EventPartnerProfile.objects.get(user=self.partner)
+        self.assertEqual(profile.id, original_id)
+        self.assertEqual(profile.status, EventPartnerProfile.Status.APPROVED)
+        self.assertEqual(profile.rejection_reason, "")
+
+    # -------- Failure paths --------
+
+    @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
+    @patch("event.views.KYC.verify_nin")
+    def test_submit_rejects_selfie_mismatch(self, mock_nin, mock_selfie):
+        mock_nin.return_value = self._dojah_ok(match=False)
+
+        response = self.client.post(
+            "/v1/events/partner/verification/submit/",
+            data=encrypt(self._payload()),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(EventPartnerProfile.objects.filter(user=self.partner).exists())
+
+    @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
+    @patch("event.views.KYC.verify_nin")
+    def test_submit_rejects_dob_mismatch(self, mock_nin, mock_selfie):
+        mock_nin.return_value = self._dojah_ok(dob="1985-05-05")
+
+        response = self.client.post(
+            "/v1/events/partner/verification/submit/",
+            data=encrypt(self._payload()),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
+    @patch("event.views.KYC.verify_nin")
+    def test_submit_returns_502_on_dojah_outage(self, mock_nin, mock_selfie):
+        mock_nin.return_value = None
+
+        response = self.client.post(
+            "/v1/events/partner/verification/submit/",
+            data=encrypt(self._payload()),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
+
+    @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
+    @patch("event.views.Transfers.getAccount")
+    @patch("event.views.KYC.verify_nin")
+    def test_submit_returns_502_on_bank_outage(self, mock_nin, mock_bank, mock_selfie):
+        mock_nin.return_value = self._dojah_ok()
+        mock_bank.return_value = None
+
+        response = self.client.post(
+            "/v1/events/partner/verification/submit/",
+            data=encrypt(self._payload()),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
+
+    @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
+    @patch("event.views.Transfers.getAccount")
+    @patch("event.views.KYC.verify_nin")
+    def test_submit_rejects_empty_account_name(self, mock_nin, mock_bank, mock_selfie):
+        mock_nin.return_value = self._dojah_ok()
+        mock_bank.return_value = self._bank_ok("")
+
+        response = self.client.post(
+            "/v1/events/partner/verification/submit/",
+            data=encrypt(self._payload()),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_submit_rejects_duplicate_nin_from_other_user(self):
+        other = _create_partner(email="other@example.com")
+        _create_event_partner_profile(other, nin="12345678901")
+
+        response = self.client.post(
+            "/v1/events/partner/verification/submit/",
+            data=encrypt(self._payload()),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_submit_rejects_when_already_approved(self):
+        _create_event_partner_profile(self.partner)
+
+        response = self.client.post(
+            "/v1/events/partner/verification/submit/",
+            data=encrypt(self._payload()),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_submit_rejects_non_partner(self):
+        member = _create_member()
+        self.client.force_authenticate(user=member)
+
+        response = self.client.post(
+            "/v1/events/partner/verification/submit/",
+            data=encrypt(self._payload()),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class EventPartnerVerificationStatusTests(ThrottleDisabledAPITestCase):
+    """Integration tests for GET /events/partner/verification/status/."""
+
+    def setUp(self):
+        self.partner = _create_partner()
+        self.client.force_authenticate(user=self.partner)
+        cache.clear()
+
+    def test_status_when_no_profile(self):
+        response = self.client.get("/v1/events/partner/verification/status/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.content)
+        self.assertFalse(body["data"]["verified"])
+        self.assertIsNone(body["data"]["profile"])
+
+    def test_status_returns_masked_secrets(self):
+        _create_event_partner_profile(
+            self.partner,
+            nin="12345678901",
+            bank_account_number="0123456789",
+        )
+        response = self.client.get("/v1/events/partner/verification/status/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.content)
+        profile = body["data"]["profile"]
+        self.assertTrue(body["data"]["verified"])
+        self.assertEqual(profile["nin_masked"], "*******8901")
+        self.assertEqual(profile["bank_account_number_masked"], "******6789")
+        self.assertNotIn("nin", profile)
+        self.assertNotIn("bank_account_number", profile)
+
+
+class AdminEventPartnerVerificationTests(ThrottleDisabledAPITestCase):
+    """Integration tests for admin review of event-partner verifications."""
+
+    def setUp(self):
+        self.admin = _create_admin()
+        self.partner = _create_partner()
+        self.profile = _create_event_partner_profile(
+            self.partner,
+            status=EventPartnerProfile.Status.PENDING,
+            reviewed_at=None,
+            bank_account_name="Some Other Person",
+        )
+        self.client.force_authenticate(user=self.admin)
+        cache.clear()
+
+    def test_list_partner_verifications(self):
+        response = self.client.get("/v1/events/admin/partner-verifications/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.content)
+        self.assertEqual(body["data"]["count"], 1)
+
+    def test_list_filter_by_status(self):
+        response = self.client.get(
+            "/v1/events/admin/partner-verifications/?status=pending"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.content)
+        self.assertEqual(body["data"]["count"], 1)
+
+        response = self.client.get(
+            "/v1/events/admin/partner-verifications/?status=approved"
+        )
+        body = decrypt(response.content)
+        self.assertEqual(body["data"]["count"], 0)
+
+    def test_admin_approve(self):
+        response = self.client.post(
+            f"/v1/events/admin/partner-verifications/{self.profile.id}/review/",
+            data=encrypt({"action": "approve"}),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.status, EventPartnerProfile.Status.APPROVED)
+        self.assertEqual(self.profile.reviewed_by, self.admin)
+        self.assertIsNotNone(self.profile.reviewed_at)
+
+    def test_admin_reject_requires_reason(self):
+        response = self.client.post(
+            f"/v1/events/admin/partner-verifications/{self.profile.id}/review/",
+            data=encrypt({"action": "reject"}),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_admin_reject_with_reason(self):
+        response = self.client.post(
+            f"/v1/events/admin/partner-verifications/{self.profile.id}/review/",
+            data=encrypt({"action": "reject", "rejection_reason": "Name mismatch"}),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.status, EventPartnerProfile.Status.REJECTED)
+        self.assertEqual(self.profile.rejection_reason, "Name mismatch")
+
+    def test_admin_cannot_review_already_approved(self):
+        self.profile.status = EventPartnerProfile.Status.APPROVED
+        self.profile.save()
+
+        response = self.client.post(
+            f"/v1/events/admin/partner-verifications/{self.profile.id}/review/",
+            data=encrypt({"action": "approve"}),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_partner_cannot_access_admin_list(self):
+        self.client.force_authenticate(user=self.partner)
+        response = self.client.get("/v1/events/admin/partner-verifications/")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+# =============================================================================
+# Event Partner Verification — Gate & Regression Tests
+# =============================================================================
+
+
+class EventPartnerVerificationGateTests(ThrottleDisabledAPITestCase):
+    """Ensure the new gate actually blocks/allows event creation."""
+
+    def setUp(self):
+        self.partner = _create_partner()
+        self.client.force_authenticate(user=self.partner)
+        cache.clear()
+
+    def _event_payload(self):
+        now = timezone.now()
+        return {
+            "event_name": "Concert Night",
+            "description": "Live concert",
+            "category": "Cinema",  # deliberately NOT the partner's own category
+            "mode": "Physical",
+            "address": "1 Stadium Way, Lagos",
+            "start_date": (now + timedelta(days=30)).isoformat(),
+            "end_date": (now + timedelta(days=31)).isoformat(),
+        }
+
+    def test_event_creation_blocked_without_profile(self):
+        response = self.client.post(
+            "/v1/events/partner/",
+            data=encrypt(self._event_payload()),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(Event.objects.count(), 0)
+
+    def test_event_creation_blocked_when_pending(self):
+        _create_event_partner_profile(
+            self.partner, status=EventPartnerProfile.Status.PENDING
+        )
+        response = self.client.post(
+            "/v1/events/partner/",
+            data=encrypt(self._event_payload()),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_event_creation_blocked_when_rejected(self):
+        _create_event_partner_profile(
+            self.partner, status=EventPartnerProfile.Status.REJECTED
+        )
+        response = self.client.post(
+            "/v1/events/partner/",
+            data=encrypt(self._event_payload()),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_event_creation_allowed_when_approved(self):
+        _create_event_partner_profile(
+            self.partner, status=EventPartnerProfile.Status.APPROVED
+        )
+        response = self.client.post(
+            "/v1/events/partner/",
+            data=encrypt(self._event_payload()),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Event.objects.count(), 1)
+
+    def test_category_mismatch_no_longer_blocks_event_creation(self):
+        """
+        Regression: the old strict category check has been removed.
+        Partner can pick any category regardless of business_category.
+        """
+        self.partner.business_category = "Restaurant"
+        self.partner.save()
+
+        _create_event_partner_profile(
+            self.partner, status=EventPartnerProfile.Status.APPROVED
+        )
+
+        response = self.client.post(
+            "/v1/events/partner/",
+            data=encrypt(self._event_payload()),  # category="Cinema"
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Event.objects.first().category, "Cinema")
+
+
+# =============================================================================
+# Event Partner Verification — Fuzz Tests
+# =============================================================================
+
+
+class EventPartnerVerificationFuzzTests(ThrottleDisabledAPITestCase):
+    """Fuzz / malformed input tests."""
+
+    def setUp(self):
+        self.partner = _create_partner()
+        self.client.force_authenticate(user=self.partner)
+        cache.clear()
+
+    def _base(self, **overrides):
+        data = {
+            "nin": "12345678901",
+            "nin_dob": "1990-01-01",
+            "business_name": "Test Ltd",
+            "business_address": "1 Test Road",
+            "tin": "TIN123456789",
+            "bank_code": "000013",
+            "bank_name": "GTBank",
+            "bank_account_number": "0123456789",
+        }
+        data.update(overrides)
+        return data
+
+    def test_rejects_nin_with_letters(self):
+        response = self.client.post(
+            "/v1/events/partner/verification/submit/",
+            data=encrypt(self._base(nin="12345ABCDE1")),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_rejects_nin_wrong_length(self):
+        response = self.client.post(
+            "/v1/events/partner/verification/submit/",
+            data=encrypt(self._base(nin="123")),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_rejects_bank_account_with_letters(self):
+        response = self.client.post(
+            "/v1/events/partner/verification/submit/",
+            data=encrypt(self._base(bank_account_number="012ABC6789")),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_rejects_empty_business_address(self):
+        response = self.client.post(
+            "/v1/events/partner/verification/submit/",
+            data=encrypt(self._base(business_address="")),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_rejects_empty_tin(self):
+        response = self.client.post(
+            "/v1/events/partner/verification/submit/",
+            data=encrypt(self._base(tin="")),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_rejects_invalid_dob_format(self):
+        response = self.client.post(
+            "/v1/events/partner/verification/submit/",
+            data=encrypt(self._base(nin_dob="not-a-date")),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_rejects_non_encrypted_payload(self):
+        """Raw JSON without encryption envelope should fail decryption."""
+        response = self.client.post(
+            "/v1/events/partner/verification/submit/",
+            data=self._base(),
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

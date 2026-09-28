@@ -5,12 +5,13 @@ Views for the event/ticketing module, organized by role.
 
 """
 
+from json import JSONDecodeError
 import logging
 from decimal import Decimal
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Sum, Q
 from django.utils import timezone
 from django.core.cache import cache
@@ -29,7 +30,8 @@ from drf_spectacular.types import OpenApiTypes
 
 
 from accounts.models import UserNotification
-from banking.helpers import verify_wallet_auth
+from banking.controllers import KYC, Transfers
+from banking.helpers import cloudinary_to_base64, verify_wallet_auth
 from commons import generate_txId, first_validation_error
 from permissions import IsMember, IsPartner, IsPartnerAdminOrSuperAdmin
 from security import encrypt, decrypt
@@ -37,6 +39,7 @@ from security import encrypt, decrypt
 from modules.billing_mixings import BrandChargeMixin, _round_money
 from .models import (
     Event,
+    EventPartnerProfile,
     PartnerSaleWindow,
     PartnerTicketSale,
     Ticket,
@@ -46,9 +49,13 @@ from .models import (
     TicketPurchase,
     TicketTransfer,
 )
+from accounts.models import User
 from .serializers import (
     EventAdminReviewSerializer,
     EventPartnerSerializer,
+    EventPartnerVerificationAdminReviewSerializer,
+    EventPartnerVerificationReadSerializer,
+    EventPartnerVerificationSubmitSerializer,
     EventPublicSerializer,
     PartnerSaleWindowSerializer,
     PartnerTicketSaleSerializer,
@@ -64,6 +71,7 @@ from .serializers import (
     TicketTransferRespondSerializer,
     TicketVerifySerializer,
 )
+from banking.utils import parse_dojah_dob
 
 logger = logging.getLogger(__name__)
 
@@ -123,13 +131,35 @@ def _get_event_by_slug_or_id(value: str):
 
 
 def _require_verified_partner(user):
-    """Check if user is a verified partner."""
-    if not hasattr(user, "business_verified") or not user.business_verified:
-        return _error_response(
-            "Only verified partners can create events. Please complete your "
-            "business verification first.",
-            status.HTTP_403_FORBIDDEN,
-        )
+    """
+    Gate event creation on the *event-specific* partner verification, not the
+    legacy `User.business_verified` flag. A partner is eligible only when they
+    have an APPROVED `EventPartnerProfile`.
+
+    The error message points them to the new dedicated verification endpoint
+    so the front-end can deep-link straight to it.
+    """
+    if not EventPartnerProfile.is_partner_verified(user):
+        profile = EventPartnerProfile.objects.filter(user=user).first()
+        if profile is None:
+            message = (
+                "You are not yet verified to create events. Please complete "
+                "event-partner verification (NIN + business bank account) first."
+            )
+        elif profile.status == EventPartnerProfile.Status.PENDING:
+            message = (
+                "Your event-partner verification is still under review. "
+                "You will be notified once it is approved."
+            )
+        elif profile.status == EventPartnerProfile.Status.REJECTED:
+            message = (
+                "Your event-partner verification was rejected. "
+                "Please review the reason and resubmit."
+            )
+        else:
+            message = "You are not eligible to create events."
+
+        return _error_response(message, status.HTTP_403_FORBIDDEN)
     return None
 
 
@@ -1861,3 +1891,528 @@ class AdminRefundPurchaseView(generics.GenericAPIView):
             )
 
         return _success_response("Purchase refunded successfully.")
+
+
+# =========================================
+#  PARTNER EVENT VERIFICATION VIEWS
+# =========================================
+
+
+def _notify_partner_verification_pending(profile):
+    """Notify the partner + all admins that a verification landed in PENDING."""
+    UserNotification.objects.create(
+        user=profile.user,
+        title="Event Partner Verification Received",
+        message=(
+            "We received your event-partner verification request. "
+            "It is currently under review — you will be notified once a "
+            "decision is made."
+        ),
+    )
+
+    admin_message = (
+        f"New event-partner verification from {profile.user.full_name} "
+        f"({profile.user.email}) requires manual review."
+    )
+    admins = User.objects.filter(active_role__in=["PartnersAdmin", "SuperAdmin"])
+    UserNotification.objects.bulk_create(
+        [
+            UserNotification(
+                user=admin,
+                title="Event Partner Verification Pending",
+                message=admin_message,
+            )
+            for admin in admins
+        ]
+    )
+
+
+def _notify_partner_verification_approved(profile):
+    UserNotification.objects.create(
+        user=profile.user,
+        title="Event Partner Verification Approved",
+        message=(
+            "Congratulations! Your event-partner verification has been "
+            "approved. You can now create events and sell tickets."
+        ),
+    )
+
+
+@extend_schema(
+    summary="Submit event-partner verification",
+    tags=["Event Partner Verification"],
+    description=(
+        "Submit NIN and business bank account details to become eligible for "
+        "event/ticket creation. NIN is verified via Dojah (with selfie match "
+        "against the user's profile image). The business bank account is "
+        "verified via 9PSB. If both succeed and the returned bank account "
+        "name matches the user's first + last name, the profile is "
+        "auto-approved. Otherwise it is parked at PENDING for admin review. "
+        "If already approved, resubmission is rejected as a no-op."
+    ),
+    request=EventPartnerVerificationSubmitSerializer,
+)
+class EventPartnerVerificationSubmitView(generics.GenericAPIView):
+    """
+    POST /events/partner/verification/submit/
+
+    Resubmission semantics: if a profile exists (PENDING or REJECTED), the
+    same row is overwritten. An APPROVED profile cannot be resubmitted — the
+    partner is already eligible.
+
+    Concurrency:
+      - Two concurrent requests from the same user are serialized via
+        select_for_update() on the existing row (and by the OneToOne
+        constraint if no row exists yet).
+      - Two concurrent requests with the same NIN are serialized by the
+        DB-level unique constraint on `nin`; the loser receives 409.
+      - External calls (Dojah / 9PSB) run OUTSIDE the atomic block so the
+        row lock is held only for the final write.
+    """
+
+    serializer_class = EventPartnerVerificationSubmitSerializer
+    permission_classes = [IsAuthenticated, IsPartner]
+
+    def post(self, request, *args, **kwargs):
+        decrypted_data = _decrypt_request_data(request)
+        if decrypted_data is None:
+            return _error_response(
+                "Invalid request format.", status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = self.get_serializer(data=decrypted_data)
+        error_response = _validate_serializer(serializer)
+        if error_response:
+            return error_response
+
+        user = request.user
+        data = serializer.validated_data
+
+        existing = EventPartnerProfile.objects.filter(user=user).first()
+        if existing and existing.is_approved:
+            return _error_response(
+                "You are already verified as an event partner.",
+                status.HTTP_400_BAD_REQUEST,
+            )
+
+        nin_taken_by_other = (
+            EventPartnerProfile.objects.filter(nin=data["nin"])
+            .exclude(user=user)
+            .exists()
+        )
+        if nin_taken_by_other:
+            return _error_response(
+                "This NIN is already registered to another event partner.",
+                status.HTTP_400_BAD_REQUEST,
+            )
+
+        #  Step 1: NIN verification via Dojah (outside the lock)
+        try:
+            selfie_b64 = cloudinary_to_base64(url=user.profile_img_url)
+        except Exception:
+            logger.exception("Verification failed: could not fetch selfie image.")
+            return _error_response(
+                "Verification failed. Please update your profile image and try again.",
+                status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            nin_response = KYC.verify_nin(img_file=selfie_b64, nin=data["nin"])
+        except Exception:
+            logger.exception("Dojah NIN verification call raised.")
+            nin_response = None
+
+        if nin_response is None or nin_response.status_code != 200:
+            return _error_response(
+                "NIN verification service unavailable or NIN is invalid. "
+                "Please try again later.",
+                status.HTTP_502_BAD_GATEWAY,
+            )
+
+        try:
+            nin_body = nin_response.json() or {}
+        except (JSONDecodeError, ValueError):
+            logger.warning("Dojah NIN response was not valid JSON despite 200 status.")
+            return _error_response(
+                "NIN verification service returned an invalid response. "
+                "Please try again later.",
+                status.HTTP_502_BAD_GATEWAY,
+            )
+
+        entity = nin_body.get("entity") or {}
+
+        img_resp = entity.get("selfie_verification") or {}
+        confidence = img_resp.get("confidence_value")
+        if (
+            img_resp.get("match") is not True
+            or not isinstance(confidence, (int, float))
+            or confidence < 90
+        ):
+            return _error_response(
+                "NIN verification failed: selfie does not match.",
+                status.HTTP_400_BAD_REQUEST,
+            )
+
+        supplied_dob = data["nin_dob"].isoformat()
+        verified_dob_parsed = parse_dojah_dob(entity.get("date_of_birth"))
+        if not verified_dob_parsed or verified_dob_parsed.isoformat() != supplied_dob:
+            logger.info(
+                "NIN DOB mismatch: supplied=%s, parsed_from_dojah=%s, raw=%r",
+                supplied_dob,
+                verified_dob_parsed,
+                entity.get("date_of_birth"),
+            )
+            return _error_response(
+                "NIN verification failed: date of birth mismatch.",
+                status.HTTP_400_BAD_REQUEST,
+            )
+
+        nin_name = (
+            f"{entity.get('first_name', '')} {entity.get('last_name', '')}"
+        ).strip()
+
+        #  Step 2: Bank account verification via 9PSB (outside the lock)
+        try:
+            bank_response = Transfers.getAccount(
+                acct_num=data["bank_account_number"],
+                bank_code=data["bank_code"],
+            )
+        except Exception:
+            logger.exception("9PSB bank account lookup raised.")
+            bank_response = None
+
+        if bank_response is None or getattr(bank_response, "status_code", 0) != 200:
+            return _error_response(
+                "Bank account verification service unavailable. "
+                "Please try again later.",
+                status.HTTP_502_BAD_GATEWAY,
+            )
+
+        try:
+            bank_body = bank_response.json() or {}
+        except (JSONDecodeError, ValueError):
+            logger.warning(
+                "9PSB account lookup returned non-JSON body despite 200 status."
+            )
+            return _error_response(
+                "Bank account verification service returned an invalid response. "
+                "Please try again later.",
+                status.HTTP_502_BAD_GATEWAY,
+            )
+
+        bank_entity = bank_body.get("entity") or bank_body.get("data") or {}
+
+        verified_account_name = (
+            bank_entity.get("account_name") or bank_entity.get("accountName") or ""
+        )
+
+        if not verified_account_name:
+            return _error_response(
+                "Bank account could not be verified. Please check the "
+                "account number and bank code.",
+                status.HTTP_400_BAD_REQUEST,
+            )
+
+        expected_name = f"{user.first_name} {user.last_name}".strip()
+        names_match = EventPartnerProfile.names_match(
+            expected_name, verified_account_name
+        )
+
+        #  Step 3: Persist (locked, re-validated)
+        try:
+            with transaction.atomic():
+                locked_existing = (
+                    EventPartnerProfile.objects.select_for_update()
+                    .filter(user=user)
+                    .first()
+                )
+
+                if locked_existing and locked_existing.is_approved:
+                    return _error_response(
+                        "You are already verified as an event partner.",
+                        status.HTTP_400_BAD_REQUEST,
+                    )
+
+                nin_conflict = (
+                    EventPartnerProfile.objects.filter(nin=data["nin"])
+                    .exclude(user=user)
+                    .exists()
+                )
+                if nin_conflict:
+                    return _error_response(
+                        "This NIN is already registered to another event partner.",
+                        status.HTTP_400_BAD_REQUEST,
+                    )
+
+                profile = locked_existing or EventPartnerProfile(user=user)
+
+                profile.nin = data["nin"]
+                profile.nin_dob = supplied_dob
+                profile.nin_verified = True
+                profile.nin_name = nin_name
+
+                profile.business_name = data["business_name"]
+                profile.business_address = data["business_address"]
+                profile.tin = data["tin"]
+
+                profile.bank_code = data["bank_code"]
+                profile.bank_name = data.get("bank_name", "") or ""
+                profile.bank_account_number = data["bank_account_number"]
+                profile.bank_account_name = verified_account_name
+                profile.bank_verified = True
+
+                if names_match:
+                    profile.status = EventPartnerProfile.Status.APPROVED
+                    profile.rejection_reason = ""
+                    profile.reviewed_by = None
+                    profile.reviewed_at = timezone.now()
+                else:
+                    profile.status = EventPartnerProfile.Status.PENDING
+                    profile.rejection_reason = ""
+                    profile.reviewed_by = None
+                    profile.reviewed_at = None
+
+                profile.save()
+
+        except IntegrityError as exc:
+            logger.warning(
+                "Event partner verification IntegrityError for user %s: %s",
+                user.id,
+                exc,
+            )
+            return _error_response(
+                "This verification conflicts with an existing record. "
+                "Please refresh and try again.",
+                status.HTTP_409_CONFLICT,
+            )
+
+        #  Notifications fire OUTSIDE the lock
+        if names_match:
+            _notify_partner_verification_approved(profile)
+            logger.info(
+                "Event partner %s auto-approved (name match on bank account).",
+                user.id,
+            )
+            return _success_response(
+                "Verification successful. You are now approved to create events.",
+                EventPartnerVerificationReadSerializer(profile).data,
+                status.HTTP_201_CREATED,
+            )
+
+        _notify_partner_verification_pending(profile)
+        logger.info(
+            "Event partner %s parked at PENDING (name mismatch: "
+            "expected=%r, verified=%r).",
+            user.id,
+            expected_name,
+            verified_account_name,
+        )
+        return _success_response(
+            "Verification received. Your bank account name does not match "
+            "your profile name, so a manual review is required.",
+            EventPartnerVerificationReadSerializer(profile).data,
+            status.HTTP_201_CREATED,
+        )
+
+
+@extend_schema(
+    summary="Get own event-partner verification status",
+    tags=["Event Partner Verification"],
+    description="Returns the authenticated partner's own verification record.",
+)
+class EventPartnerVerificationStatusView(generics.GenericAPIView):
+    """GET /events/partner/verification/status/"""
+
+    permission_classes = [IsAuthenticated, IsPartner]
+
+    def get(self, request, *args, **kwargs):
+        profile = EventPartnerProfile.objects.filter(user=request.user).first()
+        if profile is None:
+            return _success_response(
+                "No verification record found.",
+                {"verified": False, "profile": None},
+                status.HTTP_200_OK,
+            )
+
+        return _success_response(
+            "Verification status retrieved.",
+            {
+                "verified": profile.is_approved,
+                "profile": EventPartnerVerificationReadSerializer(profile).data,
+            },
+        )
+
+
+@extend_schema(
+    summary="List event-partner verifications (admin)",
+    tags=["Event Partner Verification [Admin]"],
+    description="Admins list all verification records, filterable by status.",
+    parameters=[
+        OpenApiParameter(
+            name="status",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="Filter by status: pending | approved | rejected",
+            required=False,
+        ),
+        OpenApiParameter(
+            name="search",
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            description="Search by partner email or name",
+            required=False,
+        ),
+    ],
+)
+class AdminEventPartnerVerificationListView(generics.ListAPIView):
+    """GET /events/admin/partner-verifications/"""
+
+    serializer_class = EventPartnerVerificationReadSerializer
+    permission_classes = [IsAuthenticated, IsPartnerAdminOrSuperAdmin]
+    pagination_class = EventTicketPagination
+
+    def get_queryset(self):
+        qs = EventPartnerProfile.objects.select_related("user", "reviewed_by").all()
+
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        search = self.request.query_params.get("search")
+        if search:
+            qs = qs.filter(
+                Q(user__email__icontains=search)
+                | Q(user__first_name__icontains=search)
+                | Q(user__last_name__icontains=search)
+            )
+
+        return qs.order_by("-submitted_at")
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+        # Manual pagination
+        page = self.paginate_queryset(queryset)
+        serializer = self.get_serializer(page, many=True)
+        paginator = self.paginator
+        return _success_response(
+            "Event-partner verifications retrieved.",
+            {
+                "count": paginator.page.paginator.count,
+                "page": paginator.page.number,
+                "page_size": paginator.get_page_size(request),
+                "total_pages": paginator.page.paginator.num_pages,
+                "next": paginator.get_next_link(),
+                "previous": paginator.get_previous_link(),
+                "results": serializer.data,
+            },
+        )
+
+        # Fallback (pagination disabled via ?page_size=off or misconfig)
+        serializer = self.get_serializer(queryset, many=True)
+        return _success_response(
+            "Event-partner verifications retrieved.",
+            {
+                "count": queryset.count(),
+                "results": serializer.data,
+            },
+        )
+
+
+@extend_schema(
+    summary="Review an event-partner verification (admin)",
+    tags=["Event Partner Verification [Admin]"],
+    description=(
+        "Approve or reject a PENDING event-partner verification record. "
+        "Already-decided records cannot be re-reviewed. The record is "
+        "locked for the duration of the check-then-write so two concurrent "
+        "admins cannot both pass the PENDING guard."
+    ),
+    request=EventPartnerVerificationAdminReviewSerializer,
+)
+class AdminEventPartnerVerificationReviewView(generics.GenericAPIView):
+    """POST /events/admin/partner-verifications/<id>/review/"""
+
+    serializer_class = EventPartnerVerificationAdminReviewSerializer
+    permission_classes = [IsAuthenticated, IsPartnerAdminOrSuperAdmin]
+
+    def post(self, request, *args, **kwargs):
+        profile_id = kwargs.get("id")
+
+        decrypted_data = _decrypt_request_data(request)
+        if decrypted_data is None:
+            return _error_response(
+                "Invalid request format.", status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = self.get_serializer(data=decrypted_data)
+        error_response = _validate_serializer(serializer)
+        if error_response:
+            return error_response
+
+        action = serializer.validated_data["action"]
+
+        with transaction.atomic():
+            try:
+                profile = (
+                    EventPartnerProfile.objects.select_for_update()
+                    .select_related("user")
+                    .get(id=profile_id)
+                )
+            except EventPartnerProfile.DoesNotExist:
+                return _error_response(
+                    "Verification record not found.", status.HTTP_404_NOT_FOUND
+                )
+
+            if profile.status != EventPartnerProfile.Status.PENDING:
+                return _error_response(
+                    "Only PENDING verification records can be reviewed.",
+                    status.HTTP_400_BAD_REQUEST,
+                )
+
+            if action == "approve":
+                profile.status = EventPartnerProfile.Status.APPROVED
+                profile.rejection_reason = ""
+            else:
+                profile.status = EventPartnerProfile.Status.REJECTED
+                profile.rejection_reason = serializer.validated_data[
+                    "rejection_reason"
+                ].strip()
+
+            profile.reviewed_by = request.user
+            profile.reviewed_at = timezone.now()
+            profile.save(
+                update_fields=[
+                    "status",
+                    "rejection_reason",
+                    "reviewed_by",
+                    "reviewed_at",
+                    "updated_at",
+                ]
+            )
+
+        if action == "approve":
+            _notify_partner_verification_approved(profile)
+            message = "Verification approved."
+        else:
+            UserNotification.objects.create(
+                user=profile.user,
+                title="Event Partner Verification Rejected",
+                message=(
+                    f"Your event-partner verification was rejected. "
+                    f"Reason: {profile.rejection_reason}"
+                ),
+            )
+            message = "Verification rejected."
+
+        logger.info(
+            "Event partner verification %s %sd by admin %s.",
+            profile.id,
+            action,
+            request.user.email,
+        )
+
+        return _success_response(
+            message,
+            EventPartnerVerificationReadSerializer(profile).data,
+        )
