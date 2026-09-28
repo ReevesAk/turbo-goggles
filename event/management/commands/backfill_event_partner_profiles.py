@@ -25,6 +25,12 @@ from accounts.models import User
 from event.models import EventPartnerProfile
 
 SENTINEL_PREFIX = "BACKFILLED-"
+# nin and bank_account_number are EncryptedCharField (fixed-IV AES-CBC), so
+# encryption is deterministic and exact-match lookups work — but __startswith
+# does NOT, since ciphertext of a substring is never a prefix of the
+# ciphertext of the full string. bank_account_number is a constant sentinel
+# (unlike nin, which embeds the user id), so it's the one we can filter on.
+SENTINEL_BANK_ACCOUNT_NUMBER = "BACKFILLED"
 
 
 class Command(BaseCommand):
@@ -137,7 +143,7 @@ class Command(BaseCommand):
                         tin="",
                         bank_code="",
                         bank_name="",
-                        bank_account_number="BACKFILLED",
+                        bank_account_number=SENTINEL_BANK_ACCOUNT_NUMBER,
                         bank_account_name="",
                         bank_verified=False,
                         status=EventPartnerProfile.Status.APPROVED,
@@ -205,12 +211,12 @@ class Command(BaseCommand):
 
     def _revoke_sentinel(self, dry_run: bool) -> None:
         sentinel_rows = EventPartnerProfile.objects.filter(
-            nin__startswith=SENTINEL_PREFIX
+            bank_account_number=SENTINEL_BANK_ACCOUNT_NUMBER
         )
         total = sentinel_rows.count()
         self.stdout.write(
             f"Found {total} backfilled EventPartnerProfile row(s) "
-            f"(nin startswith '{SENTINEL_PREFIX}')."
+            f"(bank_account_number == '{SENTINEL_BANK_ACCOUNT_NUMBER}')."
         )
 
         if total == 0:

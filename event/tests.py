@@ -27,6 +27,7 @@ from freezegun import freeze_time
 
 from accounts.models import User, AccountType, UserNotification
 from banking.models import WalletModel
+from partners.models import PartnerCommissionRule
 from security import encrypt, decrypt
 
 from .models import (
@@ -1734,6 +1735,33 @@ class TicketDataIntegrityTests(ThrottleDisabledAPITestCase):
         expected_net = sale.gross_amount - sale.platform_fee_amount
         self.assertEqual(sale.net_amount, expected_net)
 
+    def test_platform_fee_uses_business_category_not_event_category(self):
+        """
+        Regression: the event-category-vs-business-category match check was
+        removed (partners can now pick any event category), so the platform
+        fee must be keyed off the partner's verified business_category —
+        not the freely-chosen event.category — or a partner could pick a
+        low-commission category to underpay platform fees.
+        """
+        self.partner.business_category = "Hotel"
+        self.partner.save()
+        self.event.category = "Cinema"  # deliberately mismatched, low-fee pick
+        self.event.save()
+
+        PartnerCommissionRule.objects.create(business="Hotel", commission_rate=Decimal("20.00"))
+        PartnerCommissionRule.objects.create(business="Cinema", commission_rate=Decimal("2.00"))
+
+        purchase = _create_purchase(self.member, self.ticket, quantity=1)
+        sale = PartnerTicketSale.objects.create(
+            purchase=purchase,
+            partner=self.partner,
+            event=self.event,
+            ticket=self.ticket,
+            gross_amount=purchase.total_amount,
+        )
+
+        self.assertEqual(sale.platform_fee_percentage, Decimal("20.00"))
+
 
 # =============================================================================
 # Fuzz Tests - Edge Cases & Malformed Inputs
@@ -2150,6 +2178,56 @@ class EventPartnerProfileModelTests(ThrottleDisabledAPITestCase):
     def test_bank_account_number_encrypted_roundtrip(self):
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.bank_account_number, "0123456789")
+
+
+# =============================================================================
+# Backfill Command — --revoke-sentinel
+# =============================================================================
+
+
+class BackfillEventPartnerProfilesRevokeSentinelTests(ThrottleDisabledAPITestCase):
+    """
+    Regression: nin/bank_account_number are EncryptedCharField (fixed-IV
+    AES-CBC), so `nin__startswith=...` can never match anything — the lookup
+    value is encrypted whole, and ciphertext of a substring is never a
+    prefix of the ciphertext of the full string. --revoke-sentinel must
+    filter on something that supports exact match instead.
+    """
+
+    def setUp(self):
+        self.backfilled_partner = _create_partner(email="backfilled@example.com")
+        self.backfilled_profile = _create_event_partner_profile(
+            self.backfilled_partner,
+            nin=f"BACKFILLED-{self.backfilled_partner.id}",
+            nin_verified=False,
+            bank_account_number="BACKFILLED",
+            bank_verified=False,
+        )
+        self.real_partner = _create_partner(email="real@example.com")
+        self.real_profile = _create_event_partner_profile(self.real_partner)
+
+    def test_revoke_sentinel_deletes_only_backfilled_rows(self):
+        from django.core.management import call_command
+
+        call_command("backfill_event_partner_profiles", "--revoke-sentinel")
+
+        self.assertFalse(
+            EventPartnerProfile.objects.filter(id=self.backfilled_profile.id).exists()
+        )
+        self.assertTrue(
+            EventPartnerProfile.objects.filter(id=self.real_profile.id).exists()
+        )
+
+    def test_revoke_sentinel_dry_run_deletes_nothing(self):
+        from django.core.management import call_command
+
+        call_command(
+            "backfill_event_partner_profiles", "--revoke-sentinel", "--dry-run"
+        )
+
+        self.assertTrue(
+            EventPartnerProfile.objects.filter(id=self.backfilled_profile.id).exists()
+        )
 
 
 # =============================================================================
