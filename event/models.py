@@ -1044,8 +1044,12 @@ class PartnerTicketSale(models.Model):
             self.gross_amount = self.purchase.total_amount
 
         if not self.platform_fee_percentage:
-            # Get fee from PartnerCommissionRule using event category
-            fee_percentage = TicketConfiguration.get_platform_fee(self.event.category)
+            # Fee is keyed off the partner's verified business category, not the
+            # partner-chosen event category, so it can't be gamed by picking a
+            # lower-commission event category.
+            fee_percentage = TicketConfiguration.get_platform_fee(
+                self.event.user.business_category
+            )
             self.platform_fee_percentage = fee_percentage
             self.platform_fee_amount = (self.gross_amount * fee_percentage) / Decimal(
                 "100"
@@ -1068,7 +1072,7 @@ class PartnerTicketSale(models.Model):
         for purchase in purchases:
             if str(purchase.id) not in existing_purchase_ids:
                 fee_percentage = TicketConfiguration.get_platform_fee(
-                    purchase.event.category
+                    purchase.event.user.business_category
                 )
                 gross = purchase.total_amount
                 fee_amount = (gross * fee_percentage) / Decimal("100")
