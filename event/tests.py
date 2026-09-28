@@ -1171,6 +1171,10 @@ class PartnerEventTests(ThrottleDisabledAPITestCase):
 
     def setUp(self):
         self.partner = _create_partner()
+        _create_event_partner_profile(
+            self.partner,
+            status=EventPartnerProfile.Status.APPROVED,
+        )
         self.client.force_authenticate(user=self.partner)
         cache.clear()
 
@@ -1978,7 +1982,9 @@ class PartnerSalesLedgerTests(ThrottleDisabledAPITestCase):
         data = body["data"]
         self.assertEqual(len(data["sales"]), 1)
         self.assertIn("summary", data)
-        self.assertEqual(data["summary"]["total_gross"], str(purchase.total_amount))
+        self.assertEqual(
+            float(data["summary"]["total_gross"]), float(purchase.total_amount)
+        )
 
     def test_sales_ledger_filter_by_status(self):
         """Partner can filter sales by settlement status."""

@@ -24,25 +24,10 @@ from django.contrib.gis.geos import Point
 
 
 from accounts.models import User
-from banking.encryption import encrypt_field, decrypt_field
 from partners.models import PartnerCommissionRule, BUSINESS_CATEGORY
+from banking.models import EncryptedCharField
 
 logger = logging.getLogger(__name__)
-
-
-class EncryptedCharField(models.CharField):
-    """CharField that transparently encrypts/decrypts its value at the DB layer."""
-
-    def from_db_value(self, value, expression, connection):
-        return decrypt_field(value)
-
-    def to_python(self, value):
-        return decrypt_field(value)
-
-    def get_prep_value(self, value):
-        if value is None:
-            return value
-        return encrypt_field(value)
 
 
 class Event(models.Model):
