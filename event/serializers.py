@@ -10,6 +10,7 @@ from django.db.models import F, Q, Sum
 
 from .models import (
     Event,
+    EventPartnerProfile,
     PartnerSaleWindow,
     PartnerTicketSale,
     Ticket,
@@ -19,6 +20,139 @@ from .models import (
     TicketPurchase,
     TicketTransfer,
 )
+
+# ==============================
+#  Event Partner Verification
+# ==============================
+
+
+class EventPartnerVerificationSubmitSerializer(serializers.Serializer):
+    """
+    Input for POST /events/partner/verification/submit/.
+
+    Verifies NIN via Dojah (with selfie match against the user's profile
+    image) and the business bank account via 9PSB. If both succeed and the
+    bank account name matches the submitting user's first + last name
+    (case-insensitive), the profile is auto-approved. Otherwise it is
+    parked at PENDING for admin review.
+    """
+
+    nin = serializers.CharField(
+        max_length=11,
+        min_length=11,
+        help_text="11-digit National Identification Number",
+    )
+    nin_dob = serializers.DateField(
+        help_text="Date of birth on the NIN record (YYYY-MM-DD)",
+    )
+    business_name = serializers.CharField(max_length=255)
+    business_address = serializers.CharField()
+    tin = serializers.CharField(
+        max_length=50,
+        help_text="Tax Identification Number",
+    )
+    bank_code = serializers.CharField(
+        max_length=20,
+        help_text="Bank code for the business bank account",
+    )
+    bank_name = serializers.CharField(
+        max_length=150,
+        required=False,
+        allow_blank=True,
+        default="",
+        help_text="Human-readable bank name (optional, stored for display)",
+    )
+    bank_account_number = serializers.CharField(
+        max_length=30,
+        min_length=10,
+        help_text="Business bank account number",
+    )
+
+    def validate_nin(self, value: str) -> str:
+        if not value.isdigit():
+            raise serializers.ValidationError("NIN must contain only digits.")
+        return value
+
+    def validate_bank_account_number(self, value: str) -> str:
+        if not value.isdigit():
+            raise serializers.ValidationError(
+                "Bank account number must contain only digits."
+            )
+        return value
+
+    def validate_bank_code(self, value: str) -> str:
+        if not value.strip():
+            raise serializers.ValidationError("bank_code is required.")
+        return value.strip()
+
+
+class EventPartnerVerificationReadSerializer(serializers.ModelSerializer):
+    """Read view for a partner's own verification record."""
+
+    user_email = serializers.EmailField(source="user.email", read_only=True)
+    reviewed_by_email = serializers.EmailField(
+        source="reviewed_by.email", read_only=True, default=None
+    )
+
+    class Meta:
+        model = EventPartnerProfile
+        fields = [
+            "id",
+            "user",
+            "user_email",
+            "status",
+            "nin_verified",
+            "nin_name",
+            "bank_verified",
+            "bank_account_name",
+            "bank_name",
+            "bank_code",
+            "business_name",
+            "business_address",
+            "tin",
+            "rejection_reason",
+            "reviewed_by",
+            "reviewed_by_email",
+            "reviewed_at",
+            "submitted_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+    def to_representation(self, instance):
+        """Never leak the full NIN or account number over the wire."""
+        data = super().to_representation(instance)
+        nin = getattr(instance, "nin", None) or ""
+        data["nin_masked"] = ("*" * max(0, len(nin) - 4)) + nin[-4:] if nin else ""
+        data.pop("nin", None)
+
+        acct = getattr(instance, "bank_account_number", None) or ""
+        data["bank_account_number_masked"] = (
+            ("*" * max(0, len(acct) - 4)) + acct[-4:] if acct else ""
+        )
+        return data
+
+
+class EventPartnerVerificationAdminReviewSerializer(serializers.Serializer):
+    """Admin decision on a parked (PENDING) verification record."""
+
+    action = serializers.ChoiceField(choices=["approve", "reject"])
+    rejection_reason = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=500,
+    )
+
+    def validate(self, attrs):
+        if (
+            attrs["action"] == "reject"
+            and not attrs.get("rejection_reason", "").strip()
+        ):
+            raise serializers.ValidationError(
+                {"rejection_reason": "Rejection reason is required when rejecting."}
+            )
+        return attrs
+
 
 # ======
 # Event
@@ -155,20 +289,6 @@ class EventPartnerSerializer(serializers.ModelSerializer):
         # Validate start date is in future for new events
         if self.instance is None and start and start < timezone.now():
             raise serializers.ValidationError("start_date must be in the future")
-
-        # Validate category matches partner's business category
-        category = attrs.get("category")
-        request = self.context.get("request")
-        if category and request and request.user.business_category:
-            if category != request.user.business_category:
-                raise serializers.ValidationError(
-                    {
-                        "category": (
-                            f"Event category '{category}' does not match your "
-                            f"verified business category '{request.user.business_category}'."
-                        )
-                    }
-                )
 
         # Validate mode
         mode = attrs.get("mode", getattr(self.instance, "mode", "Physical"))

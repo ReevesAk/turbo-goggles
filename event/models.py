@@ -25,6 +25,7 @@ from django.contrib.gis.geos import Point
 
 from accounts.models import User
 from partners.models import PartnerCommissionRule, BUSINESS_CATEGORY
+from banking.models import EncryptedCharField
 
 logger = logging.getLogger(__name__)
 
@@ -1105,3 +1106,143 @@ class PartnerTicketSale(models.Model):
                 "updated_at",
             ]
         )
+
+
+class EventPartnerProfile(models.Model):
+    """
+    Separate verification record that gates a partner's eligibility to create
+    events and sell tickets.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", _("Pending")
+        APPROVED = "approved", _("Approved")
+        REJECTED = "rejected", _("Rejected")
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    user = models.OneToOneField(
+        to=User,
+        on_delete=models.CASCADE,
+        related_name="event_partner_profile",
+        help_text="The partner this verification record belongs to",
+    )
+
+    #  Identity (NIN)
+    nin = EncryptedCharField(
+        max_length=100,
+        unique=True,
+        help_text="National Identification Number (encrypted at rest)",
+    )
+    nin_dob = models.CharField(
+        max_length=40,
+        help_text="Date of birth submitted alongside NIN (YYYY-MM-DD)",
+    )
+    nin_verified = models.BooleanField(default=False)
+    nin_name = models.CharField(
+        max_length=200,
+        null=True,
+        blank=True,
+        help_text="Full name returned by Dojah on successful NIN lookup",
+    )
+
+    #  Business identity
+    business_name = models.CharField(max_length=255)
+    business_address = models.TextField()
+    tin = models.CharField(
+        max_length=50,
+        help_text="Tax Identification Number supplied by the partner",
+    )
+
+    #  Business bank account
+    bank_code = models.CharField(max_length=20)
+    bank_name = models.CharField(max_length=150, blank=True, default="")
+    bank_account_number = EncryptedCharField(
+        max_length=30,
+        help_text="Business bank account number (encrypted at rest)",
+    )
+    bank_account_name = models.CharField(
+        max_length=200,
+        null=True,
+        blank=True,
+        help_text="Name returned by 9PSB account lookup",
+    )
+    bank_verified = models.BooleanField(default=False)
+
+    #  Status / review
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    rejection_reason = models.CharField(
+        max_length=500,
+        blank=True,
+        default="",
+        help_text="Set by admin when status is REJECTED",
+    )
+    reviewed_by = models.ForeignKey(
+        to=User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="event_partner_verifications_reviewed",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-submitted_at"]
+        indexes = [
+            models.Index(fields=["status", "submitted_at"]),
+            models.Index(fields=["user", "status"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user} - {self.status}"
+
+    # =============
+    # Convenience
+    # =============
+
+    @property
+    def is_approved(self) -> bool:
+        return self.status == self.Status.APPROVED
+
+    @property
+    def is_pending(self) -> bool:
+        return self.status == self.Status.PENDING
+
+    @property
+    def is_rejected(self) -> bool:
+        return self.status == self.Status.REJECTED
+
+    @classmethod
+    def is_partner_verified(cls, user) -> bool:
+        """
+        The single source of truth used by the event permission gate.
+        Returns True only when the user has an APPROVED profile.
+        """
+        return cls.objects.filter(
+            user=user,
+            status=cls.Status.APPROVED,
+        ).exists()
+
+    @staticmethod
+    def names_match(submitted_name: str, verified_name: str) -> bool:
+        """
+        Case-insensitive, whitespace-normalized exact match.
+
+        "John Doe"      vs "JOHN DOE"     -> True
+        "John  Doe"     vs "John Doe"     -> True
+        "John Doe"      vs "John Doe Ltd" -> False  (no substring matching)
+        "  John Doe  "  vs "John Doe"     -> True
+        """
+
+        def _norm(s: str) -> str:
+            return " ".join((s or "").strip().lower().split())
+
+        return bool(submitted_name) and _norm(submitted_name) == _norm(verified_name)

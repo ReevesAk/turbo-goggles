@@ -60,6 +60,16 @@ urlpatterns = [
         views.EventDetailedStatsView.as_view(),
         name="partner_detailed_stats",
     ),
+    path(
+        "partner/verification/submit/",
+        views.EventPartnerVerificationSubmitView.as_view(),
+        name="partner_verification_submit",
+    ),
+    path(
+        "partner/verification/status/",
+        views.EventPartnerVerificationStatusView.as_view(),
+        name="partner_verification_status",
+    ),
     # ==================
     # ADMIN ENDPOINTS
     # ==================
@@ -96,6 +106,16 @@ urlpatterns = [
         "admin/ticket-config/",
         views.AdminTicketConfigurationView.as_view(),
         name="admin_ticket_config",
+    ),
+    path(
+        "admin/partner-verifications/",
+        views.AdminEventPartnerVerificationListView.as_view(),
+        name="admin_partner_verifications",
+    ),
+    path(
+        "admin/partner-verifications/<uuid:id>/review/",
+        views.AdminEventPartnerVerificationReviewView.as_view(),
+        name="admin_partner_verification_review",
     ),
     # ==================
     # TICKET ENDPOINTS

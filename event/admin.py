@@ -6,6 +6,7 @@ from django.contrib import admin
 
 from .models import (
     Event,
+    EventPartnerProfile,
     Ticket,
     TicketPurchase,
     TicketOrder,
@@ -278,3 +279,72 @@ class PartnerTicketSaleAdmin(admin.ModelAdmin):
     search_fields = ("partner__email", "event__event_name", "payout_reference")
     readonly_fields = ("id", "created_at", "updated_at")
     ordering = ("-created_at",)
+
+
+@admin.register(EventPartnerProfile)
+class EventPartnerProfileAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "user",
+        "status",
+        "nin_verified",
+        "bank_verified",
+        "business_name",
+        "submitted_at",
+        "reviewed_at",
+    )
+    list_filter = ("status", "nin_verified", "bank_verified", "submitted_at")
+    search_fields = (
+        "user__email",
+        "user__first_name",
+        "user__last_name",
+        "business_name",
+        "tin",
+        "bank_account_name",
+    )
+    readonly_fields = (
+        "id",
+        "nin",
+        "bank_account_number",
+        "nin_name",
+        "bank_account_name",
+        "submitted_at",
+        "updated_at",
+        "reviewed_at",
+    )
+    ordering = ("-submitted_at",)
+    fieldsets = (
+        ("Partner", {"fields": ("id", "user", "status")}),
+        (
+            "Identity (NIN)",
+            {"fields": ("nin", "nin_dob", "nin_verified", "nin_name")},
+        ),
+        (
+            "Business",
+            {"fields": ("business_name", "business_address", "tin")},
+        ),
+        (
+            "Bank Account",
+            {
+                "fields": (
+                    "bank_code",
+                    "bank_name",
+                    "bank_account_number",
+                    "bank_account_name",
+                    "bank_verified",
+                )
+            },
+        ),
+        (
+            "Review",
+            {
+                "fields": (
+                    "rejection_reason",
+                    "reviewed_by",
+                    "reviewed_at",
+                    "submitted_at",
+                    "updated_at",
+                )
+            },
+        ),
+    )
