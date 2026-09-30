@@ -3,6 +3,7 @@ import requests
 import csv
 import mimetypes
 import os
+import logging
 from decimal import Decimal
 from io import BytesIO, StringIO
 from reportlab.lib.pagesizes import letter
@@ -15,6 +16,7 @@ import base64
 from decouple import config
 
 from django.contrib.auth.hashers import check_password
+from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
 
@@ -212,6 +214,84 @@ def generate_transaction_sms(
         msg = f"If not you, contact support immediately. Call {support_phone}."
         lines.append(msg)
     return "\n".join(lines)
+
+
+WELCOME_BONUS_FUNDING_THRESHOLD = Decimal("2000.00")
+WELCOME_BONUS_AMOUNT = Decimal("500.00")
+WELCOME_BONUS_MAX_RECIPIENTS = 1000
+
+
+def try_award_welcome_bonus(user):
+    """
+    Awards the once-off ₦500 cashback welcome bonus the first time a user's
+    lifetime wallet funding (across any number of deposits, card or bank
+    transfer) reaches WELCOME_BONUS_FUNDING_THRESHOLD, capped at the first
+    WELCOME_BONUS_MAX_RECIPIENTS users platform-wide.
+
+    Must only be called from the point where a funding inflow's real,
+    net-of-9PSB-fee amount has just been recorded as a "Wallet Credit"
+    TxModel row (see InflowsWebhookNotificationView) - that's the single
+    authoritative ledger both card-funding settlements and direct transfers
+    go through, so summing it is the one consistent way to measure funding
+    across both.
+    """
+    from django.db.models import Sum
+
+    from accounts.models import TxModel, UserNotification, WelcomeBonusAward, WelcomeBonusCounter
+    from roles.models import ActivityModel
+    from user_profile.fcm import send_push_to_user
+
+    if user.has_received_welcome_bonus:
+        return
+
+    total_funded = TxModel.objects.filter(
+        user=user, tx_type="Wallet Credit", status="SUCCESS"
+    ).aggregate(total=Sum("amount"))["total"] or 0
+    if Decimal(str(total_funded)) < WELCOME_BONUS_FUNDING_THRESHOLD:
+        return
+
+    with transaction.atomic():
+        counter, _ = WelcomeBonusCounter.objects.get_or_create(id=1)
+        counter = WelcomeBonusCounter.objects.select_for_update().get(id=counter.id)
+
+        # Re-check under lock: another concurrent funding for this user, or
+        # one for a different user racing for the last slot, may have
+        # changed things since the check above.
+        user.refresh_from_db(fields=["has_received_welcome_bonus"])
+        if user.has_received_welcome_bonus or counter.awarded_count >= WELCOME_BONUS_MAX_RECIPIENTS:
+            return
+
+        WelcomeBonusAward.objects.create(user=user, amount=WELCOME_BONUS_AMOUNT)
+        counter.awarded_count += 1
+        counter.save(update_fields=["awarded_count"])
+
+        try:
+            wallet = WalletModel.objects.get(user=user, walletType="INDIVIDUAL")
+            wallet.cashback_balance += WELCOME_BONUS_AMOUNT
+            wallet.save(update_fields=["cashback_balance"])
+            user.has_received_welcome_bonus = True
+            user.save(update_fields=["has_received_welcome_bonus"])
+        except Exception:
+            logging.exception(
+                "Failed to set flags on user after awarding welcome bonus"
+            )
+
+        UserNotification.objects.create(
+            user=user,
+            title="Welcome Bonus",
+            message="You have been credited with a ₦500 cashback welcome bonus. Use it for purchases.",
+        )
+        send_push_to_user(
+            user=user,
+            title="Welcome Bonus! 🎁",
+            body="You've been credited with a ₦500 cashback welcome bonus. Start shopping!",
+            data={"type": "welcome_bonus", "amount": "500"},
+        )
+        ActivityModel.objects.create(
+            user=user,
+            title="Welcome Bonus",
+            description=f"{user.first_name} {user.last_name} was awarded a ₦500 cashback welcome bonus.",
+        )
 
 
 # tx_type values that represent money coming into the wallet. Everything else
