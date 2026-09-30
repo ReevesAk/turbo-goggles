@@ -41,10 +41,7 @@ from banking.tasks import (
 )
 from accounts.models import (
     User,
-    WelcomeBonusAward,
-    WelcomeBonusCounter,
     TxModel,
-    UserNotification,
 )
 from .serializers import (
     Get9PSBWalletSerializer,
@@ -55,7 +52,6 @@ from .serializers import (
     FundWalletSerializers,
 )
 from security import encrypt, decrypt
-from user_profile.fcm import send_push_to_user
 
 logger = logging.getLogger(__name__)
 
@@ -1360,7 +1356,7 @@ class PayWithCard(generics.CreateAPIView):
 @extend_schema(
     summary="Credit wallet after confirmed Paystack card payment",
     tags=["Banking"],
-    description="Credit a user's 9PSB wallet following a verified Paystack card transaction. Also awards the ₦500 welcome bonus if the funded amount is ≥ ₦2,000 and the bonus has not yet been awarded.",
+    description="Credit a user's 9PSB wallet following a verified Paystack card transaction.",
     request=FundWalletSerializers,
     responses={
         200: inline_serializer(
@@ -1490,66 +1486,14 @@ class FundWallet(generics.GenericAPIView):
             if transfer_resp.status_code == 200:
                 logger.info("Transfer successful for user %s.", user.id)
 
-                # Award welcome bonus if user opened wallet and funded >= 2000 NGN
-                try:
-                    funded_amount = Decimal(str(amount))
-                except Exception:
-                    funded_amount = Decimal("0.00")
-
-                if funded_amount >= Decimal("2000.00"):
-                    try:
-                        with transaction.atomic():
-                            counter, _ = WelcomeBonusCounter.objects.get_or_create(id=1)
-                            # lock counter row to prevent race conditions
-                            counter = (
-                                WelcomeBonusCounter.objects.select_for_update().get(
-                                    id=counter.id
-                                )
-                            )
-
-                            if (
-                                not user.has_received_welcome_bonus
-                            ) and counter.awarded_count < 1000:
-                                WelcomeBonusAward.objects.create(
-                                    user=user, amount=Decimal("500.00")
-                                )
-                                counter.awarded_count = counter.awarded_count + 1
-                                counter.save()
-
-                                try:
-                                    user_details.cashback_balance += Decimal("500.00")
-                                    user_details.save(
-                                        update_fields=["cashback_balance"]
-                                    )
-                                    user.has_received_welcome_bonus = True
-                                    user.save(
-                                        update_fields=["has_received_welcome_bonus"]
-                                    )
-                                except Exception:
-                                    logger.exception(
-                                        "Failed to set flags on user after awarding welcome bonus"
-                                    )
-
-                                UserNotification.objects.create(
-                                    user=user,
-                                    title="Welcome Bonus",
-                                    message="You have been credited with a ₦500 cashback welcome bonus. Use it for purchases.",
-                                )
-                                send_push_to_user(
-                                    user=user,
-                                    title="Welcome Bonus! 🎁",
-                                    body="You've been credited with a ₦500 cashback welcome bonus. Start shopping!",
-                                    data={"type": "welcome_bonus", "amount": "500"},
-                                )
-                                ActivityModel.objects.create(
-                                    user=user,
-                                    title="Welcome Bonus",
-                                    description=f"{user.first_name} {user.last_name} was awarded a ₦500 cashback welcome bonus.",
-                                )
-                    except Exception:
-                        logger.exception(
-                            "Error while attempting to award welcome bonus"
-                        )
+                # Welcome bonus is NOT awarded here: `amount` is the gross,
+                # pre-9PSB-fee amount Paystack verified, not what actually
+                # lands in the wallet. InflowsWebhookNotificationView is
+                # where the internal credit this Wallet.Credit call triggers
+                # gets confirmed with its real net amount, so that's the
+                # single place welcome-bonus eligibility is evaluated (see
+                # try_award_welcome_bonus in banking/helpers.py) - avoids
+                # double-counting this funding under two different amounts.
 
                 # No TxModel/TransferModel written here on purpose: this is
                 # the gross, pre-9PSB-fee amount, not what actually lands.

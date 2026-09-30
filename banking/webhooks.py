@@ -32,9 +32,7 @@ from roles.models import ActivityModel
 from security import encrypt
 from permissions import IsAuthenticatedOrGuestWithValidId
 from decimal import Decimal
-from django.db import transaction
-from accounts.models import WelcomeBonusAward, WelcomeBonusCounter
-from banking.helpers import generate_transaction_sms
+from banking.helpers import generate_transaction_sms, try_award_welcome_bonus
 from commons import Messaging
 from user_profile.fcm import send_push_to_user
 
@@ -333,74 +331,11 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                     f"Wallet {account_number} successfully credited with ₦{amount}."
                 )
 
-                # Attempt to award welcome bonus if eligibility met
+                # Welcome bonus eligibility is lifetime cumulative funding, not
+                # this single inflow, so it's evaluated off the TxModel ledger
+                # rather than off `amount` here - see try_award_welcome_bonus.
                 try:
-                    try:
-                        credited_amount = Decimal(str(amount))
-                    except Exception:
-                        credited_amount = Decimal("0.00")
-
-                    if credited_amount >= Decimal("2000.00"):
-                        try:
-                            with transaction.atomic():
-                                counter, _ = WelcomeBonusCounter.objects.get_or_create(
-                                    id=1
-                                )
-                                counter = (
-                                    WelcomeBonusCounter.objects.select_for_update().get(
-                                        id=counter.id
-                                    )
-                                )
-
-                                # user is already set above
-                                if (
-                                    not user.has_received_welcome_bonus
-                                ) and counter.awarded_count < 1000:
-                                    WelcomeBonusAward.objects.create(
-                                        user=user, amount=Decimal("500.00")
-                                    )
-                                    counter.awarded_count = counter.awarded_count + 1
-                                    counter.save()
-
-                                    try:
-                                        individual_wallet = WalletModel.objects.get(
-                                            user=user, walletType="INDIVIDUAL"
-                                        )
-                                        individual_wallet.cashback_balance += Decimal(
-                                            "500.00"
-                                        )
-                                        individual_wallet.save(
-                                            update_fields=["cashback_balance"]
-                                        )
-                                        user.has_received_welcome_bonus = True
-                                        user.save(
-                                            update_fields=["has_received_welcome_bonus"]
-                                        )
-                                    except Exception:
-                                        logger.exception(
-                                            "Failed to set user flags after welcome award"
-                                        )
-
-                                    UserNotification.objects.create(
-                                        user=user,
-                                        title="Welcome Bonus",
-                                        message="You have been credited with a ₦500 cashback welcome bonus. Use it for purchases.",
-                                    )
-                                    send_push_to_user(
-                                        user=user,
-                                        title="Welcome Bonus! 🎁",
-                                        body="You've been credited with a ₦500 cashback welcome bonus. Start shopping!",
-                                        data={"type": "welcome_bonus", "amount": "500"},
-                                    )
-                                    ActivityModel.objects.create(
-                                        user=user,
-                                        title="Welcome Bonus",
-                                        description=f"{user.first_name} {user.last_name} was awarded a ₦500 cashback welcome bonus.",
-                                    )
-                        except Exception:
-                            logger.exception(
-                                "Error awarding welcome bonus inside transaction"
-                            )
+                    try_award_welcome_bonus(user)
                 except Exception:
                     logger.exception(
                         "Unexpected error while attempting to award welcome bonus"
