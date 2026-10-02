@@ -395,6 +395,24 @@ class IsAdmin(permissions.BasePermission):
         )
 
 
+class CanSendUserPush(permissions.BasePermission):
+    """
+    Admin roles allowed to send custom push notifications to users
+    (roles.members.SendPushNotificationView).
+    """
+
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+
+        return request.user.active_role in (
+            "SuperAdmin",
+            "MembersAdmin",
+            "AdAdmin",
+            "TaskAdmin",
+        )
+
+
 class IsFmcgAdminOrSuperAdmin(permissions.BasePermission):
     """
     Custom permission that grants access if the user is authenticated and

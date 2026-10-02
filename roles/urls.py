@@ -134,6 +134,7 @@ from .members import (
     AllMembersView,
     ListHandleChangeRequestsView,
     ReviewHandleChangeRequestView,
+    SendPushNotificationView,
 )
 from adverts.views import GetBrandAdDetails
 from user_profile.views import ProfileImage
@@ -621,6 +622,12 @@ urlpatterns = [
         "members/handle-change-requests/<int:pk>/review/",
         ReviewHandleChangeRequestView.as_view(),
         name="review_handle_change",
+    ),
+    # Admin custom push notifications.
+    path(
+        "notifications/push",
+        SendPushNotificationView.as_view(),
+        name="send_push_notification",
     ),
     # Waitlist endpoints.
     path(

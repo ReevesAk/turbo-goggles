@@ -2335,3 +2335,112 @@ class GetInboundCreditSumTests(TestCase):
         snapshot = get_cashflow_snapshot(self.start, self.end)
 
         self.assertEqual(snapshot["inbound"], 5000.0)
+
+
+class SendPushNotificationViewTests(APITestCase):
+    url = "/v1/roles/notifications/push"
+
+    def setUp(self):
+        from user_profile.models import DeviceToken
+
+        self.admin = _create_user(active_role="MembersAdmin")
+        self.target = _create_user(
+            email="target@example.com", phone_number="2348222222222", active_role="User"
+        )
+        self.no_device = _create_user(
+            email="nodevice@example.com", phone_number="2348333333333", active_role="User"
+        )
+        DeviceToken.objects.create(user=self.target, token="tok-live")
+        DeviceToken.objects.create(user=self.target, token="tok-stale")
+        self.client.force_authenticate(self.admin)
+
+    def _post(self, **body):
+        return self.client.post(
+            self.url, data=_make_payload(**body), content_type="application/json"
+        )
+
+    def test_role_outside_allowed_set_is_forbidden(self):
+        self.client.force_authenticate(
+            _create_user(
+                email="content@example.com",
+                phone_number="2348444444444",
+                active_role="ContentAdmin",
+            )
+        )
+        response = self._post(title="Hi", body="There", user_ids=[self.target.id])
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_requires_exactly_one_of_user_ids_or_all_users(self):
+        self.assertEqual(
+            self._post(title="Hi", body="There").status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+        self.assertEqual(
+            self._post(
+                title="Hi", body="There", user_ids=[self.target.id], all_users=True
+            ).status_code,
+            status.HTTP_400_BAD_REQUEST,
+        )
+
+    @patch("user_profile.fcm._get_app", return_value=True)
+    @patch("user_profile.fcm.messaging.send_each_for_multicast")
+    def test_specific_users_reports_delivery_and_prunes_stale_tokens(
+        self, mock_multicast, _app
+    ):
+        from types import SimpleNamespace
+        from firebase_admin import messaging
+        from user_profile.models import DeviceToken
+
+        def fake_send(message):
+            responses = [
+                SimpleNamespace(success=True, exception=None)
+                if t == "tok-live"
+                else SimpleNamespace(
+                    success=False, exception=messaging.UnregisteredError("gone")
+                )
+                for t in message.tokens
+            ]
+            return SimpleNamespace(
+                success_count=sum(r.success for r in responses), responses=responses
+            )
+
+        mock_multicast.side_effect = fake_send
+        response = self._post(
+            title="Hi",
+            body="There",
+            data={"screen": "wallet"},
+            user_ids=[self.target.id, self.no_device.id, 999999],
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = decrypt(response.data)["data"]
+        self.assertEqual(data["users_found"], 2)
+        self.assertEqual(data["devices_sent"], 1)
+        self.assertEqual(data["not_found_user_ids"], [999999])
+        self.assertEqual(data["users_without_device"], [self.no_device.id])
+        self.assertFalse(DeviceToken.objects.filter(token="tok-stale").exists())
+        sent = mock_multicast.call_args.args[0]
+        self.assertEqual(sent.notification.title, "Hi")
+        self.assertEqual(sent.data, {"screen": "wallet"})
+
+    @patch("roles.members.broadcast_push.delay")
+    def test_all_users_is_queued(self, mock_delay):
+        response = self._post(title="Hi", body="There", all_users=True)
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        mock_delay.assert_called_once_with(
+            "Hi", "There", {}, sent_by=self.admin.email
+        )
+
+    @patch("user_profile.fcm.send_push_multicast", return_value=1)
+    def test_broadcast_task_skips_disabled_users(self, mock_send):
+        from user_profile.models import DeviceToken
+        from user_profile.tasks import broadcast_push
+
+        self.no_device.is_disabled = True
+        self.no_device.save(update_fields=["is_disabled"])
+        DeviceToken.objects.create(user=self.no_device, token="tok-disabled")
+
+        broadcast_push("Hi", "There")
+
+        tokens = mock_send.call_args.args[0]
+        self.assertCountEqual(tokens, ["tok-live", "tok-stale"])

@@ -845,3 +845,30 @@ class TransactionResolutionSerializer(serializers.Serializer):
     transaction_id = serializers.CharField()
     title = serializers.CharField(max_length=150)
     issues_description = serializers.CharField()
+
+
+class SendPushNotificationSerializer(serializers.Serializer):
+    """Admin custom push: either a list of user_ids, or all_users=True."""
+
+    MAX_USER_IDS = 1000
+
+    title = serializers.CharField(max_length=100)
+    body = serializers.CharField(max_length=500)
+    # Optional key/value payload forwarded to the app (e.g. a deep-link
+    # screen). FCM only accepts string values - they're str()-ed on send.
+    data = serializers.DictField(required=False, default=dict)
+    user_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        required=False,
+        allow_empty=False,
+        max_length=MAX_USER_IDS,
+    )
+    all_users = serializers.BooleanField(required=False, default=False)
+
+    def validate(self, attrs):
+        has_ids = bool(attrs.get("user_ids"))
+        if attrs["all_users"] == has_ids:
+            raise serializers.ValidationError(
+                "Provide exactly one of user_ids or all_users=true."
+            )
+        return attrs
