@@ -81,6 +81,46 @@ def send_push_to_user(user, title: str, body: str, data: dict = None) -> int:
     return sum(1 for t in tokens if send_push(t, title, body, data))
 
 
+FCM_MULTICAST_LIMIT = 500  # max tokens per send_each_for_multicast call
+
+
+def send_push_multicast(tokens, title: str, body: str, data: dict = None) -> int:
+    """
+    Send the same push notification to many device tokens, batched in FCM's
+    500-token multicast limit. Returns the number of successful sends.
+    Stale (unregistered) tokens are removed from the DB, same as send_push.
+    """
+    if not tokens or not _get_app():
+        return 0
+
+    payload = {k: str(v) for k, v in (data or {}).items()}
+    sent = 0
+    for i in range(0, len(tokens), FCM_MULTICAST_LIMIT):
+        batch = tokens[i : i + FCM_MULTICAST_LIMIT]
+        try:
+            resp = messaging.send_each_for_multicast(
+                messaging.MulticastMessage(
+                    notification=messaging.Notification(title=title, body=body),
+                    data=payload,
+                    tokens=batch,
+                )
+            )
+        except Exception:
+            logger.exception("FCM multicast failed for a batch of %d", len(batch))
+            continue
+
+        sent += resp.success_count
+        stale = [
+            token
+            for token, r in zip(batch, resp.responses)
+            if not r.success and isinstance(r.exception, messaging.UnregisteredError)
+        ]
+        if stale:
+            DeviceToken.objects.filter(token__in=stale).delete()
+            logger.info("Removed %d stale FCM tokens", len(stale))
+    return sent
+
+
 def send_push_to_admins(title: str, body: str, data: dict = None) -> int:
     """
     Send a push notification to all AdAdmin and SuperAdmin users.

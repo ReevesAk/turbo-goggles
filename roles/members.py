@@ -4,7 +4,7 @@ from django.core.cache import cache
 from django.utils import timezone
 
 # In project imports.
-from .serializers import MemberSerializer
+from .serializers import MemberSerializer, SendPushNotificationSerializer
 
 # Third party imports.
 from rest_framework import status, generics
@@ -13,8 +13,14 @@ from rest_framework.permissions import IsAuthenticated
 
 from accounts.models import User
 from gamification.points import Points
-from permissions import IsNotDisabled, IsMemberAdminOrSuperAdminOrTaskAdmin
-from user_profile.fcm import send_push_to_user
+from permissions import (
+    CanSendUserPush,
+    IsNotDisabled,
+    IsMemberAdminOrSuperAdminOrTaskAdmin,
+)
+from user_profile.fcm import send_push_multicast, send_push_to_user
+from user_profile.models import DeviceToken
+from user_profile.tasks import broadcast_push
 from user_profile.models import HandleChangeRequest, MemberSurvey
 from user_profile.serializers import (
     HandleChangeRequestDetailSerializer,
@@ -198,5 +204,73 @@ class ReviewHandleChangeRequestView(generics.GenericAPIView):
         )
         return Response(
             data=encrypt({"status": "success", "message": message}),
+            status=status.HTTP_200_OK,
+        )
+
+
+class SendPushNotificationView(generics.GenericAPIView):
+    """
+    POST - admin sends a custom push notification.
+    Body: {"title", "body", "data"?: {...}, and either "user_ids": [..] or
+    "all_users": true}. Specific users are sent inline and the response
+    reports delivery; all_users is queued (broadcast_push) and returns 202.
+    Push only - nothing is written to UserNotification.
+    """
+
+    serializer_class = SendPushNotificationSerializer
+    permission_classes = [IsAuthenticated, IsNotDisabled, CanSendUserPush]
+
+    def post(self, request):
+        serializer = self.get_serializer(data=decrypt(request.data))
+        serializer.is_valid(raise_exception=True)
+        title = serializer.validated_data["title"]
+        body = serializer.validated_data["body"]
+        data = serializer.validated_data["data"]
+
+        if serializer.validated_data["all_users"]:
+            broadcast_push.delay(title, body, data, sent_by=request.user.email)
+            logger.info(
+                "Admin %s queued broadcast push (title=%r)", request.user.email, title
+            )
+            return Response(
+                data=encrypt(
+                    {
+                        "status": "success",
+                        "message": "Broadcast queued. It will be delivered to all users with the app shortly.",
+                    }
+                ),
+                status=status.HTTP_202_ACCEPTED,
+            )
+
+        user_ids = set(serializer.validated_data["user_ids"])
+        found_ids = set(
+            User.objects.filter(id__in=user_ids).values_list("id", flat=True)
+        )
+        tokens = DeviceToken.objects.filter(user_id__in=found_ids).values_list(
+            "user_id", "token"
+        )
+        users_with_device = {uid for uid, _ in tokens}
+        sent = send_push_multicast([t for _, t in tokens], title, body, data)
+
+        logger.info(
+            "Admin %s sent push to %d users (%d devices delivered, title=%r)",
+            request.user.email,
+            len(found_ids),
+            sent,
+            title,
+        )
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": f"Push sent to {sent} device(s).",
+                    "data": {
+                        "users_found": len(found_ids),
+                        "devices_sent": sent,
+                        "not_found_user_ids": sorted(user_ids - found_ids),
+                        "users_without_device": sorted(found_ids - users_with_device),
+                    },
+                }
+            ),
             status=status.HTTP_200_OK,
         )
