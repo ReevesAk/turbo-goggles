@@ -145,6 +145,8 @@ class TxModelSerializer(serializers.ModelSerializer):
             "address",
             "customer_name",
             "meter_type",
+            "phone_number",
+            "network",
             "sender_name",
             "sender_account_number",
             "beneficiary_name",

@@ -26,6 +26,7 @@ from .serializers import (
     BillPaymentSerializer,
 )
 from accounts.models import TxModel
+from banking.tx import build_receipt
 from banking.models import WalletModel
 from banking.cashback_service import CashbackService
 from banking.tasks import post_vas_update, send_alert_notification
@@ -114,6 +115,7 @@ def _handle_pending_response(
             {
                 "status": "pending",
                 "message": "Your purchase is still processing. You'll be notified once it completes.",
+                "receipt": build_receipt(user, tx_reference),
             }
         ),
         status=status.HTTP_202_ACCEPTED,
@@ -214,6 +216,8 @@ class AirTimeTopUp(generics.GenericAPIView):
                             "amount": amount,
                             "description": title,
                             "status": "SUCCESS",
+                            "phone_number": phone,
+                            "network": network,
                             "is_task": self.is_task,
                             "task_id": self.task_id,
                         },
@@ -239,6 +243,7 @@ class AirTimeTopUp(generics.GenericAPIView):
         else:
             create_activity(guest_id=guest_id, title=title, description=description)
 
+        response_data["receipt"] = build_receipt(user, tx_reference)
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
     # Private Helper: Failure
@@ -350,6 +355,7 @@ class AirTimeTopUp(generics.GenericAPIView):
                     "status": "success",
                     "message": "This request was already processed.",
                     "tx_reference": idempotency_key,
+                    "receipt": build_receipt(user, idempotency_key),
                 }
                 return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
             if existing_tx and existing_tx.status == "PENDING":
@@ -936,6 +942,7 @@ class DataSubscriptionView(generics.GenericAPIView):
             )
             create_activity(guest_id=guest_id, title=title, description=description)
 
+        response_data["receipt"] = build_receipt(user, tx_reference)
         return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
 
     # Private Helper: Failure
@@ -1044,6 +1051,7 @@ class DataSubscriptionView(generics.GenericAPIView):
                     "status": "success",
                     "message": "This request was already processed.",
                     "tx_reference": idempotency_key,
+                    "receipt": build_receipt(user, idempotency_key),
                 }
                 return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
             if existing_tx and existing_tx.status == "PENDING":
@@ -2023,6 +2031,8 @@ class BillPaymentView(generics.GenericAPIView):
         if is_electricity and token:
             cache_electricity_token(tx_reference, token, units)
 
+        response_data["receipt"] = build_receipt(user, tx_reference)
+
         if user:
             post_vas_update.delay(
                 user_id=user.id,
@@ -2210,6 +2220,7 @@ class BillPaymentView(generics.GenericAPIView):
                     "status": "success",
                     "message": "This request was already processed.",
                     "tx_reference": idempotency_key,
+                    "receipt": build_receipt(user, idempotency_key),
                 }
                 return Response(data=encrypt(response_data), status=status.HTTP_200_OK)
             if existing_tx and existing_tx.status == "PENDING":

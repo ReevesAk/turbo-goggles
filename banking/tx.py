@@ -15,6 +15,28 @@ from vas.serializers import BillPaymentSerializer
 from security import encrypt
 
 
+def build_receipt(user, tx_reference):
+    """Serialize a TxModel exactly as the transaction history/detail
+    endpoints do, so a purchase/transfer success response can carry a
+    shareable receipt without a follow-up request. Bill payments get the
+    cached electricity token, same as RetrieveTransaction. Returns None if
+    the row isn't there (guest purchases, or a failed TxModel write) -
+    callers treat the receipt as best-effort and still return success."""
+    if not user or not tx_reference:
+        return None
+    tx = (
+        TxModel.objects.filter(user=user, tx_reference=tx_reference)
+        .prefetch_related("transfers")
+        .first()
+    )
+    if not tx:
+        return None
+    data = TxModelSerializer(tx).data
+    if tx.tx_type == "Bill Payment":
+        data["token"] = get_electricity_token(tx_reference)[0]
+    return data
+
+
 class PaginationStyle(PageNumberPagination):
     page_size = 20
 

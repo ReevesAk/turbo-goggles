@@ -43,6 +43,7 @@ from accounts.models import (
     User,
     TxModel,
 )
+from .tx import build_receipt
 from .serializers import (
     Get9PSBWalletSerializer,
     GetAccountSerializer,
@@ -65,6 +66,57 @@ def _build_narration(sender_name: str, user_narration) -> str:
     if user_narration:
         return f"{sender_name}/{user_narration}"
     return sender_name
+
+
+def record_transfer(
+    user, tx, payload, sender_name, account_number, amount_str, narration
+):
+    """Write the TransferModel row inline, before responding, so the
+    success response's receipt (build_receipt -> TxModelSerializer) has the
+    sender/beneficiary fields. post_transfer_update fills in the synced
+    available_balance later via update_or_create on the same tx_reference.
+    Best-effort: a failure here is logged and left for that task to create."""
+    try:
+        TransferModel.objects.get_or_create(
+            tx_reference=tx.tx_reference,
+            defaults=dict(
+                user=user,
+                tx=tx,
+                beneficiary_account_number=payload.get("beneficiary_account_number"),
+                beneficiary_name=payload.get("beneficiary_name"),
+                beneficiary_bank_code=payload.get("beneficiary_bank_code"),
+                beneficiary_bank_name=payload.get("beneficiary_bank_name"),
+                sender_name=sender_name,
+                sender_account_number=account_number,
+                amount=amount_str,
+                narration=narration,
+                description=narration,
+                transaction_type=(
+                    "INTRA_BANK" if tx.tx_type == "Intra-Bank Transfer" else "OUTBOUND"
+                ),
+            ),
+        )
+    except Exception as e:
+        logger.warning(f"record_transfer failed for {tx.tx_reference}: {e}")
+
+
+def pending_receipt(user, tx_reference, payload, sender_name, account_number):
+    """Receipt for a transfer still PENDING (provider timed out). Its
+    TransferModel row is deliberately not written yet - admin transfer
+    volume (roles/analytics.py) and the free intra-bank count both treat
+    every TransferModel row as a completed transfer, so a pending-then-
+    failed one must never get a row. The sender/beneficiary fields come
+    from the request instead; status stays "PENDING" on the receipt."""
+    receipt = build_receipt(user, tx_reference)
+    if receipt is None:
+        return None
+    receipt.update(
+        sender_name=sender_name,
+        sender_account_number=account_number,
+        beneficiary_name=payload.get("beneficiary_name"),
+        beneficiary_account_number=payload.get("beneficiary_account_number"),
+    )
+    return receipt
 
 
 @extend_schema(
@@ -413,9 +465,20 @@ class IntraBankTransfer(generics.CreateAPIView):
 
                 # If still PENDING, return PENDING status
                 if existing_tx.status == "PENDING":
+                    wallet = WalletModel.objects.filter(user=authenticated_user).first()
                     return Response(
                         data=encrypt(
-                            {"status": "pending", "message": "Transfer in progress"}
+                            {
+                                "status": "pending",
+                                "message": "Transfer in progress",
+                                "receipt": pending_receipt(
+                                    authenticated_user,
+                                    idempotency_key,
+                                    payload,
+                                    wallet.acct_name if wallet else None,
+                                    wallet.account_number if wallet else None,
+                                ),
+                            }
                         ),
                         status=status.HTTP_202_ACCEPTED,
                     )
@@ -442,6 +505,7 @@ class IntraBankTransfer(generics.CreateAPIView):
                             "beneficiaryBank": "Picadailys/9PSB",
                             "transactionReference": idempotency_key,
                         },
+                        "receipt": build_receipt(authenticated_user, idempotency_key),
                     }
                     return Response(data=encrypt(resp), status=status.HTTP_200_OK)
 
@@ -518,6 +582,12 @@ class IntraBankTransfer(generics.CreateAPIView):
                     status="PENDING",
                     is_task=bool(payload.get("is_task")),
                     task_id=payload.get("task_id"),
+                    beneficiary_account_number=payload.get(
+                        "beneficiary_account_number"
+                    ),
+                    beneficiary_name=payload.get("beneficiary_name"),
+                    beneficiary_bank_code=payload.get("beneficiary_bank_code"),
+                    beneficiary_bank_name=payload.get("beneficiary_bank_name"),
                 )
 
             logger.info("Verification successful, proceeding with transfer.")
@@ -568,6 +638,13 @@ class IntraBankTransfer(generics.CreateAPIView):
                             "status": "pending",
                             "message": "Transfer is being processed. You will be notified once confirmed.",
                             "transactionReference": idempotency_key,
+                            "receipt": pending_receipt(
+                                authenticated_user,
+                                idempotency_key,
+                                payload,
+                                sender_name,
+                                account_number,
+                            ),
                         }
                     ),
                     status=status.HTTP_202_ACCEPTED,
@@ -577,6 +654,15 @@ class IntraBankTransfer(generics.CreateAPIView):
                 logger.info("Transfer successful, updating transaction status.")
                 tx.status = "SUCCESS"
                 tx.save(update_fields=["status"])
+                record_transfer(
+                    authenticated_user,
+                    tx,
+                    payload,
+                    sender_name,
+                    account_number,
+                    str(total),
+                    narration,
+                )
 
                 post_transfer_update.delay(
                     user_id=authenticated_user.id,
@@ -615,6 +701,9 @@ class IntraBankTransfer(generics.CreateAPIView):
                             "status": "success",
                             "message": "Transfer successful.",
                             "data": resp_data,
+                            "receipt": build_receipt(
+                                authenticated_user, idempotency_key
+                            ),
                         }
                     ),
                     status=status.HTTP_200_OK,
@@ -910,9 +999,20 @@ class InterBankTransfer(generics.CreateAPIView):
 
                 # If still PENDING, return PENDING status
                 if existing_tx.status == "PENDING":
+                    wallet = WalletModel.objects.filter(user=authenticated_user).first()
                     return Response(
                         data=encrypt(
-                            {"status": "pending", "message": "Transfer in progress"}
+                            {
+                                "status": "pending",
+                                "message": "Transfer in progress",
+                                "receipt": pending_receipt(
+                                    authenticated_user,
+                                    idempotency_key,
+                                    payload,
+                                    wallet.acct_name if wallet else None,
+                                    wallet.account_number if wallet else None,
+                                ),
+                            }
                         ),
                         status=status.HTTP_202_ACCEPTED,
                     )
@@ -939,6 +1039,7 @@ class InterBankTransfer(generics.CreateAPIView):
                             "beneficiaryBank": payload.get("beneficiary_bank_code"),
                             "transactionReference": idempotency_key,
                         },
+                        "receipt": build_receipt(authenticated_user, idempotency_key),
                     }
                     return Response(data=encrypt(resp), status=status.HTTP_200_OK)
 
@@ -1008,6 +1109,12 @@ class InterBankTransfer(generics.CreateAPIView):
                     status="PENDING",
                     is_task=bool(payload.get("is_task")),
                     task_id=payload.get("task_id"),
+                    beneficiary_account_number=payload.get(
+                        "beneficiary_account_number"
+                    ),
+                    beneficiary_name=payload.get("beneficiary_name"),
+                    beneficiary_bank_code=payload.get("beneficiary_bank_code"),
+                    beneficiary_bank_name=payload.get("beneficiary_bank_name"),
                 )
 
             logger.info("Verification successful, proceeding with transfer.")
@@ -1058,6 +1165,13 @@ class InterBankTransfer(generics.CreateAPIView):
                             "status": "pending",
                             "message": "Transfer is being processed. You will be notified once confirmed.",
                             "transactionReference": idempotency_key,
+                            "receipt": pending_receipt(
+                                authenticated_user,
+                                idempotency_key,
+                                payload,
+                                sender_name,
+                                account_number,
+                            ),
                         }
                     ),
                     status=status.HTTP_202_ACCEPTED,
@@ -1067,6 +1181,15 @@ class InterBankTransfer(generics.CreateAPIView):
                 logger.info("Transfer successful, updating transaction status.")
                 tx.status = "SUCCESS"
                 tx.save(update_fields=["status"])
+                record_transfer(
+                    authenticated_user,
+                    tx,
+                    payload,
+                    sender_name,
+                    account_number,
+                    charge["principal"],
+                    narration,
+                )
 
                 post_transfer_update.delay(
                     user_id=authenticated_user.id,
@@ -1104,6 +1227,9 @@ class InterBankTransfer(generics.CreateAPIView):
                                 "beneficiaryBank": payload.get("beneficiary_bank_code"),
                                 "transactionReference": idempotency_key,
                             },
+                            "receipt": build_receipt(
+                                authenticated_user, idempotency_key
+                            ),
                         }
                     ),
                     status=status.HTTP_200_OK,
