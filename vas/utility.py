@@ -61,6 +61,8 @@ def complete_data_purchase(
                     "amount": amount,
                     "description": title,
                     "status": "SUCCESS",
+                    "phone_number": phone,
+                    "network": network,
                     "is_task": is_task,
                     "task_id": task_id,
                 },

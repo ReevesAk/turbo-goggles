@@ -244,6 +244,14 @@ class TxModel(models.Model):
     # reliably tell prepaid and postpaid apart).
     customer_name = models.CharField(max_length=255, null=True, blank=True)
     meter_type = models.CharField(max_length=20, null=True, blank=True)
+    # Intra/Inter-Bank Transfer only - carried so a transfer stuck PENDING
+    # can be resolved later by reconcile_pending_transfers (banking/tasks.py)
+    # with its real beneficiary, without the original request context. The
+    # TransferModel row (and so the receipt's beneficiary) is built from these.
+    beneficiary_account_number = models.CharField(max_length=30, null=True, blank=True)
+    beneficiary_name = models.CharField(max_length=150, null=True, blank=True)
+    beneficiary_bank_code = models.CharField(max_length=100, null=True, blank=True)
+    beneficiary_bank_name = models.CharField(max_length=150, null=True, blank=True)
     # Idempotency guard for gamification.signals.track_financial_task_progress
     # - set once this row has counted toward its task's progress, so a
     # later re-save (retry, webhook replay) can never double-count it.

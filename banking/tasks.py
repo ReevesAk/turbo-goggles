@@ -161,22 +161,29 @@ def post_transfer_update(
         except Exception as e:
             logging.warning(f"post_transfer_update: could not sync balance: {e}")
 
-        TransferModel.objects.create(
-            user=user,
-            tx=tx,
-            beneficiary_account_number=beneficiary_account_number,
-            beneficiary_name=beneficiary_name,
-            beneficiary_bank_code=beneficiary_bank_code,
-            beneficiary_bank_name=beneficiary_bank_name,
-            sender_name=sender_full_name,
-            sender_account_number=account_number,
-            amount=amount_str,
-            available_balance=new_balance,
-            narration=narration,
-            description=narration,
+        # The transfer views now create this row synchronously so the
+        # success response can carry a full receipt (see record_transfer in
+        # banking/transfers.py) - here we just fill in the synced balance.
+        # Still creates it when missing: resolve_pending_transfer reaches
+        # this task for timed-out transfers the view never recorded.
+        TransferModel.objects.update_or_create(
             tx_reference=idempotency_key,
-            transaction_type=(
-                "INTRA_BANK" if tx.tx_type == "Intra-Bank Transfer" else "OUTBOUND"
+            defaults=dict(
+                user=user,
+                tx=tx,
+                beneficiary_account_number=beneficiary_account_number,
+                beneficiary_name=beneficiary_name,
+                beneficiary_bank_code=beneficiary_bank_code,
+                beneficiary_bank_name=beneficiary_bank_name,
+                sender_name=sender_full_name,
+                sender_account_number=account_number,
+                amount=amount_str,
+                available_balance=new_balance,
+                narration=narration,
+                description=narration,
+                transaction_type=(
+                    "INTRA_BANK" if tx.tx_type == "Intra-Bank Transfer" else "OUTBOUND"
+                ),
             ),
         )
 
@@ -456,7 +463,10 @@ def reconcile_pending_transfers():
                 user_id=user.id,
                 account_number=wallet.account_number if wallet else "",
                 external_tx_reference=tx.external_tx_reference or "",
-                beneficiary_account_number="",
+                beneficiary_account_number=tx.beneficiary_account_number or "",
+                beneficiary_name=tx.beneficiary_name,
+                beneficiary_bank_code=tx.beneficiary_bank_code,
+                beneficiary_bank_name=tx.beneficiary_bank_name,
                 sender_full_name=wallet.acct_name if wallet else "",
                 amount_str=str(tx.amount),
                 narration=tx.description or "",
