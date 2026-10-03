@@ -1052,6 +1052,7 @@ class UpdateUserProfile(generics.UpdateAPIView):
                     "picadailys_phone": [
                         "02012271894",
                         "02012271895",
+                        "08134032631",
                     ],
                 },
             )
@@ -1199,7 +1200,7 @@ class ChangePassword(generics.UpdateAPIView):
                     context={
                         "custom_text": f"Dear {request.user.first_name},<br><br>{body}.",
                         "support_email": "support@picadailys.com",
-                        "picadailys_phone": "02012271894  02012271895",
+                        "picadailys_phone": "02012271894  02012271895  08134032631",
                     },
                 )
 
@@ -1658,7 +1659,7 @@ class DeleteUser(generics.DestroyAPIView):
                     context={
                         "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
                         "support_email": "support@picadailys.com",
-                        "picadailys_phone": "02012271894  02012271895",
+                        "picadailys_phone": "02012271894  02012271895  08134032631",
                     },
                 )
 
@@ -1781,7 +1782,7 @@ class SelfDeleteAccount(generics.GenericAPIView):
                     {
                         "custom_text": f"Dear {user.first_name},<br><br>{msg}",
                         "support_email": "support@picadailys.com",
-                        "picadailys_phone": "02012271894 02012271895",
+                        "picadailys_phone": "02012271894 02012271895 08134032631",
                     },
                 )
                 Messaging.send_email(

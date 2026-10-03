@@ -188,7 +188,7 @@ class AnchorWebhookView(generics.GenericAPIView):
                     },
                 ],
                 "support_email": "notifications@picadailys.com",
-                "picadailys_phone": "02012271894 02012271895",
+                "picadailys_phone": "02012271894 02012271895 08134032631",
             }
             html = render_to_string("picadailys_email.html", email_context)
             Messaging.send_email(
@@ -266,7 +266,7 @@ class AnchorWebhookView(generics.GenericAPIView):
                         f"Your KYC verification was successful and your account has been upgraded to <b>{tier_label}</b>."
                     ),
                     "support_email": "notifications@picadailys.com",
-                    "picadailys_phone": "02012271894 02012271895",
+                    "picadailys_phone": "02012271894 02012271895 08134032631",
                 },
             )
             Messaging.send_email(

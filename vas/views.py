@@ -2071,7 +2071,7 @@ class BillPaymentView(generics.GenericAPIView):
                         {"label": "Reference", "value": tx_reference},
                     ],
                     "support_email": "notifications@picadailys.com",
-                    "picadailys_phone": "02012271894 02012271895",
+                    "picadailys_phone": "02012271894 02012271895 08134032631",
                 },
             )
             # Backgrounded - see send_alert_notification's docstring

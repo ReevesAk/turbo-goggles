@@ -104,6 +104,7 @@ def send_token(user, msg):
             "picadailys_phone": [
                 "02012271894",
                 "02012271895",
+                "08134032631",
             ],
         },
     )

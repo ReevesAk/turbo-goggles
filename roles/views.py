@@ -749,6 +749,7 @@ class AddAdmin(generics.CreateAPIView):
                         "picadailys_phone": [
                             "02012271894",
                             "02012271895",
+                            "08134032631",
                         ],
                     },
                 )
@@ -1085,7 +1086,7 @@ class StaffForgotPassword(generics.GenericAPIView):
             context={
                 "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
                 "support_email": "support@picadailys.com",
-                "picadailys_phone": "02012271894 02012271895",
+                "picadailys_phone": "02012271894 02012271895 08134032631",
             },
         )
 
@@ -1166,7 +1167,7 @@ class StaffPasswordResendOTP(generics.GenericAPIView):
                     context={
                         "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
                         "support_email": "support@picadailys.com",
-                        "picadailys_phone": "02012271894 02012271895",
+                        "picadailys_phone": "02012271894 02012271895 08134032631",
                     },
                 )
 
@@ -1274,7 +1275,7 @@ class StaffEmailVerifyOTP(generics.GenericAPIView):
                 context={
                     "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
                     "support_email": "support@picadailys.com",
-                    "picadailys_phone": "02012271894 02012271895",
+                    "picadailys_phone": "02012271894 02012271895 08134032631",
                 },
             )
 
@@ -1458,7 +1459,7 @@ class AdminForgotPin(generics.GenericAPIView):
             context={
                 "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
                 "support_email": "support@picadailys.com",
-                "picadailys_phone": "02012271894 02012271895",
+                "picadailys_phone": "02012271894 02012271895 08134032631",
             },
         )
 
@@ -1565,6 +1566,7 @@ class PinVerifyOTP(generics.GenericAPIView):
                 "picadailys_phone": [
                     "02012271894",
                     "02012271895",
+                    "08134032631",
                 ],
             },
         )
@@ -2333,6 +2335,7 @@ class DeleteAdmin(generics.GenericAPIView):
                         "picadailys_phone": [
                             "02012271894",
                             "02012271895",
+                            "08134032631",
                         ],
                     },
                 )

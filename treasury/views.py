@@ -199,7 +199,7 @@ class CreateTreasuryAccount(generics.GenericAPIView):
                         f"Account Name: {acct_name}<br>Account Number: {account_number}"
                     ),
                     "support_email": "notifications@picadailys.com",
-                    "picadailys_phone": "02012271894 02012271895",
+                    "picadailys_phone": "02012271894 02012271895 08134032631",
                 },
             )
             Messaging.send_email(
@@ -387,7 +387,7 @@ class SetAccountPin(generics.CreateAPIView):
                 {
                     "custom_text": "Your account PIN has been created successfully.",
                     "support_email": "support@picadailys.com",
-                    "picadailys_phone": "02012271894 02012271895",
+                    "picadailys_phone": "02012271894 02012271895 08134032631",
                 },
             )
             Messaging.send_email(
@@ -441,7 +441,7 @@ class ForgotAccountPin(generics.GenericAPIView):
                 {
                     "custom_text": msg,
                     "support_email": "support@picadailys.com",
-                    "picadailys_phone": "02012271894 02012271895",
+                    "picadailys_phone": "02012271894 02012271895 08134032631",
                 },
             )
             Messaging.send_email(
@@ -503,7 +503,7 @@ class PinResendOTP(generics.GenericAPIView):
                 {
                     "custom_text": msg,
                     "support_email": "support@picadailys.com",
-                    "picadailys_phone": "02012271894 02012271895",
+                    "picadailys_phone": "02012271894 02012271895 08134032631",
                 },
             )
             Messaging.send_email(
