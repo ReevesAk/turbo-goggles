@@ -155,7 +155,7 @@ class RegisterManager(generics.GenericAPIView):
                     context={
                         "custom_text": f"Dear {current_user.full_name},<br><br>{msg}.",
                         "support_email": "support@picadailys.com",
-                        "picadailys_phone": "02012271894  02012271895",
+                        "picadailys_phone": "02012271894  02012271895  08134032631",
                     },
                 )
 
@@ -274,6 +274,7 @@ class AgentForgotPin(generics.GenericAPIView):
                 "picadailys_phone": [
                     "02012271894",
                     "02012271895",
+                    "08134032631",
                 ],
             },
         )
@@ -376,7 +377,7 @@ class AgentPinVerifyOTP(generics.GenericAPIView):
             context={
                 "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
                 "support_email": "support@picadailys.com",
-                "picadailys_phone": "02012271894  02012271895",
+                "picadailys_phone": "02012271894  02012271895  08134032631",
             },
         )
 
@@ -548,7 +549,7 @@ class SupportForgotPassword(generics.GenericAPIView):
             context={
                 "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
                 "support_email": "support@picadailys.com",
-                "picadailys_phone": "02012271894 02012271895",
+                "picadailys_phone": "02012271894 02012271895 08134032631",
             },
         )
 
@@ -629,7 +630,7 @@ class SupportPasswordResendOTP(generics.GenericAPIView):
                     context={
                         "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
                         "support_email": "support@picadailys.com",
-                        "picadailys_phone": "02012271894 02012271895",
+                        "picadailys_phone": "02012271894 02012271895 08134032631",
                     },
                 )
 
@@ -730,7 +731,7 @@ class SupportEmailVerifyOTP(generics.GenericAPIView):
                 context={
                     "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
                     "support_email": "support@picadailys.com",
-                    "picadailys_phone": "02012271894 02012271895",
+                    "picadailys_phone": "02012271894 02012271895 08134032631",
                 },
             )
 
@@ -2529,7 +2530,7 @@ class AddAgent(generics.CreateAPIView):
                             If you have any questions, feel free to contact us at our support email or phone below.
                         """,
                         "support_email": "support@picadailys.com",
-                        "picadailys_phone": "02012271894 02012271895",
+                        "picadailys_phone": "02012271894 02012271895 08134032631",
                     },
                 )
 
@@ -2933,7 +2934,7 @@ class DeleteAgent(generics.GenericAPIView):
                         context={
                             "custom_text": f"Dear {request.user.first_name},<br><br>Your agent account has been deleted.",
                             "support_email": "support@picadailys.com",
-                            "picadailys_phone": "02012271894 02012271895",
+                            "picadailys_phone": "02012271894 02012271895 08134032631",
                         },
                     )
 
@@ -3046,7 +3047,7 @@ class SupportPhoneVerifyOTP(generics.GenericAPIView):
                 context={
                     "custom_text": f"Dear {user.full_name},<br><br>{msg}.",
                     "support_email": "support@picadailys.com",
-                    "picadailys_phone": "02012271894  02012271895",
+                    "picadailys_phone": "02012271894  02012271895  08134032631",
                 },
             )
 

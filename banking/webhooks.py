@@ -252,7 +252,7 @@ class InflowsWebhookNotificationView(generics.CreateAPIView):
                         {"label": "Transaction Type", "value": "Credit"},
                     ],
                     "support_email": "notifications@picadailys.com",
-                    "picadailys_phone": "02012271894 02012271895",
+                    "picadailys_phone": "02012271894 02012271895 08134032631",
                 }
                 email_body = render_to_string("picadailys_email.html", email_context)
                 if getattr(user, "email", None):
@@ -483,7 +483,7 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
                             context={
                                 "custom_text": email_body,
                                 "support_email": "support@picadailys.com",
-                                "picadailys_phone": "02012271894  02012271895",
+                                "picadailys_phone": "02012271894  02012271895  08134032631",
                             },
                         )
                         Messaging.send_email(
@@ -551,7 +551,7 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
                             context={
                                 "custom_text": email_body,
                                 "support_email": "support@picadailys.com",
-                                "picadailys_phone": "02012271894  02012271895",
+                                "picadailys_phone": "02012271894  02012271895  08134032631",
                             },
                         )
                         Messaging.send_email(

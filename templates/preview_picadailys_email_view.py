@@ -6,6 +6,6 @@ def preview_picadailys_email(request):
         "title": "Preview",
         "rows": [],
         "support_email": "notifications@picadailys.com",
-        "picadailys_phone": "02012271894 02012271895",
+        "picadailys_phone": "02012271894 02012271895 08134032631",
     }
     return render(request, "picadailys_email.html", context)

@@ -385,6 +385,7 @@ class SubmitJobApplication(generics.CreateAPIView):
                 "picadailys_phone": [
                     "02012271894",
                     "02012271895",
+                    "08134032631",
                 ],
             },
         )
@@ -673,6 +674,7 @@ class JobApplicationDecision(generics.UpdateAPIView):
                 "picadailys_phone": [
                     "02012271894",
                     "02012271895",
+                    "08134032631",
                 ],
             },
         )

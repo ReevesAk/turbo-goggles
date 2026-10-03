@@ -225,7 +225,7 @@ def post_transfer_update(
                 {"label": "Balance", "value": f"₦{balance_val:,.2f}"},
             ],
             "support_email": "notifications@picadailys.com",
-            "picadailys_phone": "02012271894 02012271895",
+            "picadailys_phone": "02012271894 02012271895 08134032631",
         }
         email_body = render_to_string("picadailys_email.html", email_context)
         send_transfer_notifications.delay(
@@ -325,7 +325,7 @@ def post_vas_update(
                 {"label": "Balance", "value": f"₦{balance:,.2f}"},
             ],
             "support_email": support_email,
-            "picadailys_phone": "02012271894 02012271895",
+            "picadailys_phone": "02012271894 02012271895 08134032631",
         }
         email_body = render_to_string("picadailys_email.html", email_context)
         send_transfer_notifications.delay(
@@ -416,7 +416,7 @@ def resolve_pending_transfer(
                 {
                     "custom_text": email_body,
                     "support_email": "support@picadailys.com",
-                    "picadailys_phone": "02012271894  02012271895",
+                    "picadailys_phone": "02012271894  02012271895  08134032631",
                 },
             )
             send_transfer_notifications.delay(

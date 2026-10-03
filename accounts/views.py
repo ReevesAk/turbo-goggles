@@ -262,7 +262,7 @@ class Register(generics.GenericAPIView):
                 context={
                     "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
                     "support_email": "notifications@picadailys.com",
-                    "picadailys_phone": "012271894 0202012271895",
+                    "picadailys_phone": "02012271894 02012271895 08134032631",
                 },
             )
 
@@ -405,7 +405,7 @@ class DeviceVerificationOTP(generics.GenericAPIView):
                     context={
                         "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
                         "support_email": "support@picadailys.com",
-                        "picadailys_phone": "02012271894 02012271895",
+                        "picadailys_phone": "02012271894 02012271895 08134032631",
                     },
                 )
 
@@ -529,7 +529,7 @@ class PhoneVerifyOTP(generics.GenericAPIView):
                     context={
                         "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
                         "support_email": "support@picadailys.com",
-                        "picadailys_phone": "02012271894  02012271895",
+                        "picadailys_phone": "02012271894  02012271895  08134032631",
                     },
                 )
 
@@ -651,7 +651,7 @@ class PasswordPhoneVerifyOTP(generics.GenericAPIView):
                     context={
                         "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
                         "support_email": "support@picadailys.com",
-                        "picadailys_phone": "02012271894  02012271895",
+                        "picadailys_phone": "02012271894  02012271895  08134032631",
                     },
                 )
 
@@ -821,7 +821,7 @@ class PasswordResendOTP(generics.GenericAPIView):
                         context={
                             "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
                             "support_email": "support@picadailys.com",
-                            "picadailys_phone": "02012271894  02012271895",
+                            "picadailys_phone": "02012271894  02012271895  08134032631",
                         },
                     )
 
@@ -997,7 +997,7 @@ class Login(APIView):
                     context={
                         "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
                         "support_email": "notifications@picadailys.com",
-                        "picadailys_phone": "02012271894 02012271895",
+                        "picadailys_phone": "02012271894 02012271895 08134032631",
                     },
                 )
 
@@ -1052,7 +1052,7 @@ class Login(APIView):
                     context={
                         "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
                         "support_email": "notifications@picadailys.com",
-                        "picadailys_phone": "02012271894 02012271895",
+                        "picadailys_phone": "02012271894 02012271895 08134032631",
                     },
                 )
 
@@ -1219,7 +1219,7 @@ class ForgotPassword(generics.GenericAPIView):
                 context={
                     "custom_text": f"Dear {user.first_name},<br><br>{msg}.",
                     "support_email": "support@picadailys.com",
-                    "picadailys_phone": "02012271894  02012271895",
+                    "picadailys_phone": "02012271894  02012271895  08134032631",
                 },
             )
 

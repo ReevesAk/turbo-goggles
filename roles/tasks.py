@@ -307,7 +307,7 @@ class SendNewsLetter(generics.GenericAPIView):
             context={
                 "custom_text": content,
                 "support_email": "support@picadailys.com",
-                "picadailys_phone": "02012271894  02012271895",
+                "picadailys_phone": "02012271894  02012271895  08134032631",
             },
         )
 

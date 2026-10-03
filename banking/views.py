@@ -717,7 +717,7 @@ class CreateUserWallet(generics.GenericAPIView):
                         context={
                             "custom_text": f"Dear {current_user.first_name},<br><br>{mail_msg}.",
                             "support_email": "notifications@picadailys.com",
-                            "picadailys_phone": "02012271894 02012271895",
+                            "picadailys_phone": "02012271894 02012271895 08134032631",
                         },
                     )
 
@@ -1156,7 +1156,7 @@ class NotificationView(generics.CreateAPIView):
                             "tx_type": "Credit Transaction",
                             "balance": user_data["accountBalance"],
                             "support_email": "support@picadailys.com",
-                            "picadailys_phone": "02012271894  02012271895",
+                            "picadailys_phone": "02012271894  02012271895  08134032631",
                         },
                     )
 
@@ -1198,7 +1198,7 @@ class NotificationView(generics.CreateAPIView):
                             "tx_type": "Debit Transaction",
                             "balance": user_data["accountBalance"],
                             "support_email": "support@picadailys.com",
-                            "picadailys_phone": "02012271894  02012271895",
+                            "picadailys_phone": "02012271894  02012271895  08134032631",
                         },
                     )
 
@@ -1412,7 +1412,7 @@ class SetWalletPin(generics.CreateAPIView):
                 context={
                     "custom_text": "This is to inform you that your Wallet pin was created successfully.",
                     "support_email": "support@picadailys.com",
-                    "picadailys_phone": "02012271894  02012271895",
+                    "picadailys_phone": "02012271894  02012271895  08134032631",
                 },
             )
             send_alert_notification.delay(
@@ -1473,7 +1473,7 @@ class ForgotWalletPin(generics.GenericAPIView):
             context={
                 "custom_text": msg,
                 "support_email": "support@picadailys.com",
-                "picadailys_phone": "02012271894  02012271895",
+                "picadailys_phone": "02012271894  02012271895  08134032631",
             },
         )
         send_alert_notification.delay(
@@ -1549,7 +1549,7 @@ class PinResendOTP(generics.GenericAPIView):
             context={
                 "custom_text": msg,
                 "support_email": "support@picadailys.com",
-                "picadailys_phone": "02012271894  02012271895",
+                "picadailys_phone": "02012271894  02012271895  08134032631",
             },
         )
         send_alert_notification.delay(
@@ -2480,7 +2480,7 @@ class GenerateAccountStatement(generics.GenericAPIView):
                 If you did not request this statement, please contact our support team immediately.
                 """,
                 "support_email": "support@picadailys.com",
-                "picadailys_phone": "02012271894 02012271895",
+                "picadailys_phone": "02012271894 02012271895 08134032631",
             },
         )
 
