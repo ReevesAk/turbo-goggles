@@ -21,20 +21,26 @@ from .models import (
     TicketTransfer,
 )
 
+
 # ==============================
 #  Event Partner Verification
 # ==============================
-
-
 class EventPartnerVerificationSubmitSerializer(serializers.Serializer):
     """
     Input for POST /events/partner/verification/submit/.
 
-    Verifies NIN via Dojah (with selfie match against the user's profile
-    image) and the business bank account via 9PSB. If both succeed and the
-    bank account name matches the submitting user's first + last name
-    (case-insensitive), the profile is auto-approved. Otherwise it is
-    parked at PENDING for admin review.
+    Minimal payload — the partner only supplies:
+        - nin
+        - bank_code
+        - bank_account_number
+
+    Verification logic (see EventPartnerVerificationSubmitView):
+        - NIN is verified via Dojah with a selfie match against the user's
+          profile image (confidence >= 90).
+        - Bank account is verified via 9PSB.
+        - Auto-approval requires the 9PSB account name to match EITHER the
+          user's profile name OR the Dojah-returned NIN name.
+        - Otherwise the profile is parked at PENDING for admin review.
     """
 
     nin = serializers.CharField(
@@ -42,30 +48,24 @@ class EventPartnerVerificationSubmitSerializer(serializers.Serializer):
         min_length=11,
         help_text="11-digit National Identification Number",
     )
-    nin_dob = serializers.DateField(
-        help_text="Date of birth on the NIN record (YYYY-MM-DD)",
-    )
-    business_name = serializers.CharField(max_length=255)
-    business_address = serializers.CharField()
-    tin = serializers.CharField(
-        max_length=50,
-        help_text="Tax Identification Number",
-    )
     bank_code = serializers.CharField(
         max_length=20,
         help_text="Bank code for the business bank account",
+    )
+    bank_account_number = serializers.CharField(
+        max_length=30,
+        min_length=10,
+        help_text="Business bank account number",
     )
     bank_name = serializers.CharField(
         max_length=150,
         required=False,
         allow_blank=True,
         default="",
-        help_text="Human-readable bank name (optional, stored for display)",
-    )
-    bank_account_number = serializers.CharField(
-        max_length=30,
-        min_length=10,
-        help_text="Business bank account number",
+        help_text=(
+            "Human-readable bank name. Optional — if omitted or blank, the "
+            "server uses the bank name returned by 9PSB (when available)."
+        ),
     )
 
     def validate_nin(self, value: str) -> str:
@@ -103,13 +103,11 @@ class EventPartnerVerificationReadSerializer(serializers.ModelSerializer):
             "status",
             "nin_verified",
             "nin_name",
+            "nin_dob",
             "bank_verified",
             "bank_account_name",
             "bank_name",
             "bank_code",
-            "business_name",
-            "business_address",
-            "tin",
             "rejection_reason",
             "reviewed_by",
             "reviewed_by_email",
