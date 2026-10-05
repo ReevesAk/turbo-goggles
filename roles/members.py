@@ -1,10 +1,17 @@
 import logging
 
 from django.core.cache import cache
+from django.db.models import Count, Prefetch, Q
 from django.utils import timezone
 
 # In project imports.
-from .serializers import MemberSerializer, SendPushNotificationSerializer
+from .models import AdminMessage
+from .serializers import (
+    AdminMessageSerializer,
+    MemberSerializer,
+    SendMessageSerializer,
+    SendPushNotificationSerializer,
+)
 
 # Third party imports.
 from rest_framework import status, generics
@@ -12,6 +19,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
 from accounts.models import User
+from banking.models import WalletModel
 from gamification.points import Points
 from permissions import (
     CanSendUserPush,
@@ -20,7 +28,7 @@ from permissions import (
 )
 from user_profile.fcm import send_push_multicast, send_push_to_user
 from user_profile.models import DeviceToken
-from user_profile.tasks import broadcast_push
+from user_profile.tasks import broadcast_push, send_admin_message
 from user_profile.models import HandleChangeRequest, MemberSurvey
 from user_profile.serializers import (
     HandleChangeRequestDetailSerializer,
@@ -43,7 +51,24 @@ class AllMembersView(generics.ListAPIView):
     ]
 
     def get_queryset(self):
-        members = User.objects.filter(account_types__user_type="Member").distinct()
+        members = (
+            User.objects.filter(account_types__user_type="Member", is_deleted=False)
+            .prefetch_related(
+                Prefetch(
+                    "wallets",
+                    queryset=WalletModel.objects.filter(walletType="INDIVIDUAL"),
+                    to_attr="individual_wallets",
+                )
+            )
+            .annotate(
+                # distinct=True - the account_types join can repeat a user.
+                completed_tasks_count=Count(
+                    "streaks", filter=Q(streaks__completed=True), distinct=True
+                )
+            )
+            .order_by("-date_joined")
+            .distinct()
+        )
         return members
 
     def list(self, request, *args, **kwargs):
@@ -273,4 +298,80 @@ class SendPushNotificationView(generics.GenericAPIView):
                 }
             ),
             status=status.HTTP_200_OK,
+        )
+
+
+class SendMessageView(generics.GenericAPIView):
+    """
+    POST - admin sends an SMS or email.
+    Body: {"channel": "sms"|"email", "subject"? (email only), "body", and
+    either "user_ids": [..] or "audience": "members"|"all_users"}. Always
+    queued (send_admin_message) and returns 202 with the AdminMessage id.
+    Bulk SMS goes out on the PicaPROMO sender.
+    GET - send history, newest first.
+    """
+
+    serializer_class = SendMessageSerializer
+    permission_classes = [IsAuthenticated, IsNotDisabled, CanSendUserPush]
+
+    def get(self, request):
+        messages = AdminMessage.objects.select_related("sent_by")
+        page = self.paginate_queryset(messages)
+        rows = AdminMessageSerializer(
+            page if page is not None else messages, many=True
+        ).data
+        return Response(
+            data=encrypt({"status": "success", "data": rows}),
+            status=status.HTTP_200_OK,
+        )
+
+    def post(self, request):
+        serializer = self.get_serializer(data=decrypt(request.data))
+        serializer.is_valid(raise_exception=True)
+        validated = serializer.validated_data
+        user_ids = sorted(set(validated.get("user_ids") or []))
+
+        not_found = []
+        if user_ids:
+            found = set(
+                User.objects.filter(id__in=user_ids).values_list("id", flat=True)
+            )
+            not_found = [uid for uid in user_ids if uid not in found]
+            user_ids = sorted(found)
+            if not user_ids:
+                return Response(
+                    data=encrypt(
+                        {"status": "fail", "message": "None of the users exist."}
+                    ),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        message = AdminMessage.objects.create(
+            channel=validated["channel"],
+            audience="selected" if user_ids else validated["audience"],
+            user_ids=user_ids,
+            subject=validated["subject"],
+            body=validated["body"],
+            sent_by=request.user,
+        )
+        send_admin_message.delay(str(message.id))
+        logger.info(
+            "Admin %s queued %s message %s to %s",
+            request.user.email,
+            message.channel,
+            message.id,
+            message.audience,
+        )
+        return Response(
+            data=encrypt(
+                {
+                    "status": "success",
+                    "message": "Message queued. It will be delivered shortly.",
+                    "data": {
+                        "message_id": str(message.id),
+                        "not_found_user_ids": not_found,
+                    },
+                }
+            ),
+            status=status.HTTP_202_ACCEPTED,
         )

@@ -3972,7 +3972,7 @@ class GamificationDashboardView(APIView):
                 data=encrypt(
                     {
                         "status": "fail",
-                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                        "message": "Invalid date range or format. Use YYYY-MM-DD, with start_date on or before end_date.",
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -4179,7 +4179,7 @@ class IncomeActivityDashboardView(APIView):
                 data=encrypt(
                     {
                         "status": "fail",
-                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                        "message": "Invalid date range or format. Use YYYY-MM-DD, with start_date on or before end_date.",
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -4354,7 +4354,7 @@ class CashInVsCashOutChartView(APIView):
                 data=encrypt(
                     {
                         "status": "fail",
-                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                        "message": "Invalid date range or format. Use YYYY-MM-DD, with start_date on or before end_date.",
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -4467,7 +4467,7 @@ class VasIncomeExpenditureBreakdownView(APIView):
                 data=encrypt(
                     {
                         "status": "fail",
-                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                        "message": "Invalid date range or format. Use YYYY-MM-DD, with start_date on or before end_date.",
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -4577,7 +4577,7 @@ class ServicesBreakdownView(APIView):
                 data=encrypt(
                     {
                         "status": "fail",
-                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                        "message": "Invalid date range or format. Use YYYY-MM-DD, with start_date on or before end_date.",
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -4713,7 +4713,7 @@ class CustomerInsightView(APIView):
                 data=encrypt(
                     {
                         "status": "fail",
-                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                        "message": "Invalid date range or format. Use YYYY-MM-DD, with start_date on or before end_date.",
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -4881,7 +4881,7 @@ class TransactionOverviewView(APIView):
                 data=encrypt(
                     {
                         "status": "fail",
-                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                        "message": "Invalid date range or format. Use YYYY-MM-DD, with start_date on or before end_date.",
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -4988,7 +4988,7 @@ class AdsInsightView(APIView):
                 data=encrypt(
                     {
                         "status": "fail",
-                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                        "message": "Invalid date range or format. Use YYYY-MM-DD, with start_date on or before end_date.",
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -5099,7 +5099,7 @@ class AlertAndRiskView(APIView):
                 data=encrypt(
                     {
                         "status": "fail",
-                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                        "message": "Invalid date range or format. Use YYYY-MM-DD, with start_date on or before end_date.",
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -5239,7 +5239,7 @@ class AllTransactionsView(APIView):
                 data=encrypt(
                     {
                         "status": "fail",
-                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                        "message": "Invalid date range or format. Use YYYY-MM-DD, with start_date on or before end_date.",
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -5377,7 +5377,7 @@ class GamificationPicapointsOverviewView(APIView):
                 data=encrypt(
                     {
                         "status": "fail",
-                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                        "message": "Invalid date range or format. Use YYYY-MM-DD, with start_date on or before end_date.",
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -5508,7 +5508,7 @@ class PicapointsSourceBreakdownView(APIView):
                 data=encrypt(
                     {
                         "status": "fail",
-                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                        "message": "Invalid date range or format. Use YYYY-MM-DD, with start_date on or before end_date.",
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -5628,7 +5628,7 @@ class TaskInsightView(APIView):
                 data=encrypt(
                     {
                         "status": "fail",
-                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                        "message": "Invalid date range or format. Use YYYY-MM-DD, with start_date on or before end_date.",
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -5752,7 +5752,7 @@ class DemographicBreakdownView(APIView):
                 data=encrypt(
                     {
                         "status": "fail",
-                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                        "message": "Invalid date range or format. Use YYYY-MM-DD, with start_date on or before end_date.",
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -5964,7 +5964,7 @@ class ReconciliationDifferencesListView(APIView):
                 data=encrypt(
                     {
                         "status": "fail",
-                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                        "message": "Invalid date range or format. Use YYYY-MM-DD, with start_date on or before end_date.",
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,
@@ -6113,7 +6113,7 @@ class DuplicateTransactionsListView(APIView):
                 data=encrypt(
                     {
                         "status": "fail",
-                        "message": "Invalid date format. Use YYYY-MM-DD.",
+                        "message": "Invalid date range or format. Use YYYY-MM-DD, with start_date on or before end_date.",
                     }
                 ),
                 status=status.HTTP_400_BAD_REQUEST,

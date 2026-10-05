@@ -468,7 +468,7 @@ class IsMemberAdminOrSuperAdmin(permissions.BasePermission):
 
         # Check if the user is either MemberAdmin or SuperAdmin
         if (
-            request.user.active_role == "MemberAdmin"
+            request.user.active_role == "MembersAdmin"
             or request.user.active_role == "SuperAdmin"
         ):
             return True
@@ -489,7 +489,7 @@ class IsMemberAdminOrSuperAdminOrTaskAdmin(permissions.BasePermission):
 
         # Check if the user is either MemberAdmin or SuperAdmin
         if (
-            request.user.active_role == "MemberAdmin"
+            request.user.active_role == "MembersAdmin"
             or request.user.active_role == "TaskAdmin"
             or request.user.active_role == "SuperAdmin"
         ):

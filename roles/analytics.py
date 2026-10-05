@@ -1256,6 +1256,15 @@ def _wallet_info_by_user(user_ids):
     return {w["user_id"]: (w["acct_name"], w["account_number"]) for w in wallets}
 
 
+def _user_fields(user):
+    """Transacting user's identity fields for a transaction row - `user`
+    stays the phone number for backward compatibility with the frontend."""
+    if user is None:
+        return {"user_id": None, "user_name": None, "user_email": None}
+    name = user.full_name or f"{user.first_name or ''} {user.last_name or ''}".strip()
+    return {"user_id": user.id, "user_name": name or None, "user_email": user.email}
+
+
 def get_all_transactions(start, end, status_filter=None, category_filter=None):
     """
     Merges TxModel + ValueAddedServices (VAS) + FmcgOrder into one
@@ -1303,6 +1312,7 @@ def get_all_transactions(start, end, status_filter=None, category_filter=None):
             {
                 "transaction_id": tx.tx_reference or str(tx.id),
                 "user": tx.user.phone_number if tx.user_id else None,
+                **_user_fields(tx.user if tx.user_id else None),
                 "service": tx.tx_type,
                 "category": category,
                 "account_type": tx.user.active_role if tx.user_id else None,
@@ -1325,6 +1335,7 @@ def get_all_transactions(start, end, status_filter=None, category_filter=None):
             {
                 "transaction_id": str(vas.tx_reference),
                 "user": vas.user.phone_number if vas.user_id else None,
+                **_user_fields(vas.user if vas.user_id else None),
                 "service": vas.category_name or vas.network or "VAS",
                 "category": "VAS",
                 "account_type": vas.user.active_role if vas.user_id else None,
@@ -1343,6 +1354,7 @@ def get_all_transactions(start, end, status_filter=None, category_filter=None):
             {
                 "transaction_id": str(order.tx_reference),
                 "user": order.user.phone_number if order.user_id else None,
+                **_user_fields(order.user if order.user_id else None),
                 "service": order.product or "FMCG",
                 "category": "FMCG",
                 "account_type": order.user.active_role if order.user_id else None,
@@ -1404,6 +1416,8 @@ def resolve_period(granularity=None, start_date=None, end_date=None, now=None):
     now = now or timezone.now()
 
     if start_date and end_date:
+        if start_date > end_date:
+            raise ValueError("start_date must be on or before end_date.")
         current_start = datetime.combine(start_date, time.min)
         current_end = datetime.combine(end_date, time.max)
     elif granularity:
@@ -1737,6 +1751,7 @@ def _build_tx_row(tx, partner_linked_tx_ids, wallet_by_user, status_override=Non
     return {
         "transaction_id": tx.tx_reference or str(tx.id),
         "user": tx.user.phone_number if tx.user_id else None,
+        **_user_fields(tx.user if tx.user_id else None),
         "service": tx.tx_type,
         "category": _tx_category(tx, partner_linked_tx_ids),
         "account_type": tx.user.active_role if tx.user_id else None,

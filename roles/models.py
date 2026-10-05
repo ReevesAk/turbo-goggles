@@ -96,3 +96,41 @@ class knowledgeBaseModel(models.Model):
 
     def __str__(self):
         return self.caption
+
+
+class AdminMessage(BaseModel):
+    """One row per admin SMS/email send (not per recipient) - an audit trail
+    of who sent what to whom, updated by user_profile.tasks.send_admin_message."""
+
+    CHANNEL_CHOICES = (("sms", "SMS"), ("email", "Email"))
+    AUDIENCE_CHOICES = (
+        ("selected", "Selected users"),
+        ("members", "All members"),
+        ("all_users", "All users"),
+    )
+    STATUS_CHOICES = (
+        ("queued", "Queued"),
+        ("sending", "Sending"),
+        ("sent", "Sent"),
+        ("partial", "Partially sent"),
+        ("failed", "Failed"),
+    )
+
+    channel = models.CharField(max_length=10, choices=CHANNEL_CHOICES)
+    audience = models.CharField(max_length=20, choices=AUDIENCE_CHOICES)
+    user_ids = models.JSONField(default=list, blank=True)
+    subject = models.CharField(max_length=200, blank=True)
+    body = models.TextField()
+    sent_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="admin_messages"
+    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="queued")
+    recipients_targeted = models.PositiveIntegerField(default=0)
+    recipients_sent = models.PositiveIntegerField(default=0)
+    error = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self):
+        return f"{self.channel} to {self.audience} ({self.status})"
