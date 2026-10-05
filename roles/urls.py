@@ -134,6 +134,7 @@ from .members import (
     AllMembersView,
     ListHandleChangeRequestsView,
     ReviewHandleChangeRequestView,
+    SendMessageView,
     SendPushNotificationView,
 )
 from adverts.views import GetBrandAdDetails
@@ -628,6 +629,12 @@ urlpatterns = [
         "notifications/push",
         SendPushNotificationView.as_view(),
         name="send_push_notification",
+    ),
+    # Admin SMS/email to selected users or in bulk.
+    path(
+        "notifications/message",
+        SendMessageView.as_view(),
+        name="send_admin_message",
     ),
     # Waitlist endpoints.
     path(

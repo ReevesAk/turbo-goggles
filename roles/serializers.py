@@ -14,6 +14,7 @@ from banking.models import WalletModel
 from adverts.models import CreateAd
 
 from .models import (
+    AdminMessage,
     RestrictPartnerAccount,
     RestrictBrandAdAccount,
     ActivityModel,
@@ -632,26 +633,42 @@ class Tier3WalletUpgradeSerializers(serializers.ModelSerializer):
 
 
 class MemberSerializer(serializers.ModelSerializer):
-    balance = serializers.DecimalField(
-        source="walletmodel.balance", max_digits=10, decimal_places=2, read_only=True
-    )
-    wallet_status = serializers.BooleanField(
-        source="walletmodel.status", read_only=True
-    )
+    """Expects AllMembersView's queryset: `individual_wallets` prefetched
+    and `completed_tasks_count` annotated, so a full member list doesn't
+    run per-row queries."""
+
     name = serializers.SerializerMethodField()
-    completed_tasks = serializers.SerializerMethodField()
+    balance = serializers.SerializerMethodField()
+    wallet_status = serializers.SerializerMethodField()
+    account_number = serializers.SerializerMethodField()
+    completed_tasks = serializers.IntegerField(
+        source="completed_tasks_count", read_only=True
+    )
     total_points_earned = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
+            "id",
             "name",
             "email",
+            "phone_number",
+            "date_joined",
+            "state",
+            "city",
+            "level",
+            "is_bvn_verified",
+            "is_nin_verified",
+            "account_number",
             "balance",
             "wallet_status",
             "completed_tasks",
             "total_points_earned",
         ]
+
+    def _wallet(self, obj):
+        wallets = getattr(obj, "individual_wallets", None)
+        return wallets[0] if wallets else None
 
     @extend_schema_field(serializers.CharField())
     def get_name(self, obj):
@@ -659,9 +676,22 @@ class MemberSerializer(serializers.ModelSerializer):
             return obj.full_name
         return f"{obj.first_name or ''} {obj.last_name or ''}".strip()
 
-    @extend_schema_field(serializers.IntegerField())
-    def get_completed_tasks(self, obj):
-        return obj.streaks.filter(completed=True).count()
+    @extend_schema_field(
+        serializers.DecimalField(max_digits=10, decimal_places=2, allow_null=True)
+    )
+    def get_balance(self, obj):
+        wallet = self._wallet(obj)
+        return str(wallet.balance) if wallet and wallet.balance is not None else None
+
+    @extend_schema_field(serializers.BooleanField(allow_null=True))
+    def get_wallet_status(self, obj):
+        wallet = self._wallet(obj)
+        return wallet.status if wallet else None
+
+    @extend_schema_field(serializers.CharField(allow_null=True))
+    def get_account_number(self, obj):
+        wallet = self._wallet(obj)
+        return wallet.account_number if wallet else None
 
     @extend_schema_field(serializers.IntegerField())
     def get_total_points_earned(self, obj):
@@ -872,3 +902,55 @@ class SendPushNotificationSerializer(serializers.Serializer):
                 "Provide exactly one of user_ids or all_users=true."
             )
         return attrs
+
+
+class SendMessageSerializer(serializers.Serializer):
+    """Admin SMS/email: either a list of user_ids, or an audience of
+    "members" / "all_users"."""
+
+    MAX_USER_IDS = 1000
+
+    channel = serializers.ChoiceField(choices=("sms", "email"))
+    subject = serializers.CharField(max_length=200, required=False, default="")
+    body = serializers.CharField(max_length=2000)
+    user_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        required=False,
+        allow_empty=False,
+        max_length=MAX_USER_IDS,
+    )
+    audience = serializers.ChoiceField(
+        choices=("members", "all_users"), required=False
+    )
+
+    def validate(self, attrs):
+        if bool(attrs.get("user_ids")) == bool(attrs.get("audience")):
+            raise serializers.ValidationError(
+                "Provide exactly one of user_ids or audience."
+            )
+        if attrs["channel"] == "email" and not attrs["subject"].strip():
+            raise serializers.ValidationError(
+                {"subject": "Subject is required for email."}
+            )
+        return attrs
+
+
+class AdminMessageSerializer(serializers.ModelSerializer):
+    sent_by = serializers.EmailField(source="sent_by.email", read_only=True)
+
+    class Meta:
+        model = AdminMessage
+        fields = [
+            "id",
+            "channel",
+            "audience",
+            "user_ids",
+            "subject",
+            "body",
+            "sent_by",
+            "status",
+            "recipients_targeted",
+            "recipients_sent",
+            "error",
+            "created_at",
+        ]

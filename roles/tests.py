@@ -1756,6 +1756,20 @@ class AlertAndRiskAnalyticsTests(TestCase):
         self.assertEqual(row["wallet_name"], "Bola Buyer")
         self.assertEqual(row["wallet_number"], "1000000001")
 
+    def test_transaction_rows_include_user_identity_fields(self):
+        self._make_tx(tx_type="Intra-Bank Transfer", status="PENDING")
+
+        all_row = get_all_transactions(
+            timezone.now() - timedelta(days=1), timezone.now() + timedelta(days=1)
+        )[0]
+        pending_row = get_pending_settlement_list()[0]
+
+        for row in (all_row, pending_row):
+            self.assertEqual(row["user"], "2348010000001")
+            self.assertEqual(row["user_id"], self.buyer.id)
+            self.assertEqual(row["user_name"], "Bola Buyer")
+            self.assertEqual(row["user_email"], "buyer@example.com")
+
     def test_all_transactions_type_matches_banking_credit_tx_types(self):
         """Regression: All Transactions previously had its own local
         CREDIT_TX_TYPES that had drifted from banking.helpers.CREDIT_TX_TYPES
@@ -2444,3 +2458,203 @@ class SendPushNotificationViewTests(APITestCase):
 
         tokens = mock_send.call_args.args[0]
         self.assertCountEqual(tokens, ["tok-live", "tok-stale"])
+
+
+class DashboardDateRangeTests(APITestCase):
+    def setUp(self):
+        self.superadmin = _create_user(
+            email="range-super@example.com", phone_number="2348030000001"
+        )
+        self.client.force_authenticate(user=self.superadmin)
+
+    def test_resolve_period_single_day_and_reversed_range(self):
+        from datetime import date
+        from .analytics import resolve_period
+
+        start, end, prior_start, prior_end = resolve_period(
+            start_date=date(2026, 10, 4), end_date=date(2026, 10, 4)
+        )
+        self.assertEqual(start.date(), date(2026, 10, 4))
+        self.assertEqual(end.date(), date(2026, 10, 4))
+        self.assertEqual(prior_end, start)
+        self.assertEqual(prior_start.date(), date(2026, 10, 3))
+
+        with self.assertRaises(ValueError):
+            resolve_period(start_date=date(2026, 10, 5), end_date=date(2026, 10, 4))
+
+    def test_reversed_range_returns_400(self):
+        response = self.client.get(
+            reverse("roles:income_activity_dashboard"),
+            {"start_date": "2026-10-05", "end_date": "2026-10-04"},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class AllMembersViewTests(APITestCase):
+    def setUp(self):
+        from gamification.models import StreakChallenge, UserStreak
+
+        cache.clear()
+        self.admin = _create_user(
+            email="members-super@example.com", phone_number="2348040000001"
+        )
+        self.member = _create_user(
+            email="member@example.com",
+            phone_number="2348040000002",
+            full_name="Mary Member",
+            active_role="Member",
+        )
+        AccountType.objects.create(user=self.member, user_type="Member")
+        # A second account type row - must not double the completed count.
+        AccountType.objects.create(user=self.member, user_type="Partner")
+        WalletModel.objects.create(
+            user=self.member,
+            walletType="INDIVIDUAL",
+            account_number="2000000001",
+            balance=1500,
+        )
+        now = timezone.now()
+        for completed in (True, True, False):
+            challenge = StreakChallenge.objects.create(
+                name="Login streak",
+                streak_type="daily_login",
+                duration_days=7,
+                start_date=now,
+                end_date=now + timedelta(days=7),
+                reward_points=10,
+            )
+            UserStreak.objects.create(
+                user=self.member, challenge=challenge, completed=completed
+            )
+        self.client.force_authenticate(user=self.admin)
+
+    def test_members_include_contact_and_wallet_fields(self):
+        response = self.client.get(reverse("roles:all_members"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        body = decrypt(response.data)
+        self.assertEqual(body["No of Members"], 1)
+        row = body["Members object"][0]
+        self.assertEqual(row["id"], self.member.id)
+        self.assertEqual(row["name"], "Mary Member")
+        self.assertEqual(row["phone_number"], "2348040000002")
+        self.assertEqual(row["account_number"], "2000000001")
+        self.assertEqual(row["balance"], "1500.00")
+        self.assertTrue(row["wallet_status"])
+        self.assertEqual(row["completed_tasks"], 2)
+
+    def test_members_admin_role_can_list_members(self):
+        """Regression: the permission checked "MemberAdmin", but the role is
+        "MembersAdmin" (ADMIN_TYPES), so Members Admins got a 403."""
+        cache.clear()
+        self.client.force_authenticate(
+            _create_user(
+                email="members-admin@example.com",
+                phone_number="2348040000003",
+                active_role="MembersAdmin",
+            )
+        )
+        response = self.client.get(reverse("roles:all_members"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class SendMessageViewTests(APITestCase):
+    url = "/v1/roles/notifications/message"
+
+    def setUp(self):
+        self.admin = _create_user(active_role="MembersAdmin")
+        self.member = _create_user(
+            email="msg-member@example.com",
+            phone_number="2348055555551",
+            active_role="Member",
+        )
+        AccountType.objects.create(user=self.member, user_type="Member")
+        self.plain_user = _create_user(
+            email="msg-user@example.com",
+            phone_number="2348055555552",
+            active_role="User",
+        )
+        self.disabled = _create_user(
+            email="msg-disabled@example.com",
+            phone_number="2348055555553",
+            active_role="User",
+            is_disabled=True,
+        )
+        self.client.force_authenticate(self.admin)
+
+    def _post(self, **body):
+        return self.client.post(
+            self.url, data=_make_payload(**body), content_type="application/json"
+        )
+
+    def test_email_requires_subject_and_exactly_one_target(self):
+        from roles.models import AdminMessage
+
+        no_subject = self._post(channel="email", body="Hi", audience="members")
+        both = self._post(
+            channel="sms", body="Hi", audience="members", user_ids=[self.member.id]
+        )
+        neither = self._post(channel="sms", body="Hi")
+
+        for response in (no_subject, both, neither):
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(AdminMessage.objects.exists())
+
+    @patch("roles.members.send_admin_message.delay")
+    def test_selected_users_queued_and_logged(self, mock_delay):
+        from roles.models import AdminMessage
+
+        response = self._post(
+            channel="sms", body="Hello", user_ids=[self.member.id, 999999]
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        data = decrypt(response.data)["data"]
+        self.assertEqual(data["not_found_user_ids"], [999999])
+        message = AdminMessage.objects.get()
+        self.assertEqual(message.audience, "selected")
+        self.assertEqual(message.user_ids, [self.member.id])
+        self.assertEqual(message.sent_by, self.admin)
+        mock_delay.assert_called_once_with(str(message.id))
+
+    @patch("commons.Messaging.send_bulk_sms", return_value={"status": "success"})
+    def test_task_sends_members_once_and_skips_disabled(self, mock_sms):
+        from roles.models import AdminMessage
+        from user_profile.tasks import send_admin_message
+
+        AccountType.objects.create(user=self.disabled, user_type="Member")
+        message = AdminMessage.objects.create(
+            channel="sms", audience="members", body="Promo", sent_by=self.admin
+        )
+
+        send_admin_message(str(message.id))
+        send_admin_message(str(message.id))  # redelivery is a no-op
+
+        mock_sms.assert_called_once_with(["2348055555551"], "Promo")
+        message.refresh_from_db()
+        self.assertEqual(message.status, "sent")
+        self.assertEqual(message.recipients_targeted, 1)
+        self.assertEqual(message.recipients_sent, 1)
+
+    @patch("commons.Messaging.send_bulk_email", return_value={"status": "error"})
+    def test_task_marks_failed_on_provider_error(self, mock_email):
+        from roles.models import AdminMessage
+        from user_profile.tasks import send_admin_message
+
+        message = AdminMessage.objects.create(
+            channel="email",
+            audience="all_users",
+            subject="News",
+            body="Body",
+            sent_by=self.admin,
+        )
+
+        send_admin_message(str(message.id))
+
+        emails = mock_email.call_args.args[0]
+        self.assertIn("msg-user@example.com", emails)
+        self.assertNotIn("msg-disabled@example.com", emails)
+        message.refresh_from_db()
+        self.assertEqual(message.status, "failed")
+        self.assertEqual(message.recipients_sent, 0)
+        self.assertIn("error", message.error)

@@ -1,3 +1,4 @@
+import html
 import math
 import random
 import logging
@@ -165,6 +166,48 @@ class Messaging:
         response = requests.post(url, headers=headers, json=payload, timeout=15)
         return response.json()
     
+    @staticmethod
+    def send_bulk_sms(phone_numbers, msg, sender="PicaPROMO"):
+        """One YourNotify campaign to many numbers. PicaPROMO is the
+        promotional sender - YourNotify may block DND numbers on it."""
+        url = yournotify_base_url + "campaigns/sms/"
+
+        headers = {
+            "Authorization": yournotify_api_key,
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "name": "Picadailys Admin SMS",
+            "from": sender,
+            "text": msg,
+            "status": "running",
+            "lists": ["234" + Messaging._normalize_phone(p) for p in phone_numbers],
+            "channel": "sms",
+        }
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        return response.json()
+
+    @staticmethod
+    def send_bulk_email(emails, subject, body, sender_email="Info@picadailys.com"):
+        url = yournotify_base_url + "campaigns/email/"
+
+        headers = {
+            "Authorization": yournotify_api_key,
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "name": "Picadailys Admin Email",
+            "from": sender_email,
+            "subject": subject,
+            "html": "<br>".join(html.escape(body).splitlines()),
+            "text": body,
+            "status": "running",
+            "lists": list(emails),
+            "channel": "email",
+        }
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        return response.json()
+
     @staticmethod
     def whatsApp(phone_number, otp):
         url = yournotify_base_url + "campaigns/whatsapp/"
