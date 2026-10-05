@@ -1132,15 +1132,11 @@ class EventPartnerProfile(models.Model):
         help_text="The partner this verification record belongs to",
     )
 
-    #  Identity (NIN)
+    # Identity (NIN)
     nin = EncryptedCharField(
         max_length=100,
         unique=True,
         help_text="National Identification Number (encrypted at rest)",
-    )
-    nin_dob = models.CharField(
-        max_length=40,
-        help_text="Date of birth submitted alongside NIN (YYYY-MM-DD)",
     )
     nin_verified = models.BooleanField(default=False)
     nin_name = models.CharField(
@@ -1149,16 +1145,17 @@ class EventPartnerProfile(models.Model):
         blank=True,
         help_text="Full name returned by Dojah on successful NIN lookup",
     )
-
-    #  Business identity
-    business_name = models.CharField(max_length=255)
-    business_address = models.TextField()
-    tin = models.CharField(
-        max_length=50,
-        help_text="Tax Identification Number supplied by the partner",
+    nin_dob = models.CharField(
+        max_length=40,
+        blank=True,
+        default="",
+        help_text=(
+            "Date of birth (ISO 8601) derived from Dojah's NIN response. "
+            "Not collected from the partner."
+        ),
     )
 
-    #  Business bank account
+    # Business bank account
     bank_code = models.CharField(max_length=20)
     bank_name = models.CharField(max_length=150, blank=True, default="")
     bank_account_number = EncryptedCharField(
@@ -1173,7 +1170,7 @@ class EventPartnerProfile(models.Model):
     )
     bank_verified = models.BooleanField(default=False)
 
-    #  Status / review
+    # Status / review
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
@@ -1208,9 +1205,9 @@ class EventPartnerProfile(models.Model):
     def __str__(self) -> str:
         return f"{self.user} - {self.status}"
 
-    # =============
+    # ---------------------------------------------------------------
     # Convenience
-    # =============
+    # ---------------------------------------------------------------
 
     @property
     def is_approved(self) -> bool:

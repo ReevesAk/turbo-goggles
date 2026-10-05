@@ -289,7 +289,7 @@ class EventPartnerProfileAdmin(admin.ModelAdmin):
         "status",
         "nin_verified",
         "bank_verified",
-        "business_name",
+        "bank_account_name",
         "submitted_at",
         "reviewed_at",
     )
@@ -298,8 +298,7 @@ class EventPartnerProfileAdmin(admin.ModelAdmin):
         "user__email",
         "user__first_name",
         "user__last_name",
-        "business_name",
-        "tin",
+        "nin_name",
         "bank_account_name",
     )
     readonly_fields = (
@@ -307,6 +306,7 @@ class EventPartnerProfileAdmin(admin.ModelAdmin):
         "nin",
         "bank_account_number",
         "nin_name",
+        "nin_dob",
         "bank_account_name",
         "submitted_at",
         "updated_at",
@@ -317,11 +317,14 @@ class EventPartnerProfileAdmin(admin.ModelAdmin):
         ("Partner", {"fields": ("id", "user", "status")}),
         (
             "Identity (NIN)",
-            {"fields": ("nin", "nin_dob", "nin_verified", "nin_name")},
-        ),
-        (
-            "Business",
-            {"fields": ("business_name", "business_address", "tin")},
+            {
+                "fields": (
+                    "nin",
+                    "nin_verified",
+                    "nin_name",
+                    "nin_dob",
+                )
+            },
         ),
         (
             "Bank Account",
