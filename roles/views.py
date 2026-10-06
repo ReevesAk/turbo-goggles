@@ -4093,19 +4093,91 @@ class GamificationDashboardView(APIView):
         )
 
 
+class KpiTrendSerializer(s.Serializer):
+    """Schema-only: one compute_trend() tile. Declared as a class (not
+    inline_serializer) so every tile shares a single OpenAPI component."""
+
+    value = s.FloatField(help_text="Total for the selected period.")
+    change_pct = s.FloatField(
+        allow_null=True,
+        help_text="% change vs the prior period, 2dp. null when label is 'New'.",
+    )
+    direction = s.ChoiceField(
+        choices=["up", "down", "flat"],
+        allow_null=True,
+        help_text="null when label is 'New'.",
+    )
+    label = s.CharField(
+        allow_null=True,
+        help_text="'New' when the prior period total is 0 (nothing to compare against), otherwise null.",
+    )
+
+
+def _kpi_trend_schema(help_text):
+    return KpiTrendSerializer(help_text=help_text)
+
+
+class AnalyticsDateRangeSerializer(s.Serializer):
+    """Schema-only: the date_range block on analytics responses."""
+
+    start = s.DateField()
+    end = s.DateField(
+        help_text="Inclusive. Today's date when the range came from granularity."
+    )
+
+
+def _analytics_date_range_schema():
+    return AnalyticsDateRangeSerializer()
+
+
+ANALYTICS_DATE_RANGE_PARAMETERS = [
+    OpenApiParameter(
+        "start_date",
+        OpenApiTypes.DATE,
+        OpenApiParameter.QUERY,
+        required=False,
+        description="YYYY-MM-DD, inclusive. Must be passed together with end_date.",
+    ),
+    OpenApiParameter(
+        "end_date",
+        OpenApiTypes.DATE,
+        OpenApiParameter.QUERY,
+        required=False,
+        description=(
+            "YYYY-MM-DD, inclusive (covers the whole day). Pass the same "
+            "value as start_date for a single day."
+        ),
+    ),
+]
+
+ANALYTICS_DATE_RANGE_USAGE = (
+    "\n\n**Selecting a period**\n\n"
+    "- Period-to-date: `?granularity=daily` (today so far), `weekly` (since "
+    "Monday), `monthly`, `quarterly`, `yearly`.\n"
+    "- A single past day, e.g. yesterday: `?start_date=2026-10-05&end_date=2026-10-05` "
+    "(same date for both).\n"
+    "- Last N days, e.g. the 3 days before today: "
+    "`?start_date=2026-10-03&end_date=2026-10-05`.\n"
+    "- Any custom range: `?start_date=2026-09-01&end_date=2026-09-15`.\n\n"
+    "There are no relative presets (no `?day=yesterday`) - compute the "
+    "dates client-side. start_date/end_date take precedence over "
+    "granularity when both are passed. Dates are server-local (Africa/Lagos)."
+)
+
+
 @extend_schema(
     summary="Income Activity dashboard data",
     tags=["Admin"],
     description=(
-        "Returns cash inflow/outflow, card deposits, VAS bill payments, "
+        "Returns cash inflow/outflow, card deposits, VAS spend, "
         "self-service + partner-service revenue, and gamification (points "
-        "redeemed to wallet) for a selected period, each with a "
-        "period-over-period trend badge (value/change_pct/direction, "
-        "or label='New' when there's no prior-period baseline to compare "
-        "against). Pass `granularity` (daily/weekly/monthly/quarterly/yearly, "
-        "default weekly) or an explicit `start_date`/`end_date` range - the "
-        "prior period compared against is always the immediately preceding "
-        "period of equal length, not a fixed calendar unit."
+        "redeemed to wallet) for a selected period, each as a KPI tile with "
+        "a period-over-period trend badge. The prior period compared "
+        "against is always the immediately preceding period of equal "
+        "length, not a fixed calendar unit - e.g. a single day compares "
+        "against the day before it, and `monthly` 9 days into the month "
+        "compares against the 9 days before the 1st."
+        + ANALYTICS_DATE_RANGE_USAGE
     ),
     parameters=[
         OpenApiParameter(
@@ -4113,19 +4185,53 @@ class GamificationDashboardView(APIView):
             OpenApiTypes.STR,
             OpenApiParameter.QUERY,
             required=False,
-            description=f"One of {GRANULARITY_CHOICES}. Ignored if start_date/end_date are passed.",
+            enum=GRANULARITY_CHOICES,
+            default="weekly",
+            description="Period-to-date selector. Ignored if start_date/end_date are passed.",
         ),
-        OpenApiParameter(
-            "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
-        ),
-        OpenApiParameter(
-            "end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
-        ),
+        *ANALYTICS_DATE_RANGE_PARAMETERS,
     ],
     responses={
         200: inline_serializer(
             "IncomeActivityDashboardResponse",
-            fields={"status": s.CharField(), "data": s.DictField()},
+            fields={
+                "status": s.CharField(),
+                "data": inline_serializer(
+                    "IncomeActivityDashboardData",
+                    fields={
+                        "granularity": s.ChoiceField(
+                            choices=[*GRANULARITY_CHOICES, "custom"],
+                            help_text="'custom' when start_date/end_date were used.",
+                        ),
+                        "date_range": _analytics_date_range_schema(),
+                        "inbound": _kpi_trend_schema(
+                            "Incoming wallet credits (bank transfers in)."
+                        ),
+                        "outbound": _kpi_trend_schema("Outgoing transfers."),
+                        "card_deposit": _kpi_trend_schema("Wallet funding by card."),
+                        "airtime": _kpi_trend_schema("Airtime purchases."),
+                        "data": _kpi_trend_schema("Data purchases."),
+                        "bill_payments": _kpi_trend_schema(
+                            "Electricity + cable TV combined."
+                        ),
+                        "electricity_bill": _kpi_trend_schema(
+                            "Electricity share of bill_payments."
+                        ),
+                        "cable_tv": _kpi_trend_schema("Cable TV share of bill_payments."),
+                        "self_service_and_partner_revenue": _kpi_trend_schema(
+                            "Self-service bookings + partner-service purchases."
+                        ),
+                        "gamification": _kpi_trend_schema(
+                            "Naira paid out for PicaPoints redeemed to wallet."
+                        ),
+                        "net": _kpi_trend_schema(
+                            "inbound + card_deposit - outbound - airtime - data "
+                            "- bill_payments - gamification. Excludes "
+                            "self_service_and_partner_revenue."
+                        ),
+                    },
+                ),
+            },
         ),
         400: inline_serializer(
             "IncomeActivityDashboardError",
@@ -4218,17 +4324,22 @@ MAX_CHART_RANGE_DAYS = 400
     summary="Cash In vs Cash Out chart data",
     tags=["Admin"],
     description=(
-        "Returns cash_in/cash_out bucketed by calendar day for the selected "
-        "period. Pass `granularity` (daily/weekly/monthly/quarterly/yearly, "
-        "default weekly) alone to have it pick the date range too, or an "
-        "explicit `start_date`/`end_date` range (capped at "
-        f"{MAX_CHART_RANGE_DAYS} days) - `granularity` may still be passed "
-        "alongside start_date/end_date purely to control bucket size (e.g. "
-        "roll a frontend-computed date range up into months); the date range "
-        "always comes from start_date/end_date when both are given. Response "
-        "rows are one per calendar day if no granularity is resolved at all. "
-        "cash_in is inbound transfers + card deposits; cash_out is outbound "
-        "transfers + VAS bill payments + self-service/partner spend."
+        "Returns a cash_in/cash_out/cashback series for the selected period, "
+        "one row per bucket. Bucket size follows `granularity` (day/week/"
+        "month/quarter/year); a custom start_date/end_date range with no "
+        "granularity returns one row per calendar day. `granularity` may be "
+        "passed alongside start_date/end_date purely to control bucket size "
+        "(e.g. roll a custom range up into months) - the date range itself "
+        "always comes from start_date/end_date when both are given. Custom "
+        f"ranges are capped at {MAX_CHART_RANGE_DAYS} days. The smallest "
+        "bucket is one day - a single-day range returns a single row (no "
+        "hourly breakdown).\n\n"
+        "With category=all (default), cash_in is inbound transfers + card "
+        "deposits and cash_out is outbound transfers + VAS bill payments + "
+        "self-service/partner spend. With any other category, cash_in is "
+        "that category's successful revenue and cash_out its failed/"
+        "reversed amount. cashback is VAS cashback only (always 0 for "
+        "self_services/brand_ads)." + ANALYTICS_DATE_RANGE_USAGE
     ),
     parameters=[
         OpenApiParameter(
@@ -4236,25 +4347,87 @@ MAX_CHART_RANGE_DAYS = 400
             OpenApiTypes.STR,
             OpenApiParameter.QUERY,
             required=False,
+            enum=GRANULARITY_CHOICES,
+            default="weekly",
             description=(
-                f"One of {GRANULARITY_CHOICES}. Controls the date range when "
-                "start_date/end_date aren't passed; when they are, still "
-                "controls how the series is bucketed (e.g. start_date/"
-                "end_date + granularity=monthly returns one row per month "
-                "within that range)."
+                "Controls the date range when start_date/end_date aren't "
+                "passed; when they are, still controls how the series is "
+                "bucketed (e.g. start_date/end_date + granularity=monthly "
+                "returns one row per month within that range)."
             ),
         ),
+        *ANALYTICS_DATE_RANGE_PARAMETERS,
         OpenApiParameter(
-            "start_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+            "category",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            required=False,
+            enum=SERVICES_TAB_CHOICES,
+            default="all",
+            description="Services-dashboard tab to scope the series to.",
         ),
         OpenApiParameter(
-            "end_date", OpenApiTypes.DATE, OpenApiParameter.QUERY, required=False
+            "service_type",
+            OpenApiTypes.STR,
+            OpenApiParameter.QUERY,
+            required=False,
+            enum=sorted(
+                {
+                    key
+                    for choices in SERVICE_TYPE_CHOICES_BY_CATEGORY.values()
+                    for key in choices
+                }
+            ),
+            description=(
+                "Sub-category within `category`. Only valid with "
+                "category=vas ("
+                + ", ".join(SERVICE_TYPE_CHOICES_BY_CATEGORY["vas"])
+                + ") or category=self_services ("
+                + ", ".join(SERVICE_TYPE_CHOICES_BY_CATEGORY["self_services"])
+                + "); 400 otherwise."
+            ),
         ),
     ],
     responses={
         200: inline_serializer(
             "CashInVsCashOutChartResponse",
-            fields={"status": s.CharField(), "data": s.DictField()},
+            fields={
+                "status": s.CharField(),
+                "data": inline_serializer(
+                    "CashInVsCashOutChartData",
+                    fields={
+                        "granularity": s.ChoiceField(
+                            choices=[*GRANULARITY_CHOICES, "custom"],
+                            help_text=(
+                                "'custom' when start_date/end_date were used "
+                                "without granularity (one row per day)."
+                            ),
+                        ),
+                        "date_range": _analytics_date_range_schema(),
+                        "category": s.ChoiceField(choices=SERVICES_TAB_CHOICES),
+                        "service_type": s.CharField(allow_null=True),
+                        "series": inline_serializer(
+                            "CashFlowSeriesRow",
+                            many=True,
+                            fields={
+                                "date": s.DateField(
+                                    help_text="Start date of the bucket (the day itself for daily rows)."
+                                ),
+                                "day": s.CharField(
+                                    help_text=(
+                                        "Display label, not a date: weekday name "
+                                        "('Monday') for daily, 'Week of Oct 06', "
+                                        "'October 2026', 'Q4 2026', or '2026'."
+                                    )
+                                ),
+                                "cash_in": s.FloatField(),
+                                "cash_out": s.FloatField(),
+                                "cashback": s.FloatField(),
+                            },
+                        ),
+                    },
+                ),
+            },
         ),
         400: inline_serializer(
             "CashInVsCashOutChartError",
@@ -4331,8 +4504,13 @@ class CashInVsCashOutChartView(APIView):
                 # bucket_income_expenditure_series below). Falls back to
                 # "custom" (no bucketing, one row per day) if granularity
                 # wasn't also passed.
+                # Read raw here - `granularity` above is already defaulted
+                # to "weekly", which would make "custom" unreachable.
+                requested_granularity = request.query_params.get("granularity")
                 resolved_granularity = (
-                    granularity if granularity in GRANULARITY_CHOICES else "custom"
+                    requested_granularity
+                    if requested_granularity in GRANULARITY_CHOICES
+                    else "custom"
                 )
             elif granularity in GRANULARITY_CHOICES:
                 current_start, current_end, _, _ = resolve_period(
