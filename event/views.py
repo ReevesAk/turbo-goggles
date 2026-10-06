@@ -1988,6 +1988,9 @@ class EventPartnerVerificationSubmitView(generics.GenericAPIView):
         user = request.user
         data = serializer.validated_data
 
+        # Fast pre-checks (avoid burning Dojah/9PSB quota)
+        # Authoritative checks run inside the atomic block below under
+        # select_for_update(), to close the read-then-write race.
         existing = EventPartnerProfile.objects.filter(user=user).first()
         if existing and existing.is_approved:
             return _error_response(
@@ -2006,7 +2009,7 @@ class EventPartnerVerificationSubmitView(generics.GenericAPIView):
                 status.HTTP_400_BAD_REQUEST,
             )
 
-        #  Step 1: NIN verification via Dojah (outside the lock)
+        # Step 1: NIN verification via Dojah (outside the lock)
         try:
             selfie_b64 = cloudinary_to_base64(url=user.profile_img_url)
         except Exception:
@@ -2053,25 +2056,27 @@ class EventPartnerVerificationSubmitView(generics.GenericAPIView):
                 status.HTTP_400_BAD_REQUEST,
             )
 
-        supplied_dob = data["nin_dob"].isoformat()
+        # Dojah's DOB is now stored (not compared against a client value —
+        # the partner no longer submits DOB).
         verified_dob_parsed = parse_dojah_dob(entity.get("date_of_birth"))
-        if not verified_dob_parsed or verified_dob_parsed.isoformat() != supplied_dob:
-            logger.info(
-                "NIN DOB mismatch: supplied=%s, parsed_from_dojah=%s, raw=%r",
-                supplied_dob,
-                verified_dob_parsed,
+        if not verified_dob_parsed:
+            logger.warning(
+                "Dojah returned unparseable DOB (raw=%r) for user %s.",
                 entity.get("date_of_birth"),
+                user.id,
             )
             return _error_response(
-                "NIN verification failed: date of birth mismatch.",
-                status.HTTP_400_BAD_REQUEST,
+                "NIN verification failed: service returned an unusable "
+                "date of birth. Please try again later.",
+                status.HTTP_502_BAD_GATEWAY,
             )
+        stored_dob = verified_dob_parsed.isoformat()
 
         nin_name = (
             f"{entity.get('first_name', '')} {entity.get('last_name', '')}"
         ).strip()
 
-        #  Step 2: Bank account verification via 9PSB (outside the lock)
+        # Step 2: Bank account verification via 9PSB (outside the lock)
         try:
             bank_response = Transfers.getAccount(
                 acct_num=data["bank_account_number"],
@@ -2101,7 +2106,6 @@ class EventPartnerVerificationSubmitView(generics.GenericAPIView):
             )
 
         bank_entity = bank_body.get("entity") or bank_body.get("data") or {}
-
         verified_account_name = (
             bank_entity.get("account_name") or bank_entity.get("accountName") or ""
         )
@@ -2113,12 +2117,26 @@ class EventPartnerVerificationSubmitView(generics.GenericAPIView):
                 status.HTTP_400_BAD_REQUEST,
             )
 
-        expected_name = f"{user.first_name} {user.last_name}".strip()
-        names_match = EventPartnerProfile.names_match(
-            expected_name, verified_account_name
-        )
+        # Bank name: prefer the 9PSB-returned name; fall back to the
+        # client's optional hint.
+        resolved_bank_name = (
+            bank_entity.get("bank_name")
+            or bank_entity.get("bankName")
+            or data.get("bank_name", "")
+            or ""
+        ).strip()
 
-        #  Step 3: Persist (locked, re-validated)
+        # Step 3: Determine auto-approval
+        profile_name = f"{user.first_name} {user.last_name}".strip()
+        profile_match = EventPartnerProfile.names_match(
+            profile_name, verified_account_name
+        )
+        nin_name_match = bool(nin_name) and EventPartnerProfile.names_match(
+            nin_name, verified_account_name
+        )
+        names_match = profile_match or nin_name_match
+
+        # Step 4: Persist (locked, re-validated)
         try:
             with transaction.atomic():
                 locked_existing = (
@@ -2147,16 +2165,12 @@ class EventPartnerVerificationSubmitView(generics.GenericAPIView):
                 profile = locked_existing or EventPartnerProfile(user=user)
 
                 profile.nin = data["nin"]
-                profile.nin_dob = supplied_dob
                 profile.nin_verified = True
                 profile.nin_name = nin_name
-
-                profile.business_name = data["business_name"]
-                profile.business_address = data["business_address"]
-                profile.tin = data["tin"]
+                profile.nin_dob = stored_dob
 
                 profile.bank_code = data["bank_code"]
-                profile.bank_name = data.get("bank_name", "") or ""
+                profile.bank_name = resolved_bank_name
                 profile.bank_account_number = data["bank_account_number"]
                 profile.bank_account_name = verified_account_name
                 profile.bank_verified = True
@@ -2186,12 +2200,15 @@ class EventPartnerVerificationSubmitView(generics.GenericAPIView):
                 status.HTTP_409_CONFLICT,
             )
 
-        #  Notifications fire OUTSIDE the lock
+        # Notifications fire OUTSIDE the lock
         if names_match:
             _notify_partner_verification_approved(profile)
             logger.info(
-                "Event partner %s auto-approved (name match on bank account).",
+                "Event partner %s auto-approved "
+                "(profile_match=%s, nin_name_match=%s).",
                 user.id,
+                profile_match,
+                nin_name_match,
             )
             return _success_response(
                 "Verification successful. You are now approved to create events.",
@@ -2202,14 +2219,15 @@ class EventPartnerVerificationSubmitView(generics.GenericAPIView):
         _notify_partner_verification_pending(profile)
         logger.info(
             "Event partner %s parked at PENDING (name mismatch: "
-            "expected=%r, verified=%r).",
+            "profile_name=%r, nin_name=%r, verified_account_name=%r).",
             user.id,
-            expected_name,
+            profile_name,
+            nin_name,
             verified_account_name,
         )
         return _success_response(
             "Verification received. Your bank account name does not match "
-            "your profile name, so a manual review is required.",
+            "your profile name or your NIN name, so a manual review is required.",
             EventPartnerVerificationReadSerializer(profile).data,
             status.HTTP_201_CREATED,
         )

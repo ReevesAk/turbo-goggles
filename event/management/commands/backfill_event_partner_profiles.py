@@ -135,12 +135,9 @@ class Command(BaseCommand):
                     EventPartnerProfile(
                         user_id=user.id,
                         nin=f"{SENTINEL_PREFIX}{user.id}",
-                        nin_dob="",
                         nin_verified=False,
                         nin_name=f"{user.first_name} {user.last_name}".strip(),
-                        business_name="",
-                        business_address="",
-                        tin="",
+                        nin_dob="",
                         bank_code="",
                         bank_name="",
                         bank_account_number=SENTINEL_BANK_ACCOUNT_NUMBER,
