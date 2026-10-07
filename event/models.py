@@ -1162,13 +1162,6 @@ class EventPartnerProfile(models.Model):
         max_length=30,
         help_text="Business bank account number (encrypted at rest)",
     )
-    bank_account_name = models.CharField(
-        max_length=200,
-        null=True,
-        blank=True,
-        help_text="Name returned by 9PSB account lookup",
-    )
-    bank_verified = models.BooleanField(default=False)
 
     # Status / review
     status = models.CharField(

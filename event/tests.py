@@ -249,8 +249,6 @@ def _create_event_partner_profile(user, **overrides):
         "bank_code": "000013",
         "bank_name": "GTBank",
         "bank_account_number": "0123456789",
-        "bank_account_name": f"{user.first_name} {user.last_name}",
-        "bank_verified": True,
         "status": EventPartnerProfile.Status.APPROVED,
         "reviewed_at": timezone.now(),
     }
@@ -2202,7 +2200,6 @@ class BackfillEventPartnerProfilesRevokeSentinelTests(ThrottleDisabledAPITestCas
             nin=f"BACKFILLED-{self.backfilled_partner.id}",
             nin_verified=False,
             bank_account_number="BACKFILLED",
-            bank_verified=False,
         )
         self.real_partner = _create_partner(email="real@example.com")
         self.real_profile = _create_event_partner_profile(self.real_partner)
@@ -2276,32 +2273,13 @@ class EventPartnerVerificationSubmitTests(ThrottleDisabledAPITestCase):
         }
         return resp
 
-    def _bank_ok(self, account_name="John Doe", bank_name=None):
-        """
-        Build a mock response for Transfers.getAccount.
-
-        If `bank_name` is provided, it's included in the 9PSB response so
-        the view prefers it over the client hint.
-        """
-        resp = MagicMock()
-        resp.status_code = 200
-        body = {"account_name": account_name}
-        if bank_name:
-            body["bank_name"] = bank_name
-        resp.json.return_value = {"data": body}
-        return resp
-
     # -------- Happy paths --------
 
     @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
-    @patch("event.views.Transfers.getAccount")
     @patch("event.views.KYC.verify_nin")
-    def test_submit_auto_approves_when_profile_name_matches(
-        self, mock_nin, mock_bank, mock_selfie
-    ):
-        """Bank name matches the user's profile name -> auto-approve."""
+    def test_submit_auto_approves_when_profile_name_matches(self, mock_nin, mock_bank):
+        """Dojah NIN name matches the user's profile name -> auto-approve."""
         mock_nin.return_value = self._dojah_ok()
-        mock_bank.return_value = self._bank_ok("JOHN DOE")  # case differs on purpose
 
         response = self.client.post(
             "/v1/events/partner/verification/submit/",
@@ -2316,46 +2294,19 @@ class EventPartnerVerificationSubmitTests(ThrottleDisabledAPITestCase):
         profile = EventPartnerProfile.objects.get(user=self.partner)
         self.assertEqual(profile.status, EventPartnerProfile.Status.APPROVED)
         self.assertTrue(profile.nin_verified)
-        self.assertTrue(profile.bank_verified)
         self.assertIsNotNone(profile.reviewed_at)
         self.assertIsNone(profile.reviewed_by)
-        self.assertEqual(profile.bank_account_name, "JOHN DOE")
+
         # DOB derived from Dojah, not from client
         self.assertEqual(profile.nin_dob, "1990-01-01")
 
     @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
-    @patch("event.views.Transfers.getAccount")
-    @patch("event.views.KYC.verify_nin")
-    def test_submit_auto_approves_when_nin_name_matches(
-        self, mock_nin, mock_bank, mock_selfie
-    ):
-        """Bank name matches the Dojah NIN name (not profile name) -> auto-approve."""
-        # Profile name is "John Doe"; Dojah returns "Johnny Doe"; bank
-        # account name is "Johnny Doe". NIN name match should carry it.
-        mock_nin.return_value = self._dojah_ok(first="Johnny", last="Doe")
-        mock_bank.return_value = self._bank_ok("Johnny Doe")
-
-        response = self.client.post(
-            "/v1/events/partner/verification/submit/",
-            data=encrypt(self._payload()),
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        profile = EventPartnerProfile.objects.get(user=self.partner)
-        self.assertEqual(profile.status, EventPartnerProfile.Status.APPROVED)
-        self.assertEqual(profile.nin_name, "Johnny Doe")
-        self.assertEqual(profile.bank_account_name, "Johnny Doe")
-
-    @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
-    @patch("event.views.Transfers.getAccount")
     @patch("event.views.KYC.verify_nin")
     def test_submit_parks_at_pending_when_both_names_mismatch(
-        self, mock_nin, mock_bank, mock_selfie
+        self, mock_nin, mock_bank
     ):
-        """Neither profile name nor NIN name matches bank name -> PENDING."""
+        """Dojah NIN name does not match profile name -> PENDING."""
         mock_nin.return_value = self._dojah_ok(first="Alice", last="Smith")
-        mock_bank.return_value = self._bank_ok("Some Other Person Ltd")
 
         response = self.client.post(
             "/v1/events/partner/verification/submit/",
@@ -2370,75 +2321,8 @@ class EventPartnerVerificationSubmitTests(ThrottleDisabledAPITestCase):
         self.assertIsNone(profile.reviewed_by)
 
     @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
-    @patch("event.views.Transfers.getAccount")
     @patch("event.views.KYC.verify_nin")
-    def test_submit_uses_bank_name_from_9psb_when_provided(
-        self, mock_nin, mock_bank, mock_selfie
-    ):
-        """If 9PSB returns a bank_name, prefer it over the client hint."""
-        mock_nin.return_value = self._dojah_ok()
-        # Client sends bank_name="GTBank"; 9PSB returns "Guaranty Trust"
-        mock_bank.return_value = self._bank_ok(
-            "John Doe", bank_name="Guaranty Trust Bank"
-        )
-
-        response = self.client.post(
-            "/v1/events/partner/verification/submit/",
-            data=encrypt(self._payload(bank_name="GTBank")),
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        profile = EventPartnerProfile.objects.get(user=self.partner)
-        self.assertEqual(profile.bank_name, "Guaranty Trust Bank")
-
-    @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
-    @patch("event.views.Transfers.getAccount")
-    @patch("event.views.KYC.verify_nin")
-    def test_submit_falls_back_to_client_bank_name(
-        self, mock_nin, mock_bank, mock_selfie
-    ):
-        """If 9PSB omits bank_name, the client hint is stored."""
-        mock_nin.return_value = self._dojah_ok()
-        # _bank_ok with no bank_name arg -> no bank_name in 9PSB body
-        mock_bank.return_value = self._bank_ok("John Doe")
-
-        response = self.client.post(
-            "/v1/events/partner/verification/submit/",
-            data=encrypt(self._payload(bank_name="GTBank")),
-            format="json",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        profile = EventPartnerProfile.objects.get(user=self.partner)
-        self.assertEqual(profile.bank_name, "GTBank")
-
-    @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
-    @patch("event.views.Transfers.getAccount")
-    @patch("event.views.KYC.verify_nin")
-    def test_submit_handles_accountName_camelcase(
-        self, mock_nin, mock_bank, mock_selfie
-    ):
-        """9PSB responses vary; ensure accountName is picked up."""
-        mock_nin.return_value = self._dojah_ok()
-        resp = MagicMock()
-        resp.status_code = 200
-        resp.json.return_value = {"entity": {"accountName": "John Doe"}}
-        mock_bank.return_value = resp
-
-        response = self.client.post(
-            "/v1/events/partner/verification/submit/",
-            data=encrypt(self._payload()),
-            format="json",
-        )
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        profile = EventPartnerProfile.objects.get(user=self.partner)
-        self.assertEqual(profile.status, EventPartnerProfile.Status.APPROVED)
-
-    @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
-    @patch("event.views.Transfers.getAccount")
-    @patch("event.views.KYC.verify_nin")
-    def test_resubmit_overwrites_rejected_row(self, mock_nin, mock_bank, mock_selfie):
+    def test_resubmit_overwrites_rejected_row(self, mock_nin, mock_bank):
         existing = _create_event_partner_profile(
             self.partner,
             status=EventPartnerProfile.Status.REJECTED,
@@ -2448,7 +2332,6 @@ class EventPartnerVerificationSubmitTests(ThrottleDisabledAPITestCase):
         original_id = existing.id
 
         mock_nin.return_value = self._dojah_ok()
-        mock_bank.return_value = self._bank_ok("John Doe")
 
         response = self.client.post(
             "/v1/events/partner/verification/submit/",
@@ -2464,14 +2347,11 @@ class EventPartnerVerificationSubmitTests(ThrottleDisabledAPITestCase):
         self.assertEqual(profile.rejection_reason, "")
 
     # -------- DOB handling (new behavior) --------
-
     @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
-    @patch("event.views.Transfers.getAccount")
     @patch("event.views.KYC.verify_nin")
-    def test_submit_stores_dojah_dob(self, mock_nin, mock_bank, mock_selfie):
-        """DOB is derived from Dojah, not supplied by the client."""
-        mock_nin.return_value = self._dojah_ok(dob="1985-05-05")
-        mock_bank.return_value = self._bank_ok("John Doe")
+    def test_submit_stores_dojah_nin_name(self, mock_nin, mock_selfie):
+        """The Dojah-returned NIN name is stored verbatim on the profile."""
+        mock_nin.return_value = self._dojah_ok(first="John", last="Doe")
 
         response = self.client.post(
             "/v1/events/partner/verification/submit/",
@@ -2481,17 +2361,13 @@ class EventPartnerVerificationSubmitTests(ThrottleDisabledAPITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         profile = EventPartnerProfile.objects.get(user=self.partner)
-        self.assertEqual(profile.nin_dob, "1985-05-05")
+        self.assertEqual(profile.nin_name, "John Doe")
 
     @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
-    @patch("event.views.Transfers.getAccount")
     @patch("event.views.KYC.verify_nin")
-    def test_submit_returns_502_when_dojah_dob_unparseable(
-        self, mock_nin, mock_bank, mock_selfie
-    ):
+    def test_submit_returns_502_when_dojah_dob_unparseable(self, mock_nin, mock_bank):
         """Dojah returns garbage DOB -> 502 (service problem, not client's fault)."""
         mock_nin.return_value = self._dojah_ok(dob="not-a-date")
-        mock_bank.return_value = self._bank_ok("John Doe")
 
         response = self.client.post(
             "/v1/events/partner/verification/submit/",
@@ -2528,34 +2404,6 @@ class EventPartnerVerificationSubmitTests(ThrottleDisabledAPITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
-
-    @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
-    @patch("event.views.Transfers.getAccount")
-    @patch("event.views.KYC.verify_nin")
-    def test_submit_returns_502_on_bank_outage(self, mock_nin, mock_bank, mock_selfie):
-        mock_nin.return_value = self._dojah_ok()
-        mock_bank.return_value = None
-
-        response = self.client.post(
-            "/v1/events/partner/verification/submit/",
-            data=encrypt(self._payload()),
-            format="json",
-        )
-        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
-
-    @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
-    @patch("event.views.Transfers.getAccount")
-    @patch("event.views.KYC.verify_nin")
-    def test_submit_rejects_empty_account_name(self, mock_nin, mock_bank, mock_selfie):
-        mock_nin.return_value = self._dojah_ok()
-        mock_bank.return_value = self._bank_ok("")
-
-        response = self.client.post(
-            "/v1/events/partner/verification/submit/",
-            data=encrypt(self._payload()),
-            format="json",
-        )
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_submit_rejects_duplicate_nin_from_other_user(self):
         other = _create_partner(email="other@example.com")
@@ -2632,7 +2480,6 @@ class AdminEventPartnerVerificationTests(ThrottleDisabledAPITestCase):
             self.partner,
             status=EventPartnerProfile.Status.PENDING,
             reviewed_at=None,
-            bank_account_name="Some Other Person",
         )
         self.client.force_authenticate(user=self.admin)
         cache.clear()
@@ -2840,52 +2687,6 @@ class EventPartnerVerificationFuzzTests(ThrottleDisabledAPITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_ignores_legacy_payload_fields(self):
-        """
-        Old clients sending business_name / business_address / tin get them
-        silently ignored (extra keys on a plain DRF Serializer are dropped).
-        The request still succeeds.
-        """
-        with patch(
-            "event.views.cloudinary_to_base64", return_value="base64selfie"
-        ), patch("event.views.KYC.verify_nin") as mock_nin, patch(
-            "event.views.Transfers.getAccount"
-        ) as mock_bank:
-
-            resp = MagicMock()
-            resp.status_code = 200
-            resp.json.return_value = {
-                "entity": {
-                    "first_name": "John",
-                    "last_name": "Doe",
-                    "date_of_birth": "1990-01-01",
-                    "selfie_verification": {
-                        "match": True,
-                        "confidence_value": 95.0,
-                    },
-                }
-            }
-            mock_nin.return_value = resp
-
-            bank = MagicMock()
-            bank.status_code = 200
-            bank.json.return_value = {"data": {"account_name": "John Doe"}}
-            mock_bank.return_value = bank
-
-            response = self.client.post(
-                "/v1/events/partner/verification/submit/",
-                data=encrypt(
-                    self._base(
-                        business_name="Old Co",
-                        business_address="1 Old St",
-                        tin="OLD123",
-                        nin_dob="1990-01-01",
-                    )
-                ),
-                format="json",
-            )
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
 
     def test_rejects_non_encrypted_payload(self):
         """Raw JSON without encryption envelope should fail decryption."""
