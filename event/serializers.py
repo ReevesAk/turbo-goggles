@@ -37,7 +37,7 @@ class EventPartnerVerificationSubmitSerializer(serializers.Serializer):
     Verification logic (see EventPartnerVerificationSubmitView):
         - NIN is verified via Dojah with a selfie match against the user's
           profile image (confidence >= 90).
-        - Auto-approval requires the 9PSB nin name to match the
+        - Auto-approval requires the Dojah-returned NIN name to match the
           user's profile name.
         - Otherwise the profile is parked at PENDING for admin review.
     """

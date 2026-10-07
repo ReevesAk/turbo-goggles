@@ -141,7 +141,6 @@ class Command(BaseCommand):
                         bank_code="",
                         bank_name="",
                         bank_account_number=SENTINEL_BANK_ACCOUNT_NUMBER,
-                        bank_verified=False,
                         status=EventPartnerProfile.Status.APPROVED,
                         rejection_reason="",
                         reviewed_by_id=None,
