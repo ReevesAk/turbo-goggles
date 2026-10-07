@@ -288,18 +288,15 @@ class EventPartnerProfileAdmin(admin.ModelAdmin):
         "user",
         "status",
         "nin_verified",
-        "bank_verified",
-        "bank_account_name",
         "submitted_at",
         "reviewed_at",
     )
-    list_filter = ("status", "nin_verified", "bank_verified", "submitted_at")
+    list_filter = ("status", "nin_verified", "submitted_at")
     search_fields = (
         "user__email",
         "user__first_name",
         "user__last_name",
         "nin_name",
-        "bank_account_name",
     )
     readonly_fields = (
         "id",
@@ -307,7 +304,6 @@ class EventPartnerProfileAdmin(admin.ModelAdmin):
         "bank_account_number",
         "nin_name",
         "nin_dob",
-        "bank_account_name",
         "submitted_at",
         "updated_at",
         "reviewed_at",
@@ -333,8 +329,6 @@ class EventPartnerProfileAdmin(admin.ModelAdmin):
                     "bank_code",
                     "bank_name",
                     "bank_account_number",
-                    "bank_account_name",
-                    "bank_verified",
                 )
             },
         ),
