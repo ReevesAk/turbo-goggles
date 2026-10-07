@@ -37,9 +37,8 @@ class EventPartnerVerificationSubmitSerializer(serializers.Serializer):
     Verification logic (see EventPartnerVerificationSubmitView):
         - NIN is verified via Dojah with a selfie match against the user's
           profile image (confidence >= 90).
-        - Bank account is verified via 9PSB.
-        - Auto-approval requires the 9PSB account name to match EITHER the
-          user's profile name OR the Dojah-returned NIN name.
+        - Auto-approval requires the 9PSB nin name to match the
+          user's profile name.
         - Otherwise the profile is parked at PENDING for admin review.
     """
 
@@ -104,8 +103,6 @@ class EventPartnerVerificationReadSerializer(serializers.ModelSerializer):
             "nin_verified",
             "nin_name",
             "nin_dob",
-            "bank_verified",
-            "bank_account_name",
             "bank_name",
             "bank_code",
             "rejection_reason",
