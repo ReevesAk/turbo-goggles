@@ -2227,6 +2227,16 @@ class BackfillEventPartnerProfilesRevokeSentinelTests(ThrottleDisabledAPITestCas
             EventPartnerProfile.objects.filter(id=self.backfilled_profile.id).exists()
         )
 
+    def test_backfill_creates_profile_for_unprofiled_partner(self):
+        """Regression: a leftover bank_verified kwarg made every row fail."""
+        from django.core.management import call_command
+
+        partner = _create_partner(email="unprofiled@example.com")
+
+        call_command("backfill_event_partner_profiles")
+
+        self.assertTrue(EventPartnerProfile.objects.filter(user=partner).exists())
+
 
 # =============================================================================
 # Event Partner Verification — Endpoint Integration Tests
@@ -2277,7 +2287,7 @@ class EventPartnerVerificationSubmitTests(ThrottleDisabledAPITestCase):
 
     @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
     @patch("event.views.KYC.verify_nin")
-    def test_submit_auto_approves_when_profile_name_matches(self, mock_nin, mock_bank):
+    def test_submit_auto_approves_when_profile_name_matches(self, mock_nin, mock_selfie):
         """Dojah NIN name matches the user's profile name -> auto-approve."""
         mock_nin.return_value = self._dojah_ok()
 
@@ -2303,7 +2313,7 @@ class EventPartnerVerificationSubmitTests(ThrottleDisabledAPITestCase):
     @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
     @patch("event.views.KYC.verify_nin")
     def test_submit_parks_at_pending_when_both_names_mismatch(
-        self, mock_nin, mock_bank
+        self, mock_nin, mock_selfie
     ):
         """Dojah NIN name does not match profile name -> PENDING."""
         mock_nin.return_value = self._dojah_ok(first="Alice", last="Smith")
@@ -2322,7 +2332,7 @@ class EventPartnerVerificationSubmitTests(ThrottleDisabledAPITestCase):
 
     @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
     @patch("event.views.KYC.verify_nin")
-    def test_resubmit_overwrites_rejected_row(self, mock_nin, mock_bank):
+    def test_resubmit_overwrites_rejected_row(self, mock_nin, mock_selfie):
         existing = _create_event_partner_profile(
             self.partner,
             status=EventPartnerProfile.Status.REJECTED,
@@ -2365,8 +2375,11 @@ class EventPartnerVerificationSubmitTests(ThrottleDisabledAPITestCase):
 
     @patch("event.views.cloudinary_to_base64", return_value="base64selfie")
     @patch("event.views.KYC.verify_nin")
-    def test_submit_returns_502_when_dojah_dob_unparseable(self, mock_nin, mock_bank):
-        """Dojah returns garbage DOB -> 502 (service problem, not client's fault)."""
+    def test_submit_stores_blank_dob_when_dojah_dob_unparseable(
+        self, mock_nin, mock_selfie
+    ):
+        """DOB is informational only - an unparseable Dojah DOB is stored
+        blank instead of blocking verification."""
         mock_nin.return_value = self._dojah_ok(dob="not-a-date")
 
         response = self.client.post(
@@ -2375,8 +2388,9 @@ class EventPartnerVerificationSubmitTests(ThrottleDisabledAPITestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, status.HTTP_502_BAD_GATEWAY)
-        self.assertFalse(EventPartnerProfile.objects.filter(user=self.partner).exists())
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        profile = EventPartnerProfile.objects.get(user=self.partner)
+        self.assertEqual(profile.nin_dob, "")
 
     # -------- Failure paths --------
 

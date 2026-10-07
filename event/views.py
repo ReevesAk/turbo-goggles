@@ -2061,21 +2061,17 @@ class EventPartnerVerificationSubmitView(generics.GenericAPIView):
                 status.HTTP_400_BAD_REQUEST,
             )
 
-        # Dojah's DOB is now stored (not compared against a client value —
-        # the partner no longer submits DOB).
+        # Dojah's DOB is stored for reference only - the partner no longer
+        # submits one and nothing compares against it, so an unparseable
+        # value is stored blank rather than blocking verification.
         verified_dob_parsed = parse_dojah_dob(entity.get("date_of_birth"))
         if not verified_dob_parsed:
             logger.warning(
-                "Dojah returned unparseable DOB (raw=%r) for user %s.",
+                "Dojah returned unparseable DOB (raw=%r) for user %s; storing blank.",
                 entity.get("date_of_birth"),
                 user.id,
             )
-            return _error_response(
-                "NIN verification failed: service returned an unusable "
-                "date of birth. Please try again later.",
-                status.HTTP_502_BAD_GATEWAY,
-            )
-        stored_dob = verified_dob_parsed.isoformat()
+        stored_dob = verified_dob_parsed.isoformat() if verified_dob_parsed else ""
 
         nin_name = (
             f"{entity.get('first_name', '')} {entity.get('last_name', '')}"
@@ -2154,10 +2150,8 @@ class EventPartnerVerificationSubmitView(generics.GenericAPIView):
         if names_match:
             _notify_partner_verification_approved(profile)
             logger.info(
-                "Event partner %s auto-approved "
-                "(profile_match=%s, nin_name_match=%s).",
+                "Event partner %s auto-approved (NIN name matched profile name).",
                 user.id,
-                nin_name_match,
             )
             return _success_response(
                 "Verification successful. You are now approved to create events.",
