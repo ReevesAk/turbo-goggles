@@ -1,82 +1,82 @@
-<!-- ...existing code... -->
+# Picadailys — Backend API
 
-# Picadailys — Banking API
+[![CI](https://github.com/picadailystechhub/backend/actions/workflows/ci.yml/badge.svg)](https://github.com/picadailystechhub/backend/actions/workflows/ci.yml)
+
+Django REST API powering the Picadailys mobile app (members, partners, advertisers, guests), the admin dashboard, the support dashboard and the marketing website.
+
+## Quick start (Docker)
+
+Requires Docker Desktop. No other setup or provider accounts needed.
+
+```bash
+git clone https://github.com/picadailystechhub/backend.git && cd backend
+docker compose up --build          # web on http://localhost:8000, plus worker, PostGIS, Redis
+```
+
+API docs are then available at http://localhost:8000/v1/docs/ (Scalar), `/v1/swagger/` and `/v1/redoc/`.
+
+Run the test suite:
+
+```bash
+make docker-test                   # = docker compose --profile test run --rm test
+```
+
+The test container reads only `.env.example` placeholders and an in-memory SpatiaLite database, so it never touches real data or calls live providers. To use real credentials for the dev server, `cp .env.example .env` and fill it in; compose layers `.env` over the placeholders.
 
 ## Project overview
-Picadailys is a Django-based microservices-style platform powering fintech and value-added services. This repository contains the Banking service — a Django REST Framework (DRF) API that handles wallet management, KYC, transfers, card payments, transactions, FX quotes, and webhooks. The project integrates multiple third-party providers (Cloudinary, Paystack, Twilio, NextBee, VTpass, etc.) and uses Redis for caching and background needs.
 
-## Architecture & components
-- Django + Django REST Framework for APIs
-- PostgreSQL as primary datastore (DATABASE_URL)
-- Redis for caching/job coordination
-- Cloudinary for media storage
-- drf-spectacular for OpenAPI schema + Swagger/Redoc
-- Modular apps: accounts, banking, transfers, fx, gamification, vas, fmcg, partners, roles, support
-- Webhooks endpoints for payment provider callbacks
-- AES and JWT-based encryption/auth patterns
+| | |
+|---|---|
+| Framework | Django 5.2, Django REST Framework, drf-spectacular |
+| Data | PostgreSQL + PostGIS, Redis (cache and Celery broker) |
+| Background work | Celery worker/beat, django-crontab |
+| Python | 3.12 |
 
-## Key features
-- KYC verification (BVN & NIN)
-- Tiered wallet lifecycle (create, upgrade to tier2/tier3)
-- Wallet PIN management (set, reset, OTP flows)
-- Intra- and inter-bank transfers
-- Card funding flows and refunds
-- Transaction listing and retrieval
-- FX quotation endpoint
-- Webhook handlers for inflows and card payments
-- Notifications & push integrations (Pusher, Twilio)
-- Role-based permissions and granular access control
+**Mobile-facing apps:** `accounts`, `banking` (9PSB wallets, transfers, card funding), `vas` (airtime, data, bills), `treasury` (Anchor BaaS), `user_profile`, `gamification` (PicaPoints, streaks, referrals, UGC), `tasks` (AI-verified social/brand tasks), `adverts`, `partners`, `self_service`, `fmcg`, `event`, `flights`, `agents`, `ai_support`, `waitlist`, `blog`.
 
-## Repository layout (important files & folders)
-- banking/ — banking app (views, urls, transfers, fx, tx, webhooks)
-- accounts/ — user management and authentication
-- config/ or project root settings — global Django settings and SPECTACULAR_SETTINGS
-- requirements.txt — Python dependencies
-- .env — environment variables (sensitive; DO NOT commit)
-- README.md — this file
+**Web-facing apps:** `roles` (admin dashboard), `support` (support dashboard), `web` (marketing website).
 
-## Environment variables (example)
-DO NOT commit real secrets. Add a local `.env` with required variables. Examples (non-exhaustive):
-- SECRET_KEY
-- DEBUG
-- DATABASE_URL
-- REDIS_LOCATION
-- CLOUDINARY_* (CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET)
-- PAYSTACK_SECRET_KEY
-- TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN
-- PUSHER_APP_*  
-Refer to `.env.example` (create one) for the full list.
+**Integrations:** 9PSB (banking, VAS), Anchor, VTPass, Dojah (KYC), Paystack (cards), YourNotify (SMS/email/WhatsApp), Firebase (push), FlightsLogic, Anthropic Claude, Cloudinary.
 
-## Requirements & setup (macOS)
-1. Create and activate venv:
-   - python3 -m venv .venv
-   - source .venv/bin/activate
-2. Install:
-   - pip install -r requirements.txt
-3. Create `.env` (copy from `.env.example`) and populate secrets.
-4. Migrate and collect static:
-   - python manage.py migrate
-   - python manage.py collectstatic --noinput
-5. Run dev server:
-   - python manage.py runserver 0.0.0.0:8000
+## Environment variables
+
+Every variable the code reads is listed in [`.env.example`](.env.example) with a safe placeholder. Never commit `.env`.
+
+## Local setup without Docker (macOS)
+
+1. Install system libraries: `brew install gdal spatialite-tools postgis redis`
+2. `python3.12 -m venv .venv && source .venv/bin/activate`
+3. `pip install -r requirements.lock`
+4. `cp .env.example .env`, then set `DATABASE_URL` and `REDIS_LOCATION` to your local services
+5. `python manage.py migrate && python manage.py runserver`
 
 ## Running tests
-- python manage.py test
-- Use Django test tags and DRF APITestCase for endpoint coverage.
-- CI should run tests with a test database and mock external providers.
+
+```bash
+pytest                             # or: make test
+pytest --cov                       # with coverage
+```
+
+Tests live in each app's `tests.py`. Under test, settings switch to an in-memory SpatiaLite database with migrations disabled (`TESTING` in `picadailys/settings.py`), and external providers are mocked.
+
+## Continuous integration
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and pull request:
+
+- **lint**: `make lint` (flake8)
+- **test**: `manage.py check` and the full pytest suite with coverage
+- **audit**: `pip-audit` against `requirements.lock`
+
+## Dependencies
+
+`requirements.txt` holds the direct dependencies; `requirements.lock` pins the full tree for reproducible installs. After editing either requirements file, run `make lock`. Dependabot opens weekly update PRs.
 
 ## API documentation
-Use drf-spectacular to publish OpenAPI schema and interactive UIs.
 
-Recommended URLs to add under the banking (or global) urls:
-- /api/schema/  (SpectacularAPIView)
-- /api/docs/    (SpectacularSwaggerView)
-- /api/redoc/   (SpectacularRedocView)
-
-Example SPECTACULAR_SETTINGS (settings.py):
-- TITLE, DESCRIPTION, VERSION, TAGS, COMPONENT_SPLIT_REQUEST
-
-Document each view with @extend_schema for clear request/response examples and tags.
+- `/v1/docs/`: Scalar (primary)
+- `/v1/swagger/`: Swagger UI
+- `/v1/redoc/`: ReDoc
+- `/v1/schema/`: raw OpenAPI schema
 
 ## Authentication & security
 - JWT (rest_framework_simplejwt) for authenticated endpoints

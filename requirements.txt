@@ -1,4 +1,4 @@
-anthropic>=0.40.0
+anthropic==0.109.1
 amqp==5.3.1
 asgiref==3.11.1
 attrs==25.4.0
@@ -62,12 +62,10 @@ python-decouple==3.8
 pytokens==0.4.1
 pytz==2025.2
 PyYAML==6.0.3
-rapidfuzz
 reportlab==4.4.10
 RapidFuzz==3.14.5
 redis==7.2.0
 referencing==0.37.0
-reportlab==4.4.10
 requests==2.32.5
 rpds-py==0.30.0
 schedule==1.2.2
