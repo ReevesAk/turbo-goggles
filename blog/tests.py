@@ -16,6 +16,7 @@ from .models import Blog
 from accounts.models import AccountType
 from roles.models import ActivityModel
 from security import decrypt
+from testing_utils import TEST_PASSWORD
 
 User = get_user_model()
 
@@ -298,7 +299,7 @@ class BlogAdminCreateViewTest(TestCase):
         self.admin_user = User.objects.create_user(
             email="admin@example.com",
             phone_number="1234567890",
-            password="adminpass123",
+            password=TEST_PASSWORD,
             first_name="Admin",
             last_name="User",
             is_verified=True,
@@ -359,7 +360,7 @@ class BlogAdminCreateViewTest(TestCase):
         regular_user = User.objects.create_user(
             email="user@example.com",
             phone_number="9876543210",
-            password="userpass123",
+            password=TEST_PASSWORD,
             is_verified=True,
         )
         self.client.force_authenticate(user=regular_user)
@@ -407,7 +408,7 @@ class BlogAdminListViewTest(TestCase):
         self.admin_user = User.objects.create_user(
             email="admin@example.com",
             phone_number="1234567890",
-            password="adminpass123",
+            password=TEST_PASSWORD,
             is_verified=True,
         )
         AccountType.objects.create(
@@ -504,7 +505,7 @@ class BlogAdminDetailViewTest(TestCase):
         self.admin_user = User.objects.create_user(
             email="admin@example.com",
             phone_number="1234567890",
-            password="adminpass123",
+            password=TEST_PASSWORD,
             is_verified=True,
         )
         AccountType.objects.create(
@@ -724,7 +725,7 @@ class BlogPermissionTest(TestCase):
         self.super_admin = User.objects.create_user(
             email="super@example.com",
             phone_number="1111111111",
-            password="superpass123",
+            password=TEST_PASSWORD,
             is_verified=True,
         )
         AccountType.objects.create(
@@ -737,7 +738,7 @@ class BlogPermissionTest(TestCase):
         self.fmcg_admin = User.objects.create_user(
             email="fmcg@example.com",
             phone_number="2222222222",
-            password="fmcgpass123",
+            password=TEST_PASSWORD,
             is_verified=True,
         )
         AccountType.objects.create(
@@ -750,7 +751,7 @@ class BlogPermissionTest(TestCase):
         self.regular_user = User.objects.create_user(
             email="user@example.com",
             phone_number="3333333333",
-            password="userpass123",
+            password=TEST_PASSWORD,
             is_verified=True,
         )
 
@@ -917,7 +918,7 @@ class BlogEdgeCasesTest(TestCase):
         self.admin_user = User.objects.create_user(
             email="admin@example.com",
             phone_number="1234567890",
-            password="adminpass123",
+            password=TEST_PASSWORD,
             is_verified=True,
         )
         AccountType.objects.create(

@@ -4464,10 +4464,11 @@ class ReferralsServiceTests(ThrottleDisabledAPITestCase):
 
         self.assertNotEqual(code1, code2)
 
-    def test_generate_walk_to_earn_code_contains_walk_suffix(self):
+    def test_generate_walk_to_earn_code_is_short_random_code(self):
+        # Shortened to a bare 6-char code (no name prefix or WALK suffix).
         code = Referrals.generate_walk_to_earn_code(self.referrer)
 
-        self.assertTrue(code.endswith("WALK"))
+        self.assertRegex(code, r"^[A-Z0-9]{6}$")
 
     def test_code_uniqueness_namespace_is_shared_across_both_fields(self):
         """referral_code and walk_to_earn_referral_code share one uniqueness
@@ -5000,7 +5001,7 @@ class MyReferralStatusAndWalkToEarnCodeViewTests(ThrottleDisabledAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         body = decrypt(response.data)
         code = body["data"]["walk_to_earn_referral_code"]
-        self.assertTrue(code.endswith("WALK"))
+        self.assertRegex(code, r"^[A-Z0-9]{6}$")
 
         self.user.refresh_from_db()
         self.assertEqual(self.user.walk_to_earn_referral_code, code)

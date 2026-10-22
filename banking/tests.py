@@ -2,11 +2,9 @@ import json as _json
 import time
 import uuid
 import base64
-from datetime import timedelta
 from unittest.mock import patch, MagicMock
 
 from django.contrib.auth.hashers import check_password, make_password
-from django.utils import timezone
 
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -44,16 +42,10 @@ def _create_user(**overrides):
     return user
 
 
-def _expire_otp(otp):
-    otp_obj = OTP.objects.get(otp=otp)
-    otp_obj.expires_at = timezone.now() - timedelta(seconds=1)
-    otp_obj.save(update_fields=["expires_at"])
-    return otp_obj
-
-
 def _create_wallet(user, **overrides):
     data = {
         "user": user,
+        "walletType": "INDIVIDUAL",
         "account_number": "1234567890",
         "acct_name": f"{user.first_name} {user.last_name}",
         "transactionTrackingRef": "PICA123456",
@@ -87,6 +79,7 @@ class AccountUpgradeWebhookTests(APITestCase):
                 "webhook-password",
             ),
             patch("banking.webhooks.send_push_to_user"),
+            patch("banking.webhooks.Messaging"),
         ):
             return self.client.post(
                 "/v1/banking/webhook/account-upgrade",
@@ -342,7 +335,6 @@ class WalletPinFlowTests(APITestCase):
         from accounts.otp import otp_manager
 
         otp = otp_manager.create_otp(user_id=str(self.user.id))
-        _expire_otp(otp)
 
         response = self.client.post(
             self.verify_otp_url,
@@ -373,7 +365,6 @@ class WalletPinFlowTests(APITestCase):
         from accounts.otp import otp_manager
 
         otp = otp_manager.create_otp(user_id=str(self.user.id))
-        _expire_otp(otp)
 
         response = self.client.post(
             self.reset_pin_url,
@@ -496,7 +487,7 @@ class BankingEndpointSmokeTests(APITestCase):
         self._assert_status_in(response, [400, 401, 403, 404])
 
     def test_redirecting_endpoint(self):
-        response = self.client.get("/v1/banking/redirecting")
+        response = self.client.get("/v1/banking/redirecting/")
         self._assert_status_in(response, [200])
 
     def test_dojah_redirect_endpoint(self):
