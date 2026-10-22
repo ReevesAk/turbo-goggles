@@ -470,10 +470,15 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
                     logger.info(
                         f"Sending SMS to {user.phone_number} with message: {sms_msg}"
                     )
-                    Messaging.send_sms(
-                        phone_number=user.phone_number[1:],
-                        msg=sms_msg,
-                    )
+                    try:
+                        Messaging.send_sms(
+                            phone_number=user.phone_number[1:],
+                            msg=sms_msg,
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to send account upgrade SMS to {user.phone_number}: {e}"
+                        )
 
                 if alert_type in ("Email", "Both"):
                     try:
@@ -538,10 +543,15 @@ class AccountUpgradeWebhookNotificationView(generics.CreateAPIView):
 
                 if alert_type in ("SMS", "Both"):
                     sms_msg = f"Dear {user.first_name}, your account upgrade request for {account_number} was not approved. Reason: {reason}"
-                    Messaging.send_sms(
-                        phone_number=user.phone_number[1:],
-                        msg=sms_msg,
-                    )
+                    try:
+                        Messaging.send_sms(
+                            phone_number=user.phone_number[1:],
+                            msg=sms_msg,
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to send upgrade decline SMS to {user.phone_number}: {e}"
+                        )
 
                 if alert_type in ("Email", "Both"):
                     try:

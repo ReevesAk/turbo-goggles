@@ -650,11 +650,17 @@ class BrandTaskFeedView(generics.ListAPIView):
             radius_km=radius_km,
         )
 
-        def _is_store_visit(task_data):
+        def _task_type(task_data):
+            # Every feed serializer nests the type under "task" ({"task":
+            # {"type": ...}}); top-level keys are kept as a fallback.
             return (
-                task_data.get("task_type") == "store_visit"
-                or task_data.get("type") == "store_visit"
+                (task_data.get("task") or {}).get("type")
+                or task_data.get("task_type")
+                or task_data.get("type")
             )
+
+        def _is_store_visit(task_data):
+            return _task_type(task_data) == "store_visit"
 
         store_tasks = [t for t in sorted_tasks if _is_store_visit(t)]
         other_tasks = [t for t in sorted_tasks if not _is_store_visit(t)]
@@ -676,12 +682,7 @@ class BrandTaskFeedView(generics.ListAPIView):
         if task_type_filter:
             if task_type_filter == "store_visit":
                 # If location is NOT available, distance_km will be None but they're still valid store visits
-                final_data = [
-                    t
-                    for t in final_data
-                    if t.get("task_type") == "store_visit"
-                    or t.get("type") == "store_visit"
-                ]
+                final_data = [t for t in final_data if _is_store_visit(t)]
                 # Add a note in metadata about location status
                 location_status = "available" if user_lat is not None else "unavailable"
                 logger.info(
@@ -690,10 +691,7 @@ class BrandTaskFeedView(generics.ListAPIView):
             else:
                 # Filter by task_type field in the data
                 final_data = [
-                    t
-                    for t in final_data
-                    if t.get("task_type") == task_type_filter
-                    or t.get("type") == task_type_filter
+                    t for t in final_data if _task_type(t) == task_type_filter
                 ]
 
         # Completed and expired tasks - across all four sources (brand,
