@@ -518,12 +518,20 @@ if TESTING:
     print("In TEST Mode - Disabling Migrations")
     print("=========================")
 
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.contrib.gis.db.backends.spatialite",
-            "NAME": ":memory:",  # Use an in-memory database for tests
+    # TEST_DATABASE_URL (docker compose test service, CI) runs the suite on
+    # PostGIS like production - needed for Postgres-only lookups such as
+    # JSONField __contains. Without it, fall back to in-memory SpatiaLite.
+    test_database_url = conf("TEST_DATABASE_URL", default="")
+    if test_database_url:
+        DATABASES = {"default": dj_database_url.parse(test_database_url)}
+        DATABASES["default"]["ENGINE"] = "django.contrib.gis.db.backends.postgis"
+    else:
+        DATABASES = {
+            "default": {
+                "ENGINE": "django.contrib.gis.db.backends.spatialite",
+                "NAME": ":memory:",  # Use an in-memory database for tests
+            }
         }
-    }
 
     class DisableMigrations(object):
 
@@ -534,6 +542,11 @@ if TESTING:
             return None
 
     MIGRATION_MODULES = DisableMigrations()
+
+    # Queue .delay() calls in memory instead of reaching a real broker; tasks
+    # are not executed, so no provider calls happen from background jobs.
+    CELERY_BROKER_URL = "memory://"
+    CELERY_BROKER_USE_SSL = None
 
     # Speed up test runs by avoiding expensive PBKDF2 hashing.
     PASSWORD_HASHERS = [
