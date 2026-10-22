@@ -1,0 +1,72 @@
+# One-command local stack:  docker compose up
+# Run the test suite:       docker compose run --rm test
+#
+# web/worker read .env.example, then your own .env if present (later wins).
+# DATABASE_URL / REDIS_LOCATION are always forced to the compose services, so
+# a local .env pointing at a hosted database is never used from here.
+# The test service reads ONLY .env.example - tests never see real credentials.
+
+x-app: &app
+  build: .
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_started
+  env_file:
+    - path: .env.example
+    - path: .env
+      required: false
+  environment: &app-env
+    ENVIRONMENT: development
+    DATABASE_URL: postgis://picadailys:picadailys@db:5432/picadailys
+    REDIS_LOCATION: redis://redis:6379/0
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: picadailys
+      POSTGRES_PASSWORD: picadailys
+      POSTGRES_DB: picadailys
+    # postgis publishes amd64 images only; runs under emulation on Apple Silicon
+    platform: linux/amd64
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U picadailys -d picadailys"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+
+  web:
+    <<: *app
+    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+
+  worker:
+    <<: *app
+    command: celery -A picadailys worker --beat --loglevel=info
+    volumes:
+      - .:/app
+
+  test:
+    <<: *app
+    env_file:
+      - path: .env.example
+    environment:
+      <<: *app-env
+      TEST_DATABASE_URL: postgis://picadailys:picadailys@db:5432/picadailys
+    command: pytest --cov --cov-report=term-missing:skip-covered
+    volumes:
+      - .:/app
+    profiles: ["test"]
+
+volumes:
+  pgdata:

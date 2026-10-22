@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install flake8==7.3.0
+      - run: make lint
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: picadailys
+          POSTGRES_PASSWORD: picadailys
+          POSTGRES_DB: picadailys
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U picadailys -d picadailys"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.lock
+      # Tests run on PostGIS via TEST_DATABASE_URL (see TESTING in settings.py)
+      - name: Install GDAL and SpatiaLite (django.contrib.gis)
+        run: sudo apt-get update && sudo apt-get install -y gdal-bin libgdal-dev libsqlite3-mod-spatialite
+      - run: pip install -r requirements.lock
+      - name: Load placeholder environment
+        run: |
+          grep -vE '^\s*(#|$)' .env.example >> "$GITHUB_ENV"
+          echo "DATABASE_URL=postgis://picadailys:picadailys@localhost:5432/picadailys" >> "$GITHUB_ENV"
+          echo "REDIS_LOCATION=redis://localhost:6379/0" >> "$GITHUB_ENV"
+          echo "TEST_DATABASE_URL=postgis://picadailys:picadailys@localhost:5432/picadailys" >> "$GITHUB_ENV"
+      - run: python manage.py check
+      - run: pytest --cov --cov-report=term-missing:skip-covered
+
+  audit:
+    runs-on: ubuntu-latest
+    # Report-only until the pending dependency upgrades (Django, Pillow, PyJWT,
+    # ...) land; flip to blocking by removing this line afterwards.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pip-audit==2.9.0
+      - run: pip-audit -r requirements.lock

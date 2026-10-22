@@ -30,3 +30,15 @@ test:
 
 test-app:
 	python -m pytest $(app)/tests.py -v
+
+# Full local stack (web, worker, postgis, redis).
+up:
+	docker compose up --build
+
+# Run the test suite in an isolated container (placeholder env only).
+docker-test:
+	docker compose --profile test run --rm test
+
+# Regenerate the pinned lockfile after editing requirements*.txt.
+lock:
+	uv pip compile requirements.txt requirements-test.txt -o requirements.lock --python-version 3.12
