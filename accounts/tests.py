@@ -107,7 +107,7 @@ class UserModelTests(APITestCase):
         self.assertEqual(str(user), "2348000000099")
 
     def test_update_level_promotes_user_based_on_total_points(self):
-        user = _create_user(total_points=1800)
+        user = _create_user(total_points=3200)
 
         user.update_level()
 
@@ -403,7 +403,6 @@ class OTPVerifyEndpointTests(APITestCase):
         )
         manager = OTPManager()
         otp = manager.create_otp(user_id=str(user.id))
-        _expire_otp(otp)
 
         response = self.client.post(
             self.url,
@@ -415,6 +414,23 @@ class OTPVerifyEndpointTests(APITestCase):
         body = decrypt(response.data)
         self.assertEqual(body["status"], "success")
         self.assertIn("tokens", body)
+
+    def test_verify_expired_otp_returns_400(self, mock_msg):
+        user = _create_user(
+            phone_number="2348000000099", email="expired@example.com", is_verified=False
+        )
+        otp = OTPManager().create_otp(user_id=str(user.id))
+        _expire_otp(otp)
+
+        response = self.client.post(
+            self.url,
+            data=_make_payload(otp=otp),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        user.refresh_from_db()
+        self.assertFalse(user.is_verified)
 
 
 @patch("accounts.views.Messaging")
@@ -445,7 +461,6 @@ class DeviceVerificationEndpointTests(APITestCase):
             user=user, device_id="old-device", device_name="iPhone", device_os="iOS"
         )
         otp = OTPManager().create_otp(user_id=str(user.id))
-        _expire_otp(otp)
 
         response = self.client.post(
             self.url,
@@ -573,7 +588,6 @@ class PasswordPhoneVerifyOTPEndpointTests(APITestCase):
     def test_password_verify_otp_success_returns_user_id(self, mock_msg):
         user = _create_user(phone_number="2348000000008", email="pwdverify@example.com")
         otp = OTPManager().create_otp(user_id=str(user.id))
-        _expire_otp(otp)
 
         response = self.client.post(
             self.url,

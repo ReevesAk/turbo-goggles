@@ -49,6 +49,9 @@ def _create_ad(user, **overrides):
         },
         "reward_points": 50,
         "is_active": True,
+        # Real campaigns always carry a duration; CreateAd.save derives
+        # expiry_date from it, and the feed only lists unexpired ads.
+        "campaign_duration": 7,
     }
     defaults.update(overrides)
     return CreateAd.objects.create(user=user, **defaults)
@@ -79,7 +82,7 @@ class BrandTaskFeedViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         body = decrypt(response.data)
         self.assertEqual(body["status"], "success")
-        names = [item["campaign_name"] for item in body["data"]]
+        names = [item["campaign_name"] for item in body["data"]["active"]]
         self.assertIn("Active Campaign", names)
 
     def test_excludes_inactive_campaigns(self):
@@ -89,7 +92,7 @@ class BrandTaskFeedViewTests(APITestCase):
         response = self.client.get(self.url)
 
         body = decrypt(response.data)
-        names = [item["campaign_name"] for item in body["data"]]
+        names = [item["campaign_name"] for item in body["data"]["active"]]
         self.assertNotIn("Inactive", names)
 
     def test_excludes_campaigns_user_already_submitted(self):
@@ -100,7 +103,7 @@ class BrandTaskFeedViewTests(APITestCase):
         response = self.client.get(self.url)
 
         body = decrypt(response.data)
-        names = [item["campaign_name"] for item in body["data"]]
+        names = [item["campaign_name"] for item in body["data"]["active"]]
         self.assertNotIn("Already Done", names)
 
     def test_task_type_filter(self):
@@ -111,8 +114,22 @@ class BrandTaskFeedViewTests(APITestCase):
         response = self.client.get(self.url + "?task_type=survey")
 
         body = decrypt(response.data)
-        names = [item["campaign_name"] for item in body["data"]]
+        names = [item["campaign_name"] for item in body["data"]["active"]]
         self.assertIn("Survey Task", names)
+        self.assertNotIn("Video Task", names)
+
+    def test_store_visit_filter_returns_store_visits(self):
+        # Regression: feed items nest their type under "task", so the
+        # store_visit filter used to drop every item and return [].
+        _create_ad(self.brand, campaign_name="Store Task", task_type="store_visit")
+        _create_ad(self.brand, campaign_name="Video Task", task_type="watch_video")
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.get(self.url + "?task_type=store_visit")
+
+        body = decrypt(response.data)
+        names = [item["campaign_name"] for item in body["data"]["active"]]
+        self.assertIn("Store Task", names)
         self.assertNotIn("Video Task", names)
 
     def test_excludes_streak_challenge_not_yet_started(self):
@@ -142,7 +159,7 @@ class BrandTaskFeedViewTests(APITestCase):
         response = self.client.get(self.url)
 
         body = decrypt(response.data)
-        names = [item["campaign_name"] for item in body["data"]]
+        names = [item["campaign_name"] for item in body["data"]["active"]]
         self.assertNotIn("Not Started Yet", names)
 
     def test_includes_ongoing_streak_challenge_with_status_fields(self):
@@ -170,7 +187,7 @@ class BrandTaskFeedViewTests(APITestCase):
 
         body = decrypt(response.data)
         item = next(
-            i for i in body["data"] if i["campaign_name"] == "Share Picadailys App on X"
+            i for i in body["data"]["active"] if i["campaign_name"] == "Share Picadailys App on X"
         )
         self.assertEqual(item["source"], "inapp")
         details = item["task"]["details"]
@@ -194,7 +211,7 @@ class SubmitBrandTaskViewTests(APITestCase):
     def test_requires_authentication(self):
         response = self.client.post(
             self.url,
-            data=_make_payload(ad=str(self.ad.id)),
+            data=_make_payload(task=str(self.ad.id)),
             content_type="application/json",
         )
 
@@ -206,11 +223,12 @@ class SubmitBrandTaskViewTests(APITestCase):
 
         response = self.client.post(
             self.url,
-            data=_make_payload(ad=str(self.ad.id)),
+            data=_make_payload(task=str(self.ad.id)),
             content_type="application/json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("only for social engage tasks", decrypt(response.data)["message"])
         mock_delay.assert_not_called()
         self.assertFalse(
             BrandTaskSubmission.objects.filter(ad=self.ad, user=self.user).exists()
@@ -231,15 +249,19 @@ class SubmitBrandTaskViewTests(APITestCase):
 
         response = self.client.post(
             self.url,
-            data=_make_payload(ad=str(social_ad.id)),
+            data=_make_payload(task=str(social_ad.id)),
             content_type="application/json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("screenshot is required", decrypt(response.data)["message"])
         mock_delay.assert_not_called()
 
     @patch("tasks.jobs.approve_brand_submission.delay")
-    def test_social_engage_with_screenshot_queues_for_review(self, mock_delay):
+    @patch("tasks.views.run_brand_verification.delay")
+    def test_social_engage_with_screenshot_queues_ai_verification(
+        self, mock_verify, mock_delay
+    ):
         social_ad = _create_ad(
             self.brand,
             task_type="social_engage",
@@ -254,7 +276,7 @@ class SubmitBrandTaskViewTests(APITestCase):
         response = self.client.post(
             self.url,
             data=_make_payload(
-                ad=str(social_ad.id),
+                task=str(social_ad.id),
                 screenshot_url="https://cdn.example.com/proof.png",
             ),
             content_type="application/json",
@@ -262,23 +284,29 @@ class SubmitBrandTaskViewTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         body = decrypt(response.data)
-        self.assertIn("screenshot is being reviewed", body["message"])
+        self.assertIn("Verification in progress", body["message"])
         mock_delay.assert_not_called()
         submission = BrandTaskSubmission.objects.get(ad=social_ad, user=self.user)
         self.assertEqual(submission.status, "Pending")
+        mock_verify.assert_called_once_with(str(submission.pk))
 
     @patch("tasks.jobs.approve_brand_submission.delay")
     def test_duplicate_submission_returns_400(self, mock_delay):
-        BrandTaskSubmission.objects.create(ad=self.ad, user=self.user)
+        social_ad = _create_ad(self.brand, task_type="social_engage")
+        BrandTaskSubmission.objects.create(ad=social_ad, user=self.user)
         self.client.force_authenticate(user=self.user)
 
         response = self.client.post(
             self.url,
-            data=_make_payload(ad=str(self.ad.id)),
+            data=_make_payload(
+                task=str(social_ad.id),
+                screenshot_url="https://cdn.example.com/proof.png",
+            ),
             content_type="application/json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("already submitted", decrypt(response.data)["message"])
         mock_delay.assert_not_called()
 
     @patch("tasks.jobs.approve_brand_submission.delay")
@@ -288,11 +316,12 @@ class SubmitBrandTaskViewTests(APITestCase):
 
         response = self.client.post(
             self.url,
-            data=_make_payload(ad=str(inactive_ad.id)),
+            data=_make_payload(task=str(inactive_ad.id)),
             content_type="application/json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("no longer active", decrypt(response.data)["message"])
         mock_delay.assert_not_called()
 
 

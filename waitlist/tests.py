@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.utils import timezone
 
 from rest_framework import status
@@ -119,7 +121,9 @@ class WaitlistEndpointTests(APITestCase):
         self.assertEqual(response.data["status"], "fail")
 
     def test_waitlist_dashboard_returns_user_details(self):
-        user = self._create_waitlist_user(idx=2, email="dash@example.com", points=55)
+        user = self._create_waitlist_user(
+            idx=2, email="dash@example.com", points=55, is_verified=True
+        )
 
         response = self.client.get(self.dashboard_url, {"email": user.email})
 
@@ -127,6 +131,16 @@ class WaitlistEndpointTests(APITestCase):
         self.assertEqual(response.data["status"], "success")
         self.assertEqual(response.data["data"]["email"], user.email)
         self.assertEqual(response.data["data"]["points"], user.points)
+
+    @patch("waitlist.views.Messaging")
+    def test_waitlist_dashboard_unverified_user_gets_otp(self, mock_messaging):
+        user = self._create_waitlist_user(idx=5, email="unverified@example.com")
+
+        response = self.client.get(self.dashboard_url, {"email": user.email})
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data["status"], "unverified")
+        mock_messaging.send_sms.assert_called_once()
 
     def test_public_waitlist_list_returns_joined_at(self):
         self._create_waitlist_user(idx=3, points=20)

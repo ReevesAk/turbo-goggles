@@ -98,7 +98,9 @@ class AdvertsBehaviorTests(APITestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["campaign_name"], "Owner Campaign")
 
-    def test_ad_serializer_marks_expired_ads_inactive(self):
+    def test_ad_serializer_reports_expired_without_writing(self):
+        # Serializing is read-only: expiry is reported via remaining_time and
+        # handled by cleanup_expired_ads, not by flipping is_active on read.
         user = _create_user(active_role="BrandAd")
         ad = CreateAd.objects.create(
             user=user,
@@ -111,7 +113,7 @@ class AdvertsBehaviorTests(APITestCase):
         ad.refresh_from_db()
 
         self.assertEqual(serialized["remaining_time"], "Expired")
-        self.assertFalse(ad.is_active)
+        self.assertTrue(ad.is_active)
 
     def test_list_all_ads_includes_ugc_tasks(self):
         """

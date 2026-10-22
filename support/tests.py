@@ -78,9 +78,11 @@ class TicketModelBehaviorTests(TestCase):
             opened_at=timezone.now() - timedelta(hours=1),
         )
 
+        # remaining_time is whole seconds (sent to clients as remaining_seconds)
         remaining = ticket.remaining_time
-        self.assertIsNotNone(remaining)
-        self.assertGreater(remaining, timedelta(hours=2))
+        self.assertIsInstance(remaining, int)
+        self.assertGreater(remaining, timedelta(hours=2).total_seconds())
+        self.assertLessEqual(remaining, timedelta(hours=3).total_seconds())
 
 
 class SupportEndpointBehaviorTests(APITestCase):
