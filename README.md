@@ -46,7 +46,7 @@ Every variable the code reads is listed in [`.env.example`](.env.example) with a
 
 1. Install system libraries: `brew install gdal spatialite-tools postgis redis`
 2. `python3.12 -m venv .venv && source .venv/bin/activate`
-3. `pip install -r requirements.lock`
+3. `uv sync` (or `pip install -r requirements.lock`)
 4. `cp .env.example .env`, then set `DATABASE_URL` and `REDIS_LOCATION` to your local services
 5. `python manage.py migrate && python manage.py runserver`
 
@@ -69,7 +69,12 @@ Tests live in each app's `tests.py`. Under test, settings switch to an in-memory
 
 ## Dependencies
 
-`requirements.txt` holds the direct dependencies; `requirements.lock` pins the full tree for reproducible installs. After editing either requirements file, run `make lock`. Dependabot opens weekly update PRs.
+Direct dependencies are declared in `pyproject.toml` (runtime) and its `dev` group (tests), mirrored in `requirements.txt` / `requirements-test.txt` for pip-based deploys. Two lockfiles pin the full tree:
+
+- `uv.lock`: `uv sync` installs the exact environment
+- `requirements.lock`: exported from `uv.lock` for `pip install -r requirements.lock` (used by the Docker image)
+
+After changing dependencies, run `make lock` to regenerate both; CI fails if `uv.lock` drifts from `pyproject.toml`. Dependabot opens weekly update PRs.
 
 ## API documentation
 

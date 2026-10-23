@@ -39,6 +39,8 @@ up:
 docker-test:
 	docker compose --profile test run --rm test
 
-# Regenerate the pinned lockfile after editing requirements*.txt.
+# Regenerate both lockfiles after changing dependencies (keep requirements*.txt
+# and pyproject.toml in step: uv add -r requirements.txt).
 lock:
-	uv pip compile requirements.txt requirements-test.txt -o requirements.lock --python-version 3.12
+	uv lock
+	uv export --frozen --no-hashes --no-emit-project --format requirements-txt -o requirements.lock
