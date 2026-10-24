@@ -53,9 +53,6 @@ jobs:
 
   audit:
     runs-on: ubuntu-latest
-    # Report-only until the pending dependency upgrades (Django, Pillow, PyJWT,
-    # ...) land; flip to blocking by removing this line afterwards.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
